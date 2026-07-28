@@ -147,6 +147,52 @@ class Blocks(unittest.TestCase):
         else:
             self.assertAllowed(res)
 
+    # R5, the worktree case. docs/contracts.md §0 runs four workstreams in parallel and a
+    # git worktree is how: the repository root stays on `main` while the work happens on a
+    # feature branch somewhere else. R5 used to read the branch of the hook's cwd, so it
+    # blocked every commit made from a worktree — and, the same bug the other way, waved
+    # through a `cd <root> && git commit` issued from a worktree while genuinely on main.
+    # Both directions are asserted here because a rule that only fails safe is still wrong.
+    def _worktree(self):
+        out = subprocess.run(["git", "worktree", "list", "--porcelain"], cwd=str(ROOT),
+                             capture_output=True, text=True).stdout
+        entries, cur = [], {}
+        for line in out.splitlines():
+            if line.startswith("worktree "):
+                cur = {"path": line.split(" ", 1)[1]}
+                entries.append(cur)
+            elif line.startswith("branch "):
+                cur["branch"] = line.split(" ", 1)[1]
+        for e in entries:
+            if e["path"] != str(ROOT) and e.get("branch", "").rsplit("/", 1)[-1] not in ("main", "master"):
+                return e["path"]
+        return None
+
+    def test_commit_in_a_worktree_reads_the_worktree_branch(self):
+        wt = self._worktree()
+        if wt is None:
+            self.skipTest("no feature-branch worktree checked out to test against")
+        self.assertAllowed(bash(f'cd {wt} && git commit -m "wip"'))
+        self.assertAllowed(bash(f'git -C {wt} commit -m "wip"'))
+
+    def test_cd_back_to_a_main_checkout_is_still_blocked(self):
+        branch = subprocess.run(["git", "branch", "--show-current"], cwd=str(ROOT),
+                                capture_output=True, text=True).stdout.strip()
+        if branch not in ("main", "master"):
+            self.skipTest("repository root is not on main")
+        self.assertBlocked(bash(f'cd {ROOT} && git commit -m "wip"'), "R5")
+        self.assertBlocked(bash(f'git -C {ROOT} push'), "R5")
+
+    def test_a_cd_to_somewhere_that_is_not_a_directory_falls_back_to_cwd(self):
+        # A typo in the path must not silently disable the rule.
+        branch = subprocess.run(["git", "branch", "--show-current"], cwd=str(ROOT),
+                                capture_output=True, text=True).stdout.strip()
+        res = bash('cd /no/such/place && git commit -m "wip"')
+        if branch in ("main", "master"):
+            self.assertBlocked(res, "R5")
+        else:
+            self.assertAllowed(res)
+
     # R7 — ADR-0
     def test_legacy_default_layout_is_blocked(self):
         self.assertBlocked(write("layouts/_default/single.html", "<p>x</p>"), "R7")

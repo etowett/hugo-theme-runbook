@@ -129,6 +129,31 @@ def current_branch(cwd: str) -> str:
         return ""
 
 
+# `cd /some/path && git commit …` and `git -C /some/path commit …` both commit somewhere
+# other than the hook's cwd, and R5 used to ignore that. It matters because a git WORKTREE
+# is the supported way to run the four parallel workstreams (docs/contracts.md §0): the
+# repository root stays on main while the work happens on a feature branch in
+# ../runbook-worktrees/<name>, so every `cd <worktree> && git commit` was blocked while
+# genuinely on a feature branch — and, the other way round, a `cd <root> && git commit`
+# issued from a worktree was waved through while genuinely on main. Same bug, both
+# directions; resolving the target directory fixes both.
+CD_PREFIX = re.compile(r"(?:^|[;&|]\s*)cd\s+(?:--\s+)?([^\s;&|]+)")
+GIT_C = re.compile(r"\bgit\s+-C\s+([^\s;&|]+)")
+
+
+def git_target_dir(command: str, cwd: str) -> str:
+    """The directory a git command in `command` will actually run in."""
+    target = cwd
+    for m in CD_PREFIX.finditer(command):
+        target = os.path.expanduser(m.group(1).strip("\'\""))
+    m = GIT_C.search(command)
+    if m:
+        target = os.path.expanduser(m.group(1).strip("\'\""))
+    if not os.path.isabs(target):
+        target = os.path.join(cwd, target)
+    return target if os.path.isdir(target) else cwd
+
+
 def check_bash(raw: str, cwd: str) -> None:
     command = strip_heredocs(raw)
 
@@ -202,7 +227,7 @@ def check_bash(raw: str, cwd: str) -> None:
 
     # ── R5 · never commit to main ────────────────────────────────────────────────
     if re.search(r"\bgit\s+(commit|push)\b", command):
-        branch = current_branch(cwd)
+        branch = current_branch(git_target_dir(command, cwd))
         if branch in ("main", "master"):
             block(
                 "R5 branch",
