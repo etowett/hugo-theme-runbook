@@ -1,0 +1,16 @@
+{{- /*
+  STUB — owned by the "Templates, SEO and taxonomy" workstream.
+
+  specs/003 §3.7 item 5: degrade cleanly when a date is absent. NEVER print
+  "Invalid date" — that is what an unguarded .Lastmod.Format produces.
+*/ -}}
+<p class="rb-meta">
+  {{- with .Date }}{{ if not .IsZero }}
+  <time datetime="{{ .Format "2006-01-02T15:04:05Z07:00" }}">{{ $.Date | time.Format (site.Params.runbook.dateFormat | default ":date_long") }}</time>
+  {{- end }}{{ end }}
+
+  {{- if and site.Params.runbook.showReadingTime .ReadingTime }}
+  <span class="rb-meta-sep" aria-hidden="true">·</span>
+  <span>{{ i18n "readingTime" (dict "Count" .ReadingTime) }}</span>
+  {{- end }}
+</p>

@@ -1,0 +1,35 @@
+{{- /*
+  ADR-1 — vanilla CSS assembled by Hugo's own pipeline. No Node, no Sass, no external
+  toolchain: an explicit concat list, minified and fingerprinted into ONE artifact.
+
+  `with resources.Get` tolerates a file that does not exist yet, so each stylesheet can
+  land independently without breaking the build.
+
+  Load order is the cascade contract:
+    tokens  → custom properties only, no selectors that paint
+    base    → element defaults, typography
+    layout  → page shell, header, footer, lists
+    code    → the code block (specs/003 §3.3)
+    chroma-*→ generated token palettes, scoped by [data-theme]
+    print   → last, inside @media print
+*/ -}}
+{{- $order := slice
+  "css/tokens.css"
+  "css/base.css"
+  "css/layout.css"
+  "css/code.css"
+  "css/chroma-light.css"
+  "css/chroma-dark.css"
+  "css/print.css"
+-}}
+{{- $parts := slice -}}
+{{- range $order -}}
+  {{- with resources.Get . }}{{ $parts = $parts | append . }}{{ end -}}
+{{- end -}}
+{{- with $parts -}}
+  {{- $css := . | resources.Concat "css/runbook.css" -}}
+  {{- if hugo.IsProduction -}}
+    {{- $css = $css | minify | fingerprint -}}
+  {{- end -}}
+  <link rel="stylesheet" href="{{ $css.RelPermalink }}"{{ with $css.Data.Integrity }} integrity="{{ . }}"{{ end }}>
+{{- end -}}

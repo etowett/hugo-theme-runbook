@@ -1,0 +1,79 @@
+{{- /*
+  ══════════════════════════════════════════════════════════════════════════════════
+  STUB — owned by the "Code block system" workstream. This is Runbook's differentiator
+  (specs/003 §3.3, REQ-CB-1 … REQ-CB-8). What is here now is the *safety floor* only:
+  enough to satisfy REQ-CB-1 so the foundation never ships the bug it exists to prevent.
+  ══════════════════════════════════════════════════════════════════════════════════
+
+  REQ-CB-1 — NEVER FORWARD THE SITE'S LINE-NUMBER CONFIG.
+
+  transform.Highlight applies the *consuming site's* markup.highlight settings for any
+  key the caller leaves unset, and Hugo merges theme config UNDERNEATH site config, so a
+  saner theme default cannot win. The reference site sets lineNos=true and
+  lineNumbersInTable=true today; that is what puts a line-number gutter on a one-line
+  `sudo dnf -y install redis` across 484 pages.
+
+  Site configuration is untrusted input to a distributable theme. The option set below is
+  therefore built explicitly and passes lineNos on EVERY call, forced false unless this
+  individual block opted in. The archive smoke build asserts zero `lntable` output
+  against citizix's own config (specs/007 §2 Layer 2).
+
+  The same principle generalises: any markup.highlight key that changes emitted
+  STRUCTURE rather than emitted COLOUR must be forced here, not merely defaulted.
+
+  ── .Options VS .Attributes — VERIFIED EMPIRICALLY, Hugo v0.164.0, 2026-07-28 ──────
+
+  Chroma-known keys (`linenos`, `hl_lines`) arrive in .Options with LOWERCASE names;
+  unknown keys (`file`, `prompt`, `output`) arrive in .Attributes. They are not
+  interchangeable — specs/004 §1.
+
+  Crucially: **.Options is FENCE-ONLY. It does not merge site config.** Built against a
+  site forcing lineNos=true and lineNumbersInTable=true, a block that did not opt in
+  still reported `map[hl_lines:3-4]` with no `linenos` key at all, while the block
+  carrying {linenos=true} reported `map[linenos:true]`.
+
+  So the danger is narrower than it first looks, and the fix is exact: .Options is safe
+  to read for the per-block opt-in, and the leak happens inside transform.Highlight,
+  which applies the site's defaults for any key the CALLER LEAVES UNSET. That is why
+  lineNos and lineNumbersInTable below are passed on every call rather than only when
+  true — an unset key is where the consumer's config gets back in.
+
+  .Type is an EMPTY STRING for an untagged fence, not nil. 93 blocks in the reference
+  corpus have no language tag.
+
+  ── KNOWN ISSUE FOR THE CODE-BLOCK WORKSTREAM: REQ-CB-6 vs Chroma ─────────────────
+
+  Chroma emits `<pre tabindex="0" class="chroma">` UNCONDITIONALLY — verified in the
+  output of this very hook. REQ-CB-6 requires the opposite: tabindex only on blocks
+  that actually overflow, measured client-side, because overflow depends on viewport
+  and font metrics and cannot be known at build time, and because Chrome 127+ already
+  makes scroll containers focusable. At 18 blocks per post an unconditional tab stop
+  per block is a real navigation tax.
+
+  transform.Highlight exposes no option to suppress it, so the hook has to strip it
+  from the returned markup and let js/modules/code.js re-add it where it belongs.
+  Do that with a targeted `replace` on the emitted <pre> tag, not a blanket one.
+
+  ── OUTPUT SHAPE, for whoever writes the CSS and the JS ───────────────────────────
+      <div class="highlight"><pre class="chroma"><code class="language-X" data-lang="X">
+        <span class="line"><span class="cl"> … tokens … </span></span>
+        <span class="line hl">   ← a {hl_lines} match; note it is `.line.hl`, not `.hl`
+*/ -}}
+{{- $lang := or (trim .Type " ") "text" -}}
+
+{{- $lineNos := false -}}
+{{- with .Options.linenos }}{{ if or (eq . true) (eq . "true") (eq . "table") (eq . "inline") }}{{ $lineNos = true }}{{ end }}{{ end -}}
+
+{{- $hl := "" -}}
+{{- with .Options.hl_lines }}{{ $hl = . }}{{ end -}}
+
+{{- $opts := dict
+    "lineNos" $lineNos
+    "lineNumbersInTable" $lineNos
+    "noClasses" false
+    "hl_lines" $hl
+-}}
+
+<div class="rb-code" data-rb-lang="{{ $lang }}">
+{{- transform.Highlight .Inner $lang $opts -}}
+</div>

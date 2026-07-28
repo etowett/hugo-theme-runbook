@@ -1,0 +1,89 @@
+/* base.css — element defaults and prose typography.
+   OWNED BY: the design-system workstream. Everything below is a working placeholder.
+
+   Consumes tokens.css only. Must not contain layout (that is layout.css) or anything
+   about the code block (that is code.css). */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  font-size: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--rb-color-bg);
+  color: var(--rb-color-text);
+  font-family: var(--rb-font-sans);
+  font-size: var(--rb-text-base);
+  line-height: var(--rb-leading-prose);
+  text-rendering: optimizeLegibility;
+}
+
+/* ── Headings ─────────────────────────────────────────────────────────────── */
+h1, h2, h3, h4, h5, h6 {
+  line-height: var(--rb-leading-tight);
+  font-weight: var(--rb-weight-bold);
+  margin: var(--rb-space-6) 0 var(--rb-space-3);
+  text-wrap: balance;
+}
+h1 { font-size: var(--rb-text-3xl); margin-top: 0; }
+h2 { font-size: var(--rb-text-2xl); }
+h3 { font-size: var(--rb-text-xl); }
+h4 { font-size: var(--rb-text-lg); }
+
+p, ul, ol, blockquote, table { margin: 0 0 var(--rb-space-4); }
+
+/* ── Links ────────────────────────────────────────────────────────────────── */
+a {
+  color: var(--rb-color-accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.15em;
+}
+a:hover { color: var(--rb-color-accent-hover); }
+
+/* ── Focus — visible ring on every interactive element (specs/003 §3.6) ───── */
+:focus-visible {
+  outline: var(--rb-focus-width) solid var(--rb-color-focus);
+  outline-offset: var(--rb-focus-offset);
+  border-radius: var(--rb-radius-sm);
+}
+
+/* ── Inline code ──────────────────────────────────────────────────────────────
+   8,049 spans across the reference corpus, 16.2 per post — this carries real weight.
+   Subtle tint, NO border, and it must never disturb the prose baseline. */
+:not(pre) > code {
+  font-family: var(--rb-font-mono);
+  font-size: var(--rb-text-code-inline);
+  background: var(--rb-color-bg-subtle);
+  padding: 0.15em 0.35em;
+  border-radius: var(--rb-radius-sm);
+  overflow-wrap: break-word;
+}
+
+/* ── Media (ADR-7: supported, never assumed) ──────────────────────────────── */
+img, svg, video { max-width: 100%; height: auto; }
+
+/* ── Tables ───────────────────────────────────────────────────────────────── */
+table { border-collapse: collapse; width: 100%; font-size: var(--rb-text-sm); }
+th, td { border: 1px solid var(--rb-color-border); padding: var(--rb-space-2) var(--rb-space-3); text-align: start; }
+th { background: var(--rb-color-bg-subtle); }
+
+blockquote {
+  border-inline-start: 3px solid var(--rb-color-border-strong);
+  padding-inline-start: var(--rb-space-4);
+  color: var(--rb-color-text-muted);
+}
+
+hr { border: 0; border-top: 1px solid var(--rb-color-border); margin: var(--rb-space-6) 0; }
+
+/* ── Motion ───────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

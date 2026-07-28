@@ -1,0 +1,16 @@
+{{- /*
+  STUB — owned by the "Templates, SEO and taxonomy" workstream.
+
+  Required by specs/003 §3.7:
+    * <title>, description, canonical
+    * Open Graph + Twitter card, with per-page image fallback
+    * per-page robots control
+    * lastmod surfaced in markup
+    * page-kind → schema type mapping lives in head/schema.html, not here
+    * MUST NOT emit <meta name="keywords"> (dead weight; Bing treats it as spam signal)
+*/ -}}
+<title>{{ if .IsHome }}{{ site.Title }}{{ else }}{{ .Title }} · {{ site.Title }}{{ end }}</title>
+<link rel="canonical" href="{{ .Permalink }}">
+{{- with or .Description .Summary site.Params.description }}
+<meta name="description" content="{{ . | plainify | htmlUnescape | chomp }}">
+{{- end }}

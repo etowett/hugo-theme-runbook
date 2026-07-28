@@ -1,0 +1,29 @@
+/* print.css — OWNED BY: the design-system workstream. Minimal placeholder.
+
+   specs/005 §4 flags print as a budget the original spec omitted entirely. Technical
+   procedures get printed and saved as PDF, and three things need deliberate handling:
+   code overflow (a horizontally scrolling <pre> truncates on paper — this is the one
+   place wrapping IS correct), interactive controls (copy/wrap/toggle must not print),
+   and page breaks (never split a heading from the block that follows it). */
+
+@media print {
+  .rb-skip-link,
+  .rb-header,
+  .rb-footer,
+  .rb-theme-toggle,
+  [data-rb-copy],
+  [data-rb-wrap] { display: none !important; }
+
+  /* Horizontal scroll cannot exist on paper; wrapping is the only way to keep the
+     command intact. This is the deliberate exception to REQ-CB-5. */
+  pre, pre > code {
+    white-space: pre-wrap;
+    word-break: break-word;
+    border: 1px solid #ccc;
+  }
+
+  h1, h2, h3, h4 { break-after: avoid; }
+  pre, blockquote, table { break-inside: avoid; }
+
+  a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 0.85em; }
+}

@@ -1,0 +1,17 @@
+{{- /* STUB — owned by the "Templates, SEO and taxonomy" workstream. */ -}}
+{{ define "main" }}
+<article class="rb-article">
+  {{- /* specs/003 §3.6 — the theme emits exactly ONE <h1> per page. Third-party
+         content may itself contain a body H1; that is the consumer's markup, but the
+         theme must never add a second one of its own. */ -}}
+  <h1 class="rb-article-title">{{ .Title }}</h1>
+  {{ partial "article/meta.html" . }}
+
+  <div class="rb-prose">
+    {{ .Content }}
+  </div>
+</article>
+
+{{ partial "hooks/article-footer.html" . }}
+{{ partial "hooks/comments.html" . }}
+{{ end }}

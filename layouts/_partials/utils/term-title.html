@@ -1,0 +1,16 @@
+{{- /*
+  STUB — owned by the "Templates, SEO and taxonomy" workstream.
+
+  REQ-TAX-1 (specs/004 §4a). Hugo derives a term title by capitalising each
+  hyphen-separated segment, so kebab-case terms render as "Amazon-Eks", "Sql-Server",
+  "Ci-Cd". That string is both the <title> and the on-page heading.
+
+  Resolution order, once implemented:
+    1. the term's own _index.md `title` — always wins
+    2. params.runbook.taxonomyTitles[<term key>] — the acronym / spelling map
+    3. hyphens → spaces, title-cased
+
+  The reference site accumulated 60 _index.md files that exist for no reason other than
+  step 2. No widely-used Hugo theme does this; it is a genuine differentiator.
+*/ -}}
+{{- .Title -}}

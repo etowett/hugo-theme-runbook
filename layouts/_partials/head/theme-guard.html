@@ -1,0 +1,18 @@
+{{- /*
+  ADR-4 — the no-flash guard. This is the ONLY blocking script Runbook emits, and the
+  only inline one. It runs before first paint and stamps the persisted choice onto
+  <html data-theme>, which baseof.html has already primed with the configured default.
+
+  Contracts this file owns (specs/006 ADR-4):
+    * storage key is versioned:            runbook:theme:v1
+    * every localStorage access is wrapped in try/catch
+    * a value that is not light|dark|auto is discarded, not stamped
+    * CSS must already be correct for the pre-JS value, so this script only ever
+      *changes* the answer, it is never required to produce one
+    * live system-theme changes are handled in js/modules/theme.js, not here
+
+  CSP: this is an inline <script>. Consumers running a nonce/hash policy set
+  params.runbook.cspNonce, which is emitted below. The hash is published per release.
+*/ -}}
+{{- $nonce := site.Params.runbook.cspNonce -}}
+<script{{ with $nonce }} nonce="{{ . }}"{{ end }}>(function(){try{var t=localStorage.getItem("runbook:theme:v1");if(t==="light"||t==="dark"||t==="auto"){document.documentElement.dataset.theme=t}}catch(e){}})();</script>

@@ -1,0 +1,20 @@
+# Hugo Themes showcase metadata — see specs/009-showcase-compliance.md §2.
+# TOML only; .yaml and .json are rejected by the showcase.
+
+name = "Runbook"
+license = "MIT"
+licenselink = "https://github.com/etowett/hugo-theme-runbook/blob/main/LICENSE"
+description = "A minimal, code-first Hugo theme for technical blogs — for people who ship procedures, not photographs."
+homepage = "https://github.com/etowett/hugo-theme-runbook"
+demosite = "https://hugo-theme-runbook.netlify.app/"
+
+# ADR-0: the theme targets Hugo's post-v0.146.0 template system. `layouts/_markup/`,
+# `layouts/_partials/`, `page.html` and `home.html` do not resolve below this floor.
+min_version = "0.146.0"
+
+tags = ["blog", "code", "dark mode", "light mode", "minimal", "technical", "documentation", "responsive", "accessibility", "seo", "syntax highlighting"]
+features = ["dark mode", "light mode", "syntax highlighting", "table of contents", "related posts", "taxonomies", "search", "shortcodes", "responsive", "seo", "rss", "accessibility", "i18n", "no javascript required"]
+
+[author]
+  name = "Eutychus Towett"
+  homepage = "https://github.com/etowett"

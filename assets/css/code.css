@@ -1,0 +1,69 @@
+/* ═══════════════════════════════════════════════════════════════════════════════
+   code.css — THE CODE BLOCK. Runbook's differentiator.
+   OWNED BY: the code-block workstream. Only the REQ-CB-8 base case is written here;
+   the rest of specs/003 §3.3 lands with the render hook.
+
+   Scale to design against: 9,046 blocks across 497 posts, 18.2 per post, median 16.
+   45.2% are EXACTLY ONE LINE and 57.0% are two lines or fewer. Chrome must never
+   exceed content height (REQ-CB-2), which at that distribution means no header bar by
+   default — a bar appears only when there is something to put in it.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* REQ-CB-8 — `pre > code` is the STYLED BASE CASE; `.highlight` is the enhanced case
+   that adds token colour on top. The two must be visually identical apart from syntax
+   colouring: same padding, radius, background, font and overflow behaviour.
+
+   This exists because 4-space-indented code bypasses the render hook in EVERY Hugo
+   version (specs/004 §1) — CSS is the only tool that reaches it — and because
+   consumers with `guessSyntax: false` or `codeFences: false` produce bare pre > code
+   routinely. ~200 bytes of robustness. Do NOT ship .wp-block-* styling (ADR-3). */
+pre {
+  margin: 0 0 var(--rb-space-5);
+  padding: var(--rb-space-4);
+  background: var(--rb-code-bg);
+  color: var(--rb-code-text);
+  border: 1px solid var(--rb-code-border);
+  border-radius: var(--rb-radius-md);
+
+  /* REQ-CB-5 — horizontal scroll, NEVER wrap by default. 1,586 blocks contain a line
+     over 80 characters and the longest is 854. Soft-wrapping a `kubeadm join` silently
+     changes what the reader believes the command to be. Native scrollbars stay. */
+  overflow-x: auto;
+
+  font-family: var(--rb-font-mono);
+  font-size: var(--rb-text-code);
+  line-height: var(--rb-leading-code);
+  tab-size: 4;
+}
+
+pre > code {
+  display: block;
+  background: none;
+  padding: 0;
+  border: 0;
+  font: inherit;
+  color: inherit;
+}
+
+/* Chroma's own wrapper must not double the padding or the border. */
+.highlight { margin: 0 0 var(--rb-space-5); }
+.highlight pre { margin: 0; }
+
+.rb-code { margin: 0 0 var(--rb-space-5); }
+.rb-code .highlight,
+.rb-code pre { margin: 0; }
+
+/* Line-number gutter, when a block opts in (REQ-CB-1: opt-in only, never inherited).
+   REQ-CB-4 — it must be excluded from a copy, so it is unselectable. */
+.highlight .lnt,
+.highlight .ln {
+  color: var(--rb-code-gutter-fg);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* {hl_lines=...} — for the 3.5% of blocks over 30 lines.
+   Chroma emits `<span class="line hl">`, so the selector is `.line.hl` — a bare `.hl`
+   matches nothing. Verified against Hugo v0.164.0 output. --rb-code-hl-bg must clear
+   3:1 against --rb-code-bg in BOTH themes; the contrast gate covers it (specs/007 §3.1). */
+.highlight .line.hl { background: var(--rb-code-hl-bg); display: block; }

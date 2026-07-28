@@ -1,0 +1,187 @@
+/* ═══════════════════════════════════════════════════════════════════════════════
+   tokens.css — THE DESIGN TOKEN CONTRACT
+
+   Every other stylesheet in this theme, and every workstream working on it, consumes
+   these names. Adding a token is cheap; renaming one breaks files owned by someone
+   else. Treat the NAMES here as frozen and the VALUES as owned by the design-system
+   workstream.
+
+   Rules:
+     * `--rb-` prefix on everything, so the theme can never collide with a consumer's
+       own custom properties.
+     * This file declares custom properties ONLY. It must not contain a rule that
+       paints anything.
+     * Both palettes live here, scoped by [data-theme]. Chroma token colours are
+       generated separately in chroma-light.css / chroma-dark.css (ADR-2) but must
+       resolve against --rb-code-bg declared here.
+
+   THEME SWITCHING CONTRACT (ADR-4). Three states, and CSS must already be correct for
+   all three before JavaScript runs:
+
+       :root, :root[data-theme="light"]                     → light
+       :root[data-theme="dark"]                             → dark
+       :root[data-theme="auto"] + prefers-color-scheme:dark → dark
+
+   `color-scheme` is set alongside so native scrollbars, form controls and the UA's
+   own dark handling follow. The <html> element is stamped server-side with the
+   configured default and re-stamped before first paint by head/theme-guard.html.
+
+   ACCESSIBILITY: every foreground/background pair reachable from these tokens is
+   asserted at WCAG 2.2 AA in CI — 4.5:1 for body text, 3:1 for large text and UI
+   components — in BOTH themes, including every Chroma token. See specs/007 §3.1.
+   Values below are neutral placeholders; the design workstream replaces them and
+   closes open decision Q1 (accent hue).
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  color-scheme: light;
+
+  /* ── Surfaces ───────────────────────────────────────────────────────────── */
+  --rb-color-bg:            #ffffff;
+  --rb-color-bg-subtle:     #f6f7f9;
+  --rb-color-surface:       #ffffff;
+
+  /* ── Text ───────────────────────────────────────────────────────────────── */
+  --rb-color-text:          #1a1d21;   /* body copy — must hit 4.5:1 on --rb-color-bg */
+  --rb-color-text-muted:    #55595f;   /* metadata — must hit 4.5:1, it is small text */
+  --rb-color-text-subtle:   #6b7076;   /* decorative only — never load-bearing text */
+
+  /* ── Lines ──────────────────────────────────────────────────────────────── */
+  --rb-color-border:        #e3e5e8;
+  --rb-color-border-strong: #c8ccd1;
+
+  /* ── Accent — ONE hue, for links, focus and active state (specs/003 §3.2) ── */
+  --rb-color-accent:        #0b5fbf;
+  --rb-color-accent-hover:  #0949a0;
+  --rb-color-accent-contrast: #ffffff;  /* text ON the accent */
+  --rb-color-focus:         var(--rb-color-accent);
+
+  /* ── The code block (specs/003 §3.3) ────────────────────────────────────── */
+  --rb-code-bg:             #f6f7f9;
+  --rb-code-text:           #1a1d21;
+  --rb-code-border:         #e3e5e8;
+  --rb-code-chrome-fg:      #6b7076;   /* language tag, copy/wrap controls at rest */
+  --rb-code-chrome-fg-hover:#1a1d21;
+  --rb-code-hl-bg:          #fff3bf;   /* {hl_lines=...} — 3:1 against --rb-code-bg */
+  --rb-code-gutter-fg:      #9aa0a6;
+  --rb-code-output-bg:      #f0f1f3;   /* {output=true} muted treatment (Q3) */
+
+  /* ── Type ───────────────────────────────────────────────────────────────── */
+  /* REQ-FONT-2: the system stacks are the zero-byte fallback and stay fully
+     supported. The bundled faces are prepended by base.css only when
+     params.runbook.bundledCodeFont / bundledProseFont are on. */
+  --rb-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --rb-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --rb-text-xs:    0.78rem;
+  --rb-text-sm:    0.875rem;
+  --rb-text-base:  1.0625rem;   /* 17px — specs/003 §3.1 says base 17–18px */
+  --rb-text-lg:    1.1875rem;
+  --rb-text-xl:    1.4375rem;
+  --rb-text-2xl:   1.75rem;
+  --rb-text-3xl:   2.125rem;
+
+  --rb-text-code:  0.9375rem;
+  --rb-text-code-inline: 0.9em;  /* compensates mono x-height without breaking baseline */
+
+  --rb-leading-prose: 1.65;
+  --rb-leading-code:  1.5;
+  --rb-leading-tight: 1.25;
+
+  --rb-weight-normal: 400;
+  --rb-weight-medium: 500;
+  --rb-weight-bold:   700;
+
+  /* ── Space — 4px base ───────────────────────────────────────────────────── */
+  --rb-space-1: 0.25rem;
+  --rb-space-2: 0.5rem;
+  --rb-space-3: 0.75rem;
+  --rb-space-4: 1rem;
+  --rb-space-5: 1.5rem;
+  --rb-space-6: 2rem;
+  --rb-space-7: 3rem;
+  --rb-space-8: 4rem;
+
+  /* ── Shape ──────────────────────────────────────────────────────────────── */
+  --rb-radius-sm: 4px;
+  --rb-radius-md: 6px;
+
+  /* ── Measure and page shell ─────────────────────────────────────────────── */
+  --rb-measure:       70ch;   /* prose measure — specs/003 §3.1 says 68–72ch */
+  --rb-content-width: 46rem;
+  --rb-page-width:    64rem;  /* with the TOC rail */
+  --rb-gutter:        var(--rb-space-5);
+
+  /* ── Controls ───────────────────────────────────────────────────────────── */
+  --rb-target-min: 24px;      /* WCAG 2.2 target size — specs/003 §3.6 */
+  --rb-focus-width: 2px;
+  --rb-focus-offset: 2px;
+
+  /* ── Motion — every transition must be inside a prefers-reduced-motion guard ── */
+  --rb-transition: 120ms ease;
+
+  /* ── Layers ─────────────────────────────────────────────────────────────── */
+  --rb-z-header: 10;
+  --rb-z-skip:   100;
+}
+
+/* Dark palette. Near-black, not pure black — reduces halation for astigmatic
+   readers (specs/003 §3.2). Declared once and applied to both the explicit and the
+   automatic case below. */
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"] {
+    color-scheme: dark;
+
+    --rb-color-bg:            #0d1117;
+    --rb-color-bg-subtle:     #161b22;
+    --rb-color-surface:       #0d1117;
+
+    --rb-color-text:          #e6edf3;
+    --rb-color-text-muted:    #a9b3bd;
+    --rb-color-text-subtle:   #8b949e;
+
+    --rb-color-border:        #21262d;
+    --rb-color-border-strong: #30363d;
+
+    --rb-color-accent:        #6cb0ff;
+    --rb-color-accent-hover:  #8cc2ff;
+    --rb-color-accent-contrast: #0d1117;
+
+    --rb-code-bg:             #161b22;
+    --rb-code-text:           #e6edf3;
+    --rb-code-border:         #21262d;
+    --rb-code-chrome-fg:      #8b949e;
+    --rb-code-chrome-fg-hover:#e6edf3;
+    --rb-code-hl-bg:          #2d3748;
+    --rb-code-gutter-fg:      #6e7681;
+    --rb-code-output-bg:      #12171e;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --rb-color-bg:            #0d1117;
+  --rb-color-bg-subtle:     #161b22;
+  --rb-color-surface:       #0d1117;
+
+  --rb-color-text:          #e6edf3;
+  --rb-color-text-muted:    #a9b3bd;
+  --rb-color-text-subtle:   #8b949e;
+
+  --rb-color-border:        #21262d;
+  --rb-color-border-strong: #30363d;
+
+  --rb-color-accent:        #6cb0ff;
+  --rb-color-accent-hover:  #8cc2ff;
+  --rb-color-accent-contrast: #0d1117;
+
+  --rb-code-bg:             #161b22;
+  --rb-code-text:           #e6edf3;
+  --rb-code-border:         #21262d;
+  --rb-code-chrome-fg:      #8b949e;
+  --rb-code-chrome-fg-hover:#e6edf3;
+  --rb-code-hl-bg:          #2d3748;
+  --rb-code-gutter-fg:      #6e7681;
+  --rb-code-output-bg:      #12171e;
+}
