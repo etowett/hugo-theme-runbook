@@ -1,0 +1,22 @@
+/* components.css — shortcode and content-component styles.
+   OWNED BY: the shortcodes workstream. Placeholder; `with resources.Get` in
+   head/css.html skips a file that does not exist, so this can stay empty safely.
+
+   Loaded after layout.css and before code.css, so a component can build on the page
+   shell and a code block inside a component still wins on code-specific rules.
+
+   Consumes tokens from tokens.css by name. Do not add or rename a --rb-* token here;
+   the names are a shared contract (docs/contracts.md §2.1).
+
+   ▸ USAGE REALITY CHECK before spending bytes here. The reference archive uses
+     `admonition` in exactly ONE post out of 497, and `tabs`, `details` and `filetree`
+     ZERO times. These are authoring affordances for future content, not a retrofit,
+     and they must cost nothing on the 496 pages that do not use them. The whole CSS
+     budget is 8,000 B gzipped for the entire theme.
+
+   ▸ TABS MUST EXPOSE EVERY PANEL WITHOUT JAVASCRIPT (ADR-5). The core JS bundle is
+     frozen at three modules and tabs are not one of them. A CSS-only mechanism
+     (:has(), :target, or the checkbox pattern) or plain stacked panels are the options
+     — a tab strip that hides content when scripting is off is a correctness bug, not a
+     degraded experience.
+*/

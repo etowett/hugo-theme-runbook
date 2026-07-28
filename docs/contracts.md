@@ -16,7 +16,34 @@ Two rules:
 
 ---
 
-## 1. File ownership
+## 0. Round 2 — the current split
+
+M0–M2 and most of M4a are merged. §1 below is the round-1 map and is kept because it still records
+which workstream authored what; **the table here supersedes it for work in flight.**
+
+| Stream | Owns | Milestone |
+|---|---|---|
+| **E — citizix migration parity** | `scripts/check_parity.py`, `docs/migration.md`, `.github/workflows/parity.yml` | M3 |
+| **F — Client-side search** | `layouts/search.html`, `layouts/_partials/search/**`, `layouts/index.json`, `assets/js/search/**`, `assets/css/search.css`, `exampleSite/hugo.toml`, `docs/search.md` | M4b |
+| **G — Shortcodes** | `layouts/shortcodes/**`, `assets/css/components.css`, `docs/shortcodes.md` | M4b |
+| **H — Release hygiene** | `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, `.github/ISSUE_TEMPLATE/**`, `.github/PULL_REQUEST_TEMPLATE.md`, `docs/accessibility.md`, `docs/configuration.md` | M5 |
+
+Shared files and how they are kept out of each other's way:
+
+- **`assets/css/components.css` and `assets/css/search.css` are already wired into the concat list
+  in `head/css.html`.** Neither G nor F edits that file. `with resources.Get` skips a stylesheet
+  that does not exist, so an empty one is harmless.
+- **`i18n/en.yaml`** — F appends only under `# ── Search ──`, G only under `# ── Shortcodes ──`.
+  Both sections already exist. Staying inside your own section is what keeps the merge clean.
+- **`exampleSite/content/**`** — each stream adds its own new files and edits nobody else's.
+- **`assets/js/runbook.js` stays frozen at three modules.** Search is a separate lazy chunk with its
+  own entry and its own budget. Tabs get no JavaScript at all — see §2.3.
+- **`docs/configuration.md`** is H's. E, F and G record new settings in their own doc and list them
+  in the PR body; H folds them into the reference.
+
+---
+
+## 1. File ownership — round 1 (historical)
 
 ### A — Design system
 

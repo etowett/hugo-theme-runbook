@@ -1,0 +1,20 @@
+/* search.css — the /search/ page UI.
+   OWNED BY: the search workstream. Placeholder; head/css.html skips it while empty.
+
+   Loaded late, after the Chroma palettes, so a result snippet containing code can be
+   toned down without fighting token colours.
+
+   ▸ IT IS IN THE MAIN BUNDLE ON PURPOSE, and that is a trade to re-check rather than
+     assume. A second stylesheet fetched only on /search/ would save bytes on every
+     other page but costs a request and a render-blocking round trip on the one page
+     that needs it. At the size this should be, one bundle wins — but if it grows past
+     a few hundred bytes gzipped, split it and say so in docs/search.md.
+
+     The JAVASCRIPT is different and is NOT negotiable: it is a separate lazy chunk on
+     its own 3,000 B budget, loaded only on /search/, and it must never enter
+     assets/js/runbook.js (specs/005 §3.1, ADR-5).
+
+   ▸ ZERO-JS STATE IS PART OF THIS FILE'S JOB. With scripting off the page must show a
+     clear unavailable message or an HTML browse alternative — never an input that
+     silently does nothing. Style that state; do not leave it to the JS to hide.
+*/
