@@ -246,8 +246,36 @@ def check_bash(raw: str, cwd: str) -> None:
     # `--no-pager` (no argument) and `-C <path>` (one). It cannot swallow a
     # subcommand, because `git log --grep commit` stops at `log` — not an option, and
     # not commit|push — and never reaches the alternation.
-    if re.search(r"\bgit\s+(?:-\S+(?:\s+\S+)?\s+)*(commit|push)\b", command):
-        branch = current_branch(git_target_dir(command, cwd))
+    # Deleting a remote branch is spelled with `push`, and it is the opposite of what
+    # this rule guards: `git push origin --delete eutychus/foo` removes a merged feature
+    # branch and cannot add a commit to anything. Tidying up after a merge is the most
+    # common thing anyone does while standing on main, so blocking it trains people to
+    # ignore the guard — which costs more than the rule earns.
+    #
+    # Narrow on purpose. `--delete`/`-d` with a refspec is unambiguous; a bare
+    # `git push` while on main is not, and stays blocked.
+    #
+    # Judged PER SEGMENT, not across the whole line. Asking "does this command contain a
+    # delete?" lets a real push ride along behind one —
+    # `git push origin --delete old; git push` would have been waved through entirely.
+    # Caught by its own regression case, which is why that case exists.
+    # Resolution needs the text UP TO the writing segment, not the segment alone: in
+    # `cd <repo> && git commit`, the `cd` lives in an earlier segment and is what decides
+    # which repository is being written to. Dropping it sent the answer back to cwd and
+    # unblocked the commonest form there is — caught by its own regression case.
+    target, cursor = None, 0
+    for seg in re.split(r"[;&|]+", command):
+        end = command.index(seg, cursor) + len(seg) if seg else cursor
+        cursor = end
+        if not re.search(r"\bgit\s+(?:-\S+(?:\s+\S+)?\s+)*(commit|push)\b", seg):
+            continue
+        if re.search(r"\bgit\s+(?:-\S+(?:\s+\S+)?\s+)*push\b.*\s(?:--delete|-d)\b", seg):
+            continue
+        target = git_target_dir(command[:end], cwd)
+        break
+
+    if target is not None:
+        branch = current_branch(target)
         if branch in ("main", "master"):
             block(
                 "R5 branch",

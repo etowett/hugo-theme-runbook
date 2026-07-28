@@ -209,6 +209,27 @@ class Blocks(unittest.TestCase):
         self.assertBlocked(bash(f'git --no-pager -C {m} push'), "R5")
         self.assertBlocked(bash(f'cd {m} && git -c user.name=x commit -m "wip"'), "R5")
 
+    def test_deleting_a_remote_branch_is_not_a_push_to_main(self):
+        # `git push origin --delete <branch>` removes a merged feature branch and cannot
+        # add a commit to anything, but it is spelled with `push`. Tidying up after a
+        # merge is the most common thing anyone does while standing on main, so blocking
+        # it teaches people to ignore the guard.
+        m = self._repo_on_main()
+        for cmd in (f'git -C {m} push origin --delete eutychus/done',
+                    f'git -C {m} push -q origin --delete eutychus/done',
+                    f'git -C {m} push origin -d eutychus/done',
+                    f'cd {m} && git push origin --delete eutychus/done'):
+            with self.subTest(cmd=cmd):
+                self.assertAllowed(bash(cmd))
+
+    def test_a_bare_push_on_main_is_still_blocked_alongside_a_delete(self):
+        # The exemption is for the delete form only. A real push must not be able to
+        # hide behind one earlier in the same command line.
+        m = self._repo_on_main()
+        self.assertBlocked(bash(f'git -C {m} push'), "R5")
+        self.assertBlocked(
+            bash(f'git -C {m} push origin --delete old; git -C {m} push'), "R5")
+
     def test_a_git_subcommand_that_merely_mentions_commit_is_not_blocked(self):
         # The widened trigger must not start blocking reads. `log` is neither an
         # option nor commit|push, so the alternation is never reached.
