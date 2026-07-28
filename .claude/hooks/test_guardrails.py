@@ -16,8 +16,10 @@ from __future__ import annotations
 
 import json
 import pathlib
+import shutil
 import subprocess
 import sys
+import tempfile
 import unittest
 
 HOOK = pathlib.Path(__file__).with_name("guardrails.py")
@@ -175,13 +177,44 @@ class Blocks(unittest.TestCase):
         self.assertAllowed(bash(f'cd {wt} && git commit -m "wip"'))
         self.assertAllowed(bash(f'git -C {wt} commit -m "wip"'))
 
-    def test_cd_back_to_a_main_checkout_is_still_blocked(self):
-        branch = subprocess.run(["git", "branch", "--show-current"], cwd=str(ROOT),
-                                capture_output=True, text=True).stdout.strip()
-        if branch not in ("main", "master"):
-            self.skipTest("repository root is not on main")
-        self.assertBlocked(bash(f'cd {ROOT} && git commit -m "wip"'), "R5")
-        self.assertBlocked(bash(f'git -C {ROOT} push'), "R5")
+    # A repository ON MAIN, built here rather than borrowed from the checkout.
+    #
+    # This used to read ROOT's branch and skipTest when it was not main — which is to
+    # say it ran in exactly the state where you are not allowed to commit, and skipped
+    # in the state where you are. It was therefore green on every feature branch while
+    # `git -C <main-checkout> push` went straight through R5, and it only spoke up
+    # after that fix had already been merged. A test that opts out on the branch you
+    # develop on is not protecting anything.
+    def _repo_on_main(self):
+        d = tempfile.mkdtemp(prefix="rb-guard-main-")
+        run = lambda *a: subprocess.run(a, cwd=d, capture_output=True, text=True)
+        run("git", "init", "-q", "-b", "main", ".")
+        run("git", "config", "user.email", "t@example.com")
+        run("git", "config", "user.name", "t")
+        pathlib.Path(d, "f").write_text("x")
+        run("git", "add", "f")
+        run("git", "-c", "commit.gpgsign=false", "commit", "-qm", "init")
+        self.addCleanup(shutil.rmtree, d, True)
+        return d
+
+    def test_a_checkout_on_main_is_blocked_however_the_command_reaches_it(self):
+        m = self._repo_on_main()
+        # The form that always worked.
+        self.assertBlocked(bash(f'cd {m} && git commit -m "wip"'), "R5")
+        # `git -C` — how you commit to a DIFFERENT checkout, and the form that
+        # bypassed R5 entirely because the subcommand is not adjacent to `git`.
+        self.assertBlocked(bash(f'git -C {m} commit -m "wip"'), "R5")
+        self.assertBlocked(bash(f'git -C {m} push'), "R5")
+        # A global option before the subcommand must not disable the rule either.
+        self.assertBlocked(bash(f'git --no-pager -C {m} push'), "R5")
+        self.assertBlocked(bash(f'cd {m} && git -c user.name=x commit -m "wip"'), "R5")
+
+    def test_a_git_subcommand_that_merely_mentions_commit_is_not_blocked(self):
+        # The widened trigger must not start blocking reads. `log` is neither an
+        # option nor commit|push, so the alternation is never reached.
+        m = self._repo_on_main()
+        self.assertAllowed(bash(f'git -C {m} log --grep commit'))
+        self.assertAllowed(bash(f'git -C {m} log --oneline'))
 
     def test_a_cd_to_somewhere_that_is_not_a_directory_falls_back_to_cwd(self):
         # A typo in the path must not silently disable the rule.

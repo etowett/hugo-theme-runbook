@@ -138,7 +138,12 @@ def current_branch(cwd: str) -> str:
 # issued from a worktree was waved through while genuinely on main. Same bug, both
 # directions; resolving the target directory fixes both.
 CD_PREFIX = re.compile(r"(?:^|[;&|]\s*)cd\s+(?:--\s+)?([^\s;&|]+)")
-GIT_C = re.compile(r"\bgit\s+-C\s+([^\s;&|]+)")
+# `-C` is not necessarily adjacent to `git` either — `git --no-pager -C <path> push`.
+# Requiring adjacency here made R5 fire and then resolve the WRONG directory, falling
+# back to cwd and allowing the command. Scan to the end of the command segment instead;
+# `[^;&|]` cannot cross into the next one, so `cd /a && git -C /b commit` still resolves
+# /b rather than /a.
+GIT_C = re.compile(r"\bgit\b[^;&|]*?\s-C\s+([^\s;&|]+)")
 
 
 def git_target_dir(command: str, cwd: str) -> str:
@@ -226,7 +231,22 @@ def check_bash(raw: str, cwd: str) -> None:
         )
 
     # ── R5 · never commit to main ────────────────────────────────────────────────
-    if re.search(r"\bgit\s+(commit|push)\b", command):
+    #
+    # The subcommand is NOT always adjacent to `git`. Global options sit between them:
+    # `git -C <path> commit`, `git --no-pager push`, `git -c user.name=x commit`. The
+    # trigger used to be `\bgit\s+(commit|push)\b`, which matched none of those, so
+    # every one of them bypassed R5 entirely — on any branch, including main.
+    #
+    # `git -C` is the pointed case, because it is exactly how you commit to a
+    # DIFFERENT checkout: `git -C <main-checkout> push` issued from a worktree was
+    # waved straight through. git_target_dir() below already knew how to resolve it;
+    # the rule simply never reached that code.
+    #
+    # The option group is `-\S+` plus an OPTIONAL argument, so it covers both
+    # `--no-pager` (no argument) and `-C <path>` (one). It cannot swallow a
+    # subcommand, because `git log --grep commit` stops at `log` — not an option, and
+    # not commit|push — and never reaches the alternation.
+    if re.search(r"\bgit\s+(?:-\S+(?:\s+\S+)?\s+)*(commit|push)\b", command):
         branch = current_branch(git_target_dir(command, cwd))
         if branch in ("main", "master"):
             block(
