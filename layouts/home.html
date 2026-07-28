@@ -39,9 +39,13 @@
   {{- $paginator := $.Paginate . }}
   <section class="rb-home-posts" aria-labelledby="rb-home-posts-heading">
     <h2 class="rb-section-heading" id="rb-home-posts-heading">{{ i18n "recentPosts" }}</h2>
+    {{- /* The newest post spans two grid columns, on the FIRST paginator page only.
+           Page 3 of a paginated home page has no "featured" post — the reader is
+           browsing the middle of an archive, and drawing one of those entries twice
+           the size of its neighbours says something untrue about it. */ -}}
     <ul class="rb-post-list">
-      {{- range $paginator.Pages }}
-      {{ partial "list/post-item.html" (dict "page" . "level" 3) }}
+      {{- range $i, $p := $paginator.Pages }}
+      {{ partial "list/post-item.html" (dict "page" $p "level" 3 "featured" (and (eq $i 0) (eq $paginator.PageNumber 1))) }}
       {{- end }}
     </ul>
     {{ partial "list/pagination.html" $paginator }}

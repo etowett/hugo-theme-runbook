@@ -49,6 +49,13 @@ The rejected alternative was a threshold: no header under three lines, full head
 more. It fails on its own terms at this distribution — the "exception" is the majority case —
 and it bakes in a magic number that had already had to move once before it was written down.
 
+**The warm redesign did not move this trigger, and it was never in conflict with it.** The design
+draws every code block with a filename bar, and it can, because every block it draws *has* a
+filename: `baseline.sql`, `postgresql.conf`, `vacuum.sh`. `{file=…}` is exactly what raises the
+bar here. What was adopted was the bar's *styling* — it is now part of the plate rather than a
+separate box sitting on top of it, sharing the plate's background and separated by a hairline —
+and a one-line block still gets the corner language tag, the ghost copy control, and no bar.
+
 ---
 
 ## What the copy button copies
@@ -166,6 +173,29 @@ agree with each other.
 
 ---
 
+## The plate is dark in both themes
+
+`--rb-code-bg` is `#211f1b` in the light theme and `#171512` in the dark one. The block is the
+darkest, most saturated object on a cream page rather than a lightly-tinted rectangle of it, and
+the corpus is the argument: 9,046 fenced blocks, zero Markdown body images. There is one picture
+on the page and it is the code.
+
+Two consequences worth knowing about if you restyle:
+
+- **`scripts/check_contrast.py` asserts the light theme's syntax palette against a dark plate**,
+  because it resolves the plate from the token rather than from the theme name. Retuning
+  `--rb-code-bg` in your own CSS moves what the gate would check, but the gate reads the *theme's*
+  CSS — an override is unverified until you check it yourself.
+- **Nothing inside a block may take a page-level colour any more.** `--rb-color-text-muted` is
+  near-black in the light theme; so is the plate. Inside `.rb-code`, use `--rb-code-text`,
+  `--rb-code-chrome-fg` or a `--rb-syn-*` role — the pairs the gate actually asserts.
+
+Highlighted lines now draw `--rb-code-hl-border` as an inline-start marker
+(`box-shadow: inset`, not a border, so the line's text does not shift). That is the conformant
+WCAG 1.4.11 signal; the background tint only reinforces it.
+
+---
+
 ## Command output
 
 Muted, unhighlighted, no copy button, and **explicitly asked for**:
@@ -183,6 +213,11 @@ Output blocks are rendered through the plaintext lexer whatever language they we
 which is the point: **with `guessSyntax: true` an untagged block of terminal output receives
 speculative token colours**, and this treatment exists to stop that. The hook passes
 `guessSyntax: false` explicitly on every call, so the consumer's setting cannot reintroduce it.
+
+Output blocks take `--rb-code-chrome-fg` on `--rb-code-output-bg` — the theme's "quiet foreground
+inside the plate", which the contrast gate asserts against that background specifically — plus an
+olive inline-start rail as a second, non-colour signal that this is output rather than a command
+to run.
 
 **Do not** expect `text` or untagged fences to be styled as output automatically. They are not,
 and they must not be: `text` grew from 119 to 426 blocks in the reference corpus and many of
@@ -280,7 +315,7 @@ If you are migrating a site that still contains it, add this to your own CSS:
   background: var(--rb-code-bg);
   color: var(--rb-code-text);
   border: 1px solid var(--rb-code-border);
-  border-radius: var(--rb-radius-md);
+  border-radius: var(--rb-radius-code);
   overflow-x: auto;
   font-family: var(--rb-font-mono);
   font-size: var(--rb-text-code);
@@ -320,6 +355,7 @@ hook, target:
 | `.rb-code-lang` | The language tag |
 | `.rb-code-btn`, `.rb-code-copy`, `.rb-code-wrap` | The controls |
 | `.rb-code[data-rb-wrapped]` | A block the reader has turned wrapping on for |
+| `.rb-card-plate` | Not part of a block at all: the code plate `list/post-item.html` draws on a list card, from that post's first fence. Capped at four lines, truncated rather than scrollable, `aria-hidden`, and it strips Chroma's `tabindex` for the same REQ-CB-6 reason the hook does |
 
 Chroma's own classes are unchanged: `.highlight`, `.chroma`, `.line`, `.cl`, `.lntable`, `.lnt`.
 Highlighted lines are `<span class="line hl">` on the code side and a bare `<span class="hl">`

@@ -14,6 +14,13 @@
   does nothing without JavaScript must not be presented (ADR-5). It cycles three
   states, so it carries no `aria-pressed`, which is a binary.
 */ -}}
+{{- /* The reading-progress bar. An empty div and ZERO JavaScript: layout.css
+       animates it with `animation-timeline: scroll()` inside an @supports guard, so a
+       browser without scroll timelines gets an unstyled empty element rather than a
+       bar stuck at 100%. It is aria-hidden because it reports scroll position, which
+       assistive technology already conveys, and because there is nothing here for a
+       reader who cannot see it to act on. */ -}}
+<div class="rb-progress" aria-hidden="true"></div>
 {{- $rb := partialCached "utils/settings.html" . -}}
 <header class="rb-header">
   <nav class="rb-nav" aria-label="{{ i18n "primaryNavigation" }}">

@@ -111,32 +111,16 @@
 {{- $html = replace $html "<pre tabindex=\"0\">" "<pre>" -}}
 {{- $html = $html | safeHTML -}}
 
-{{- /* Q1 — sh/bash/zsh/ksh/shell all hit Chroma's one Bash lexer already, so there is
-       no normalisation to do. The only work is cosmetic: a DISPLAY label, so a corner
-       tag reads "Shell" and "YAML" rather than "sh" and "Yaml". Anything absent here
-       falls through to title case, which is right for python, ruby, nginx, terraform
-       and the 36-language tail; the map exists for acronyms and for the shell family
-       that dominates the corpus at 79%. */ -}}
-{{- $labels := dict
-  "sh" "Shell" "shell" "Shell" "zsh" "Shell" "ksh" "Shell" "bash" "Bash" "console" "Console"
-  "yaml" "YAML" "yml" "YAML" "json" "JSON" "toml" "TOML" "ini" "INI" "cfg" "INI"
-  "conf" "Config" "env" "Env" "properties" "Properties" "csv" "CSV" "tsv" "TSV"
-  "tf" "Terraform" "hcl" "HCL" "sql" "SQL" "psql" "SQL" "graphql" "GraphQL"
-  "js" "JavaScript" "mjs" "JavaScript" "ts" "TypeScript" "jsx" "JSX" "tsx" "TSX"
-  "html" "HTML" "htm" "HTML" "css" "CSS" "scss" "SCSS" "xml" "XML" "svg" "SVG"
-  "md" "Markdown" "markdown" "Markdown" "rst" "reStructuredText"
-  "py" "Python" "rb" "Ruby" "go" "Go" "golang" "Go" "rs" "Rust" "php" "PHP"
-  "c" "C" "cpp" "C++" "cs" "C#" "kt" "Kotlin" "pl" "Perl" "lua" "Lua"
-  "ps1" "PowerShell" "powershell" "PowerShell" "bat" "Batch" "cmd" "Batch"
-  "dockerfile" "Dockerfile" "docker" "Dockerfile" "makefile" "Makefile" "make" "Makefile"
-  "nginx" "Nginx" "apache" "Apache" "systemd" "systemd" "http" "HTTP" "diff" "Diff"
-  "text" "Text" "txt" "Text" "log" "Log" "proto" "Protobuf"
--}}
+{{- /* Q1 — the DISPLAY label, so a corner tag reads "Shell" and "YAML" rather than
+       "sh" and "Yaml". The map moved to utils/code-label.html when the card code
+       plate in list/post-item.html became a second caller that needs exactly the same
+       answer: two copies of a 60-entry map is two chances for a card to disagree with
+       the block it is previewing. */ -}}
 {{- $label := "" -}}
 {{- if $output -}}
   {{- $label = i18n "outputLabel" -}}
-{{- else if $type -}}
-  {{- $label = or (index $labels $type) (strings.Title $type) -}}
+{{- else -}}
+  {{- $label = partial "utils/code-label.html" $type -}}
 {{- end -}}
 
 {{- /* REQ-CB-2 — NO header bar by default. A bar appears only when there is something

@@ -30,6 +30,13 @@
     {{- end }}
   </header>
 
+  {{- /* The sheet is emitted before the layout grid, not inside it: it is
+         position:sticky at the top of the article on a narrow viewport, and a sticky
+         element inside a grid track is bounded by that track rather than by the
+         article. Only one of the two is ever displayed — layout.css decides at
+         900px — and both are ordinary same-document links with JavaScript off. */ -}}
+  {{ partial "article/toc.html" (dict "page" . "variant" "sheet") }}
+
   <div class="rb-article-layout">
     {{ partial "article/toc.html" . }}
     <div class="rb-prose">

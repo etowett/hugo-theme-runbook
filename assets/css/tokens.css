@@ -31,74 +31,132 @@
    components — in BOTH themes, including every Chroma token. See specs/007 §3.1.
    Run `python3 scripts/check_contrast.py` after touching any value here.
 
-   ── OPEN DECISION #1 IS CLOSED HERE: THE ACCENT IS AZURE, HUE ≈ 212° ──────────
-   Reasoning in full: docs/design-tokens.md §2. The short version is three things
-   that are all verifiable rather than matters of taste:
+   ── THE GROUND IS WARM AND THE CODE PLATE IS DARK IN BOTH THEMES ──────────────
+   Reasoning in full: docs/design-tokens.md §2. The corpus profile (specs/002) is
+   9,046 fenced blocks, ZERO Markdown body images and one cover image across 497
+   posts. A theme for that content has exactly one picture on the page and it is the
+   code. So the code plate is the darkest, most saturated object in the light palette
+   too, rather than a slightly-tinted rectangle of the page background — and the page
+   itself is a warm cream that a dark plate can sit on without the blue-grey
+   coldness a neutral #fff page gives it.
 
-     1. Blue is the only hue readers already decode as "link" without relying on the
-        underline, and Runbook underlines anyway — so the convention is pure gain.
-     2. It is the hue with the widest usable luminance range: the SAME hue clears
-        4.5:1 as #0a58b0 on white and as #58a6ff on #161b22. Teal and green cannot
-        do that without desaturating to grey at the dark end; orange cannot without
-        turning brown at the light end. One hue, both themes, no compromise.
-     3. It is the one hue family the syntax palettes do not use — see below.
+   Consequence the gate enforces for free: scripts/check_contrast.py resolves the
+   plate from --rb-code-bg, so the LIGHT theme's syntax palette is asserted against a
+   dark plate. chroma-light.css is therefore a light-on-dark palette, and the two
+   syntax palettes differ only by how much headroom their plate gives them.
+
+   ── OPEN DECISION #1 IS RE-CLOSED HERE: THE ACCENT IS TERRACOTTA, HUE ≈ 25° ────
+   The azure accent that closed this decision in M1 was chosen partly because it was
+   "the one hue family the syntax palettes do not use". That still has to be true, and
+   it still is — but the reservation has moved. With the accent at 25°, the palettes
+   give up amber and red, and blue is released back to syntax.
+
+     1. Blue-as-link is a convention worth paying for on a page where the accent must
+        also read as *warm*, and it is not: Runbook underlines every link
+        (base.css), and `text-decoration` — not hue — is what WCAG 1.4.1 accepts as
+        the non-colour signal. The convention was redundancy, not the affordance.
+     2. The accent must clear 4.5:1 as text on the page in both themes at ONE hue.
+        Terracotta does: #8c491a is 5.61:1 on the cream, #f6a06b is 7.20:1 on the
+        warm ink. What it cannot do is clear 3:1 on BOTH the cream page and the dark
+        plate at a single value, which is why --rb-color-focus is no longer an alias
+        of the accent in the light theme — see the note on it below.
+     3. It is still the one hue family the syntax palettes do not use.
 
    ── THE ACCENT HUE IS RESERVED FOR INTERACTION ───────────────────────────────
    No Chroma token in either palette sits within 25° of the accent hue, and
    scripts/check_contrast.py asserts it. Consequence: anywhere on the reading
-   surface, blue means "you can click or focus this" and nothing else. Syntax
+   surface, terracotta means "you can click or focus this" and nothing else. Syntax
    colour never competes with an affordance, which matters most inside a code
    block, where a focused copy button sits directly on top of coloured tokens.
+
+   --rb-color-accent-2 (olive) is deliberately NOT part of that reservation. It is a
+   structural colour — series, "you are here", the reading-progress rail — never a
+   control, so it does not need the syntax palette to keep clear of it.
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 :root {
   color-scheme: light;
 
   /* ── Surfaces ───────────────────────────────────────────────────────────── */
-  --rb-color-bg:            #ffffff;
-  --rb-color-bg-subtle:     #f6f7f9;
-  --rb-color-surface:       #ffffff;
+  /* Three tiers, and the middle one is not decoration. --rb-color-surface is the
+     CARD: it has to sit visibly above the ground without a border, because the card
+     grid uses radius and elevation rather than rules. --rb-color-bg-subtle is the
+     TINT: table headers, blockquotes, inline code, pills — things that sit INTO the
+     page rather than on top of it, so it goes the other way, darker than the
+     ground. */
+  --rb-color-bg:            #f5ead8;
+  --rb-color-bg-subtle:     #ebddc5;
+  --rb-color-surface:       #f9f4ed;
 
   /* ── Text ───────────────────────────────────────────────────────────────── */
   /* Every value here is tuned against --rb-color-bg-subtle, not --rb-color-bg,
-     because muted text lands in table headers, blockquotes and the footer. The
-     white-background case is then true for free; the reverse is not. */
-  --rb-color-text:          #14171c;   /* body copy — must hit 4.5:1 on --rb-color-bg */
-  --rb-color-text-muted:    #5b6572;   /* metadata — must hit 4.5:1, it is small text */
-  --rb-color-text-subtle:   #68727f;   /* decorative only — never load-bearing text */
+     because muted text lands in table headers, blockquotes, pills and the footer.
+     The lighter-background case is then true for free; the reverse is not. */
+  --rb-color-text:          #201e1d;   /* body copy — must hit 4.5:1 on --rb-color-bg */
+  --rb-color-text-muted:    #645c50;   /* metadata — must hit 4.5:1, it is small text */
+  --rb-color-text-subtle:   #675e51;   /* decorative only — never load-bearing text */
 
   /* ── Lines ──────────────────────────────────────────────────────────────── */
   /* Two tiers, and the difference is a conformance one, not a visual one.
      --rb-color-border is a decorative separator (table cell, list rule) and WCAG
      1.4.11 does not reach it. --rb-color-border-strong is the visible BOUNDARY of a
      UI component — the theme toggle, the blockquote rule — and is held at 3:1. */
-  --rb-color-border:        #e3e6ea;
-  --rb-color-border-strong: #848d99;
+  --rb-color-border:        #dcd3c4;
+  --rb-color-border-strong: #82796a;
 
   /* ── Accent — ONE hue, for links, focus and active state (specs/003 §3.2) ── */
-  --rb-color-accent:        #0a58b0;
-  --rb-color-accent-hover:  #083f80;
-  --rb-color-accent-contrast: #ffffff;  /* text ON the accent */
-  --rb-color-focus:         var(--rb-color-accent);
+  /* The FILL and the TEXT are the same step of the ramp, and that is a measured
+     decision rather than a tidy one. The design this palette comes from filled its
+     buttons with the base terracotta #c67139 and set its labels in #fff2eb, which is
+     3.29:1 — a fail. Dropping the fill to accent-700 takes the same pair to 6.21:1
+     without touching the hue, and it matches what the design already did for link
+     text. A fill is not allowed to be a lighter tint than the text colour that names
+     the same idea. */
+  --rb-color-accent:        #8c491a;
+  --rb-color-accent-hover:  #643312;
+  --rb-color-accent-contrast: #fff2eb;  /* text ON the accent */
+
+  /* The second accent is STRUCTURAL, not interactive: series rails, the "currently
+     reading" dot, the output-block marker. Held at 4.5:1 so it can carry small text
+     (a series label) as well as a rule. */
+  --rb-color-accent-2:      #56633f;
+
+  /* --rb-color-focus is NOT an alias of the accent in this theme, and that is forced
+     rather than chosen. The ring has to clear 3:1 against the cream page AND against
+     the dark code plate, because a focused copy button sits on the plate. Solving
+     both at once puts the ring's luminance in a narrow window that the link colour,
+     tuned for 4.5:1 as TEXT on cream, sits well below: #8c491a is only 2.07:1 on the
+     plate. accent-600 is the step that satisfies both ends — 3.5:1 on the page,
+     3.1:1 on the plate. In the dark theme no such conflict exists and focus goes
+     back to being the accent. */
+  --rb-color-focus:         #b2622d;
 
   /* ── The code block (specs/003 §3.3) ────────────────────────────────────── */
-  --rb-code-bg:             #f6f7f9;
-  --rb-code-text:           #14171c;
-  --rb-code-border:         #e3e6ea;
-  --rb-code-chrome-fg:      #5d6570;   /* language tag, copy/wrap controls at rest */
-  --rb-code-chrome-fg-hover:#14171c;
-  --rb-code-gutter-fg:      #626c77;
-  --rb-code-output-bg:      #eef0f3;   /* {output=true} muted treatment (Q3) */
+  /* THE PLATE IS DARK IN THE LIGHT THEME. See the header. #211f1b rather than the
+     #2e2b25 the source design drew: at #2e2b25 the syntax palette cannot
+     simultaneously clear 4.5:1 on the highlight band and keep every co-occurring
+     token pair separable after deuteranopia — the band's floor and the plate's floor
+     close on each other and leave under 1.5:1 of lightness to distribute between
+     eight roles. One step deeper reopens it. Measured, not preferred:
+     `python3 scripts/check_contrast.py -v` prints the resulting ratios. */
+  --rb-code-bg:             #211f1b;
+  --rb-code-text:           #f5ead8;
+  --rb-code-border:         #3a352c;
+  --rb-code-chrome-fg:      #c0b6a5;   /* language tag, copy/wrap controls at rest */
+  --rb-code-chrome-fg-hover:#f9f4ed;
+  --rb-code-gutter-fg:      #a19786;
+  --rb-code-output-bg:      #171512;   /* {output=true} muted treatment (Q3) */
 
   /* {hl_lines=...}. The tint is deliberately shallow, because the binding
      constraint is the OTHER direction: every syntax token has to keep 4.5:1 once
      this background slides underneath it, and the gate checks exactly that. A
      tint deep enough to clear 3:1 on its own would push half the palette below AA.
      So the WCAG 1.4.11 signal is carried by --rb-code-hl-border, an inline-start
-     marker at 3:1, and the tint only reinforces it. Warm in both themes: it reads
-     as a highlighter, and it is the one hue neither palette uses for a token. */
-  --rb-code-hl-bg:          #e2d09b;
-  --rb-code-hl-border:      #b8790b;
+     marker at 3:1 — now actually drawn by code.css rather than only declared here —
+     and the tint only reinforces it. Warm in both themes: it reads as a highlighter,
+     and it is the one hue neither palette uses for a token. */
+  --rb-code-hl-bg:          #3e3624;
+  --rb-code-hl-border:      #f6a06b;
 
   /* ── Table of contents — consumed by the templates workstream ───────────── */
   --rb-toc-fg:              var(--rb-color-text-muted);
@@ -116,27 +174,40 @@
      font ships OFF. Reasoning in docs/design-tokens.md §4 — briefly, 44% of the
      reference archive draws box-drawing glyphs inside code, where a fallback face
      substituting mid-block breaks column alignment in captured terminal output;
-     prose has no equivalent failure, so it pays no bytes. */
+     prose has no equivalent failure, so it pays no bytes.
+
+     --rb-font-display is a SEAM, not a face. Runbook ships no display font: the
+     source design imported Caprasimo from fonts.googleapis.com, and success
+     criterion 3 (specs/001 §5) is zero theme-added third-party hosts. What carries
+     the character is the geometry below — 400 weight at 46–52px, leading 1.05,
+     tracking -0.015em — and that survives the system stack intact. A consumer who
+     wants a display face adds one @font-face through the custom-head.html hook and
+     points this one property at it; nothing else in the theme has to change. */
   --rb-font-sans-system: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --rb-font-mono-system: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 
   --rb-font-sans: var(--rb-font-sans-system);
   --rb-font-mono: "JetBrains Mono", var(--rb-font-mono-system);
+  --rb-font-display: var(--rb-font-sans);
 
   --rb-text-xs:    0.78rem;
   --rb-text-sm:    0.875rem;
   --rb-text-base:  1.0625rem;   /* 17px — specs/003 §3.1 says base 17–18px */
   --rb-text-lg:    1.1875rem;
   --rb-text-xl:    1.4375rem;
-  --rb-text-2xl:   1.75rem;
+  --rb-text-2xl:   1.875rem;    /* 30px — h2 */
   --rb-text-3xl:   2.125rem;
+  --rb-text-4xl:   2.875rem;    /* 46px — the article h1 */
+  --rb-text-5xl:   3.25rem;     /* 52px — the home hero */
 
   --rb-text-code:  0.9375rem;
   --rb-text-code-inline: 0.9em;  /* compensates mono x-height without breaking baseline */
 
-  --rb-leading-prose: 1.65;
+  --rb-leading-prose: 1.72;
   --rb-leading-code:  1.5;
-  --rb-leading-tight: 1.25;
+  --rb-leading-tight: 1.15;
+  --rb-leading-display: 1.05;
+  --rb-tracking-display: -0.015em;
 
   --rb-weight-normal: 400;
   --rb-weight-medium: 500;
@@ -153,17 +224,28 @@
   --rb-space-8: 4rem;
 
   /* ── Shape ──────────────────────────────────────────────────────────────── */
-  --rb-radius-sm: 4px;
-  --rb-radius-md: 6px;
+  --rb-radius-sm:   8px;
+  --rb-radius-md:   16px;
+  --rb-radius-lg:   28px;
+  --rb-radius-code: 20px;
+  --rb-radius-pill: 999px;
+
+  /* ── Elevation ──────────────────────────────────────────────────────────────
+     Warm-tinted rather than neutral black: a grey shadow on a cream ground reads as
+     dirt. Only three steps, and nothing may invent a fourth. */
+  --rb-shadow-sm: 0 1px 2px rgba(46, 43, 37, 0.14);
+  --rb-shadow-md: 0 3px 10px rgba(46, 43, 37, 0.16);
+  --rb-shadow-lg: 0 12px 32px rgba(46, 43, 37, 0.22);
 
   /* ── Measure and page shell ─────────────────────────────────────────────── */
   --rb-measure:       70ch;   /* prose measure — specs/003 §3.1 says 68–72ch */
   --rb-content-width: 46rem;
-  --rb-page-width:    64rem;  /* with the TOC rail */
+  --rb-page-width:    72rem;  /* with the TOC rail and a three-column card grid */
   --rb-gutter:        var(--rb-space-5);
 
   /* ── Controls ───────────────────────────────────────────────────────────── */
   --rb-target-min: 24px;      /* WCAG 2.2 target size — specs/003 §3.6 */
+  --rb-target-touch: 44px;    /* what a coarse pointer gets instead */
   --rb-focus-width: 2px;
   --rb-focus-offset: 2px;
 
@@ -172,13 +254,15 @@
 
   /* ── Layers ─────────────────────────────────────────────────────────────── */
   --rb-z-header: 10;
+  --rb-z-sheet:  20;
   --rb-z-skip:   100;
 }
 
 /* ── Dark palette ────────────────────────────────────────────────────────────
-   Near-black, not pure black (specs/003 §3.2) — pure #000 against near-white text
-   maximises halation for astigmatic readers, which is a large share of the people
-   who choose a dark theme in the first place.
+   Warm ink, not neutral black and not pure black (specs/003 §3.2) — pure #000
+   against near-white text maximises halation for astigmatic readers, which is a
+   large share of the people who choose a dark theme in the first place. The hue is
+   held: the dark theme is the same room with the lights off, not a second design.
 
    The block below is byte-identical to the [data-theme="dark"] one that follows.
    That duplication is deliberate: a media query cannot be folded into a selector
@@ -186,65 +270,69 @@
    costs more bytes than the repeat does, because gzip encodes an exact repeat of a
    block it has already seen as a back-reference of a few dozen bytes.
 
-   Every value is tuned against --rb-code-bg #161b22, NOT the page background.
-   #161b22 is the lighter of the two, so it is the harder one for light-on-dark
-   text; clearing it clears the page background for free. */
+   The plate goes DOWN here, not up: #171512 against a #211f1b page. In the light
+   theme the plate is the darkest thing on the page; in the dark theme it still is.
+   That is what keeps "the code is the picture" true in both. */
 @media (prefers-color-scheme: dark) {
   :root[data-theme="auto"] {
     color-scheme: dark;
 
-    --rb-color-bg:            #0d1117;
-    --rb-color-bg-subtle:     #161b22;
-    --rb-color-surface:       #0d1117;
+    --rb-color-bg:            #211f1b;
+    --rb-color-bg-subtle:     #2a2722;
+    --rb-color-surface:       #2a2722;
 
-    --rb-color-text:          #e6edf3;
-    --rb-color-text-muted:    #838d9b;
-    --rb-color-text-subtle:   #798491;
+    --rb-color-text:          #f5ead8;
+    --rb-color-text-muted:    #c0b6a5;
+    --rb-color-text-subtle:   #a19786;
 
-    --rb-color-border:        #262c36;
-    --rb-color-border-strong: #616b77;
+    --rb-color-border:        #3a352c;
+    --rb-color-border-strong: #82796a;
 
-    --rb-color-accent:        #58a6ff;
-    --rb-color-accent-hover:  #85c0ff;
-    --rb-color-accent-contrast: #0a0e14;
+    --rb-color-accent:        #f6a06b;
+    --rb-color-accent-hover:  #ffc6a5;
+    --rb-color-accent-contrast: #211f1b;
+    --rb-color-accent-2:      #aebf92;
+    --rb-color-focus:         var(--rb-color-accent);
 
-    --rb-code-bg:             #161b22;
-    --rb-code-text:           #e6edf3;
-    --rb-code-border:         #262c36;
-    --rb-code-chrome-fg:      #8792a1;
-    --rb-code-chrome-fg-hover:#e6edf3;
-    --rb-code-gutter-fg:      #7d8895;
-    --rb-code-output-bg:      #11161d;
-    --rb-code-hl-bg:          #3b311c;
-    --rb-code-hl-border:      #c07e0c;
+    --rb-code-bg:             #171512;
+    --rb-code-text:           #f5ead8;
+    --rb-code-border:         #3a352c;
+    --rb-code-chrome-fg:      #c0b6a5;
+    --rb-code-chrome-fg-hover:#f9f4ed;
+    --rb-code-gutter-fg:      #a19786;
+    --rb-code-output-bg:      #100e0c;
+    --rb-code-hl-bg:          #363020;
+    --rb-code-hl-border:      #f6a06b;
   }
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --rb-color-bg:            #0d1117;
-  --rb-color-bg-subtle:     #161b22;
-  --rb-color-surface:       #0d1117;
+  --rb-color-bg:            #211f1b;
+  --rb-color-bg-subtle:     #2a2722;
+  --rb-color-surface:       #2a2722;
 
-  --rb-color-text:          #e6edf3;
-  --rb-color-text-muted:    #838d9b;
-  --rb-color-text-subtle:   #798491;
+  --rb-color-text:          #f5ead8;
+  --rb-color-text-muted:    #c0b6a5;
+  --rb-color-text-subtle:   #a19786;
 
-  --rb-color-border:        #262c36;
-  --rb-color-border-strong: #616b77;
+  --rb-color-border:        #3a352c;
+  --rb-color-border-strong: #82796a;
 
-  --rb-color-accent:        #58a6ff;
-  --rb-color-accent-hover:  #85c0ff;
-  --rb-color-accent-contrast: #0a0e14;
+  --rb-color-accent:        #f6a06b;
+  --rb-color-accent-hover:  #ffc6a5;
+  --rb-color-accent-contrast: #211f1b;
+  --rb-color-accent-2:      #aebf92;
+  --rb-color-focus:         var(--rb-color-accent);
 
-  --rb-code-bg:             #161b22;
-  --rb-code-text:           #e6edf3;
-  --rb-code-border:         #262c36;
-  --rb-code-chrome-fg:      #8792a1;
-  --rb-code-chrome-fg-hover:#e6edf3;
-  --rb-code-gutter-fg:      #7d8895;
-  --rb-code-output-bg:      #11161d;
-  --rb-code-hl-bg:          #3b311c;
-  --rb-code-hl-border:      #c07e0c;
+  --rb-code-bg:             #171512;
+  --rb-code-text:           #f5ead8;
+  --rb-code-border:         #3a352c;
+  --rb-code-chrome-fg:      #c0b6a5;
+  --rb-code-chrome-fg-hover:#f9f4ed;
+  --rb-code-gutter-fg:      #a19786;
+  --rb-code-output-bg:      #100e0c;
+  --rb-code-hl-bg:          #363020;
+  --rb-code-hl-border:      #f6a06b;
 }

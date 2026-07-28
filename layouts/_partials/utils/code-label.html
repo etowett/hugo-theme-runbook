@@ -1,0 +1,38 @@
+{{- /*
+  utils/code-label.html — a fence language → DISPLAY label.
+
+  Q1: `sh`, `bash`, `zsh`, `ksh` and `shell` all hit Chroma's one Bash lexer already,
+  so there is no normalisation to do here. The only work is cosmetic — a corner tag
+  should read "Shell" and "YAML", not "sh" and "Yaml".
+
+  Anything absent falls through to title case, which is right for python, ruby, nginx,
+  terraform and the 36-language tail; the map exists for the acronyms and for the
+  shell family that dominates the corpus at 79%.
+
+  This lives in its own partial because TWO callers need the same answer, and the day
+  they disagree is the day a card says "Yaml" and the block it previews says "YAML":
+
+      layouts/_markup/render-codeblock.html   the corner tag on the block itself
+      layouts/_partials/list/post-item.html   the corner tag on the card code plate
+
+  Takes the lower-cased fence type, returns a string. An empty type returns "".
+*/ -}}
+{{- $labels := dict
+  "sh" "Shell" "shell" "Shell" "zsh" "Shell" "ksh" "Shell" "bash" "Bash" "console" "Console"
+  "yaml" "YAML" "yml" "YAML" "json" "JSON" "toml" "TOML" "ini" "INI" "cfg" "INI"
+  "conf" "Config" "env" "Env" "properties" "Properties" "csv" "CSV" "tsv" "TSV"
+  "tf" "Terraform" "hcl" "HCL" "sql" "SQL" "psql" "SQL" "graphql" "GraphQL"
+  "js" "JavaScript" "mjs" "JavaScript" "ts" "TypeScript" "jsx" "JSX" "tsx" "TSX"
+  "html" "HTML" "htm" "HTML" "css" "CSS" "scss" "SCSS" "xml" "XML" "svg" "SVG"
+  "md" "Markdown" "markdown" "Markdown" "rst" "reStructuredText"
+  "py" "Python" "rb" "Ruby" "go" "Go" "golang" "Go" "rs" "Rust" "php" "PHP"
+  "c" "C" "cpp" "C++" "cs" "C#" "kt" "Kotlin" "pl" "Perl" "lua" "Lua"
+  "ps1" "PowerShell" "powershell" "PowerShell" "bat" "Batch" "cmd" "Batch"
+  "dockerfile" "Dockerfile" "docker" "Dockerfile" "makefile" "Makefile" "make" "Makefile"
+  "nginx" "Nginx" "apache" "Apache" "systemd" "systemd" "http" "HTTP" "diff" "Diff"
+  "text" "Text" "txt" "Text" "log" "Log" "proto" "Protobuf"
+-}}
+{{- $type := . -}}
+{{- $out := "" -}}
+{{- with $type }}{{ $out = or (index $labels .) (strings.Title .) }}{{ end -}}
+{{- return $out -}}

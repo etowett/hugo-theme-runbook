@@ -47,6 +47,10 @@
    params.runbook.codeFontLigatures. */
 pre, code, kbd, samp { font-variant-ligatures: none; }
 
+/* Every focusable pill, tag and control ends up here, so the radius is declared once
+   rather than on each of them. */
+:where(button, .rb-term, .rb-toc-link, .rb-nav-list a) { border-radius: var(--rb-radius-pill); }
+
 *, *::before, *::after { box-sizing: border-box; }
 
 html {
@@ -64,23 +68,49 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* ── Headings ─────────────────────────────────────────────────────────────── */
+/* ── Headings ───────────────────────────────────────────────────────────────
+   THE HEADINGS ARE THE DISPLAY FACE, AND THE THEME SHIPS NO DISPLAY FACE.
+
+   The design this comes from imported Caprasimo from fonts.googleapis.com. Success
+   criterion 3 (specs/001 §5) is zero theme-added third-party hosts and ADR-6 requires
+   self-hosting, and the font budget is already spent: 25,032 B of a 30 KB ceiling on
+   the JetBrains Mono subset that REQ-FONT-1 makes non-optional. A second family does
+   not fit, and a *display* family — which needs the full Latin range plus punctuation
+   to set a headline honestly — is the worst value per byte of anything one could add.
+
+   So what carries the character is the GEOMETRY, and it costs nothing: weight 400 at
+   46–52px, leading 1.05, tracking -0.015em. That is a large, light, tightly-set
+   headline, and it reads as deliberate on any system stack — the thing that makes a
+   default-looking heading is 700 weight at 32px with default leading, and none of
+   those three survive here. --rb-font-display exists as the seam: point it at a face
+   through the custom-head.html hook and nothing else has to change.
+
+   `font-weight: 400` on a heading is the single most load-bearing line in this file
+   and the easiest to "fix" by accident. */
 h1, h2, h3, h4, h5, h6 {
-  line-height: var(--rb-leading-tight);
-  font-weight: var(--rb-weight-bold);
-  margin: var(--rb-space-6) 0 var(--rb-space-3);
+  font-family: var(--rb-font-display);
+  line-height: var(--rb-leading-display);
+  letter-spacing: var(--rb-tracking-display);
+  font-weight: var(--rb-weight-normal);
+  margin: var(--rb-space-7) 0 var(--rb-space-4);
   text-wrap: balance;
   /* Anchor links from the TOC must not land the heading underneath the header. */
   scroll-margin-block-start: var(--rb-space-6);
 }
-h1 { font-size: var(--rb-text-3xl); margin-top: 0; }
+h1 { font-size: var(--rb-text-4xl); margin-top: 0; }
 h2 { font-size: var(--rb-text-2xl); }
-h3 { font-size: var(--rb-text-xl); }
-h4 { font-size: var(--rb-text-lg); }
+h3 { font-size: var(--rb-text-xl); line-height: var(--rb-leading-tight); }
+h4 { font-size: var(--rb-text-lg); line-height: var(--rb-leading-tight); }
+/* Below h3 the tracking is working against legibility rather than for it: at 19px a
+   -0.015em pull is a fifth of a pixel per glyph and reads as a rendering fault. */
+h4, h5, h6 { letter-spacing: normal; font-weight: var(--rb-weight-medium); }
 
 p, ul, ol, blockquote, table { margin: 0 0 var(--rb-space-4); }
 
-/* ── Links ────────────────────────────────────────────────────────────────── */
+/* ── Links ──────────────────────────────────────────────────────────────────
+   Underlined, always. It is what makes the hue a redundancy rather than the only
+   signal, which is what WCAG 1.4.1 asks for and what let the accent move off blue
+   (tokens.css). */
 a {
   color: var(--rb-color-accent);
   text-decoration-thickness: 1px;
@@ -111,25 +141,42 @@ a:hover { color: var(--rb-color-accent-hover); }
 img, svg, video { max-width: 100%; height: auto; }
 
 /* ── Tables ───────────────────────────────────────────────────────────────── */
-table { border-collapse: collapse; width: 100%; font-size: var(--rb-text-sm); }
+/* The radius has to be on the table and clipped, because a border-collapse table
+   cannot round its own corner cells — every table in the theme would otherwise be the
+   one square-cornered object on a page of 16–28px radii. */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--rb-text-sm);
+  border-radius: var(--rb-radius-sm);
+  overflow: hidden;
+}
 th, td { border: 1px solid var(--rb-color-border); padding: var(--rb-space-2) var(--rb-space-3); text-align: start; }
-th { background: var(--rb-color-bg-subtle); }
+th { background: var(--rb-color-bg-subtle); font-weight: var(--rb-weight-medium); }
 
 blockquote {
-  border-inline-start: 3px solid var(--rb-color-border-strong);
-  padding-inline-start: var(--rb-space-4);
+  border-inline-start: 3px solid var(--rb-color-accent-2);
+  padding: var(--rb-space-2) 0 var(--rb-space-2) var(--rb-space-5);
   color: var(--rb-color-text-muted);
 }
 
 hr { border: 0; border-top: 1px solid var(--rb-color-border); margin: var(--rb-space-6) 0; }
 
 /* Reuses the code highlight band so a <mark> in prose and a highlighted code line
-   read as the same idea. Both are contrast-gated (specs/007 §3.1). */
+   read as the same idea. Both are contrast-gated (specs/007 §3.1).
+
+   The FOREGROUND changed with the plate. --rb-code-hl-bg is a band on a dark plate in
+   both themes now, so pairing it with --rb-color-text put near-black on near-black in
+   the light theme — 1.2:1, and invisible. It takes --rb-code-text for the same reason
+   the band does: a highlighted run of prose is the same object as a highlighted line
+   of code, and now it looks like one. */
 mark {
   background: var(--rb-code-hl-bg);
-  color: var(--rb-color-text);
-  padding: 0.05em 0.2em;
+  color: var(--rb-code-text);
+  padding: 0.08em 0.3em;
   border-radius: var(--rb-radius-sm);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 
 /* The `details` shortcode is native <details>, zero JS (specs/003 §3.5). */

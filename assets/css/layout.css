@@ -1,10 +1,20 @@
-/* layout.css — page shell: header, footer, main column, list views.
-   OWNED BY: the design-system workstream. Working placeholder.
+/* ═══════════════════════════════════════════════════════════════════════════════
+   layout.css — page shell: header, footer, main column, list views, the card grid.
+   OWNED BY: the design-system workstream.
 
    ADR-7 — list views are TEXT-FIRST. No image slot, no reserved aspect-ratio box, no
    placeholder. Zero Markdown images across 497 posts and one cover image in the whole
    reference archive; reserving space for a picture 99.8% of posts do not have is the
-   single most visible thing the incumbent theme gets wrong for this content. */
+   single most visible thing the incumbent theme gets wrong for this content.
+
+   THAT IS STILL TRUE, AND THE CARD PLATE IS NOT A RETREAT FROM IT. The plate shows a
+   post's FIRST FENCED BLOCK, which 99% of these posts do have — 9,046 blocks across
+   497 posts, 18.2 per post. It is not a slot waiting to be filled: a card with no
+   fence and no cover renders with nothing where it would have been and no reserved
+   height, which is exactly what ADR-7 asks for. `list/post-item.html` emits the
+   element or it does not; there is no empty state to style, and there is deliberately
+   no rule below that gives .rb-card-media a min-height.
+   ═══════════════════════════════════════════════════════════════════════════════ */
 
 .rb-skip-link {
   position: absolute;
@@ -14,7 +24,7 @@
   background: var(--rb-color-accent);
   color: var(--rb-color-accent-contrast);
   padding: var(--rb-space-2) var(--rb-space-4);
-  border-radius: var(--rb-radius-sm);
+  border-radius: var(--rb-radius-pill);
   text-decoration: none;
 }
 .rb-skip-link:focus { inset-block-start: var(--rb-space-3); }
@@ -27,26 +37,101 @@
   padding-inline: var(--rb-gutter);
 }
 
+/* ── Reading progress — ZERO JavaScript ──────────────────────────────────────
+   A scroll-linked animation, so the browser drives it off the scroll position on the
+   compositor rather than a listener on the main thread. specs/003 §3.5 and the
+   3 KB core-JS budget both rule out the usual implementation, and this needs none of
+   it: no listener, no rAF, no element measurement.
+
+   The whole thing lives inside @supports on purpose. Without a scroll timeline,
+   `animation: … linear` with no duration resolves to 0s and paints the END state —
+   a permanently full bar, which is worse than no bar. Guarded, an unsupporting
+   browser gets an unstyled empty <div>, which is nothing at all. Chrome/Edge 115+
+   and Safari 26+ animate it; Firefox does not yet, and gets nothing. */
+@supports (animation-timeline: scroll()) {
+  .rb-progress {
+    position: fixed;
+    inset-block-start: 0;
+    inset-inline: 0;
+    block-size: 3px;
+    z-index: var(--rb-z-header);
+    background: var(--rb-color-accent);
+    transform-origin: 0 50%;
+    transform: scaleX(0);
+    animation: rb-progress linear both;
+    animation-timeline: scroll();
+  }
+  @keyframes rb-progress { to { transform: scaleX(1); } }
+  /* It is decoration reporting position, not information, so it is one of the very
+     few things that should simply stop when motion is not wanted. */
+  @media (prefers-reduced-motion: reduce) { .rb-progress { display: none; } }
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────────── */
+/* `flex-wrap` and the scrolling menu below are both load-bearing at 360px. Pills are
+   wider than the text links they replaced — 16px of inline padding each — and a
+   five-entry menu plus a search link plus the theme toggle measured 543px against a
+   360px viewport, which gave the whole document a horizontal scrollbar. The menu
+   scrolls sideways (the design's own mobile behaviour) and the row wraps if even that
+   is not enough. */
 .rb-nav {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--rb-space-4);
-  padding-block: var(--rb-space-4);
-  border-bottom: 1px solid var(--rb-color-border);
+  gap: var(--rb-space-2);
+  padding-block: var(--rb-space-5);
 }
 .rb-brand {
-  font-weight: var(--rb-weight-bold);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rb-space-2);
+  margin-inline-end: var(--rb-space-3);
+  font-family: var(--rb-font-display);
+  font-size: var(--rb-text-lg);
+  letter-spacing: var(--rb-tracking-display);
   color: var(--rb-color-text);
   text-decoration: none;
 }
+/* The brand mark. A filled dot in the accent, drawn rather than shipped as an image,
+   so it costs no request and follows the palette into the dark theme. It is filled
+   with accent-700 and not the base terracotta for the reason in tokens.css: the
+   lighter fill fails 4.5:1 against anything set on it. */
+.rb-brand::before {
+  content: "";
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  border-radius: var(--rb-radius-pill);
+  background: var(--rb-color-accent);
+}
 .rb-nav-list {
   display: flex;
-  gap: var(--rb-space-4);
+  gap: var(--rb-space-1);
   list-style: none;
-  margin: 0;
+  margin: 0 auto 0 0;
   padding: 0;
-  margin-inline-end: auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+.rb-nav-list > li { flex: 0 0 auto; }
+.rb-nav-list a,
+.rb-search-link {
+  display: inline-block;
+  padding: var(--rb-space-2) var(--rb-space-4);
+  border-radius: var(--rb-radius-pill);
+  color: var(--rb-color-text-muted);
+  font-size: var(--rb-text-sm);
+  text-decoration: none;
+}
+.rb-nav-list a:hover,
+.rb-search-link:hover { background: var(--rb-color-bg-subtle); color: var(--rb-color-text); }
+/* aria-current is the accessible answer and the visual one, so the selector is the
+   attribute rather than a class the template would have to keep in step with it. */
+.rb-nav-list a[aria-current] {
+  background: var(--rb-color-accent);
+  color: var(--rb-color-accent-contrast);
+}
+
 /* The visible boundary of an interactive control, so it takes --rb-color-border-strong
    (3:1, WCAG 1.4.11) and not the hairline --rb-color-border that separates list rows.
    That distinction is the whole reason tokens.css carries two border tiers. */
@@ -55,37 +140,446 @@
   min-height: var(--rb-target-min);
   background: none;
   border: 1px solid var(--rb-color-border-strong);
-  border-radius: var(--rb-radius-sm);
   color: var(--rb-color-text-muted);
   cursor: pointer;
-  padding: var(--rb-space-1) var(--rb-space-2);
+  padding: var(--rb-space-2) var(--rb-space-4);
   font: inherit;
   font-size: var(--rb-text-sm);
 }
-.rb-theme-toggle:hover { color: var(--rb-color-text); }
+.rb-theme-toggle:hover { color: var(--rb-color-text); background: var(--rb-color-bg-subtle); }
 
 .rb-main { padding-block: var(--rb-space-6) var(--rb-space-8); }
 
 .rb-prose,
 .rb-article-title,
-.rb-meta { max-width: var(--rb-measure); }
+.rb-article-description,
+.rb-article-header .rb-meta { max-width: var(--rb-measure); }
+
+.rb-article-title { font-size: var(--rb-text-4xl); }
+.rb-article-description {
+  font-size: var(--rb-text-lg);
+  color: var(--rb-color-text-muted);
+  margin-block: var(--rb-space-4) 0;
+}
+.rb-article-header { margin-block-end: var(--rb-space-7); }
 
 .rb-meta {
   color: var(--rb-color-text-muted);
   font-size: var(--rb-text-sm);
-  margin-block: 0 var(--rb-space-5);
+  margin-block: var(--rb-space-3) 0;
 }
 .rb-meta-sep { margin-inline: var(--rb-space-2); }
 
-.rb-post-list { list-style: none; margin: 0; padding: 0; }
-.rb-post-list-item {
-  padding-block: var(--rb-space-4);
-  border-bottom: 1px solid var(--rb-color-border);
+/* ── The home hero ──────────────────────────────────────────────────────────── */
+.rb-home-header { margin-block-end: var(--rb-space-7); }
+.rb-home-title { font-size: var(--rb-text-5xl); }
+.rb-home-tagline {
+  max-width: 34ch;
+  margin: var(--rb-space-4) 0 0;
+  font-size: var(--rb-text-lg);
+  color: var(--rb-color-text-muted);
 }
-.rb-post-list-title { font-size: var(--rb-text-lg); margin: 0 0 var(--rb-space-1); }
+.rb-home-intro { margin-block-end: var(--rb-space-6); }
+.rb-section-heading,
+.rb-list-title { font-size: var(--rb-text-2xl); }
+.rb-list-header { margin-block-end: var(--rb-space-6); }
+.rb-list-count,
+.rb-term-taxonomy {
+  margin: var(--rb-space-2) 0 0;
+  color: var(--rb-color-text-muted);
+  font-size: var(--rb-text-sm);
+}
+
+/* ── The card grid — 3 → 2 → 1 ───────────────────────────────────────────────
+   One column is the base case, not a fallback: at 360px a card is the full column
+   and nothing about the layout has to be undone. The tiers add columns as there is
+   room for a ~20rem card, which is the width at which four lines of a code plate
+   still read at 15px monospace. */
+.rb-post-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  /* `minmax(0, 1fr)` and not the implicit `auto` track a bare `display: grid` would
+     give the one-column tier. An `auto` track is sized by its items' MAX-CONTENT, and
+     a card's max-content is the code plate's longest unwrapped line — measured at
+     360px, the single column came out 584px wide and the home page scrolled sideways
+     by 248px. Every tier below states its tracks for the same reason. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--rb-space-5);
+}
+@media (min-width: 56.25rem) { .rb-post-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 68rem)    { .rb-post-list { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+.rb-post-list-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rb-space-3);
+  min-width: 0;
+  padding: var(--rb-space-5);
+  background: var(--rb-color-surface);
+  border-radius: var(--rb-radius-lg);
+  box-shadow: var(--rb-shadow-sm);
+  transition: box-shadow var(--rb-transition), transform var(--rb-transition);
+}
+.rb-post-list-item:hover { box-shadow: var(--rb-shadow-md); }
+.rb-post-list-title {
+  font-size: var(--rb-text-xl);
+  line-height: var(--rb-leading-tight);
+  margin: 0;
+}
 .rb-post-list-title a { color: var(--rb-color-text); text-decoration: none; }
 .rb-post-list-title a:hover { color: var(--rb-color-accent); text-decoration: underline; }
-.rb-post-list-summary { color: var(--rb-color-text-muted); margin: 0; }
+.rb-post-list-summary {
+  color: var(--rb-color-text-muted);
+  font-size: var(--rb-text-sm);
+  margin: 0;
+}
+.rb-post-list-item .rb-meta { margin: 0; }
+/* Pushes the card's own tail to the bottom so cards in a row end level even when
+   their summaries are different lengths. This is the FALLBACK, not the mechanism —
+   for a card that has a plate, .rb-card-media below takes the slack first (flex-grow
+   is resolved before auto margins), and a card with no media at all does not stretch
+   in the first place. It is what a browser without `:has()` falls back to. */
+.rb-post-list-item .rb-meta:last-child { margin-block-start: auto; }
+
+/* A card with NO plate and NO cover has nothing that can absorb the row's slack —
+   text does not grow — so it stops at its own content height instead of stretching and
+   carrying the difference as a hole under its byline. Measured at 1280px, the two
+   text-only fixtures carried 130px and 82px that way; a shorter card next to taller
+   ones is what a card grid is supposed to look like, and a card with a hole in it is
+   not. Degrades cleanly: without `:has()` the card stretches and the auto margin above
+   pins the byline, which is the previous behaviour. */
+.rb-post-list-item:not(:has(.rb-card-media, .rb-card-cover)) { align-self: start; }
+
+/* The featured card spans two columns wherever there are two to span, and stops
+   spanning at the one-column tier by simply not being asked to. */
+@media (min-width: 56.25rem) {
+  .rb-post-list-item--featured { grid-column: span 2; }
+  .rb-post-list-item--featured .rb-post-list-title { font-size: var(--rb-text-2xl); }
+}
+
+/* ── The card code plate — "cards without pictures, code as the picture" ─────
+   Fixed height by line count, and it must NEVER become a scroll container: a card is
+   not a place to read code, it is a place to recognise it. The template caps the
+   block at four lines and truncates each line; `overflow: hidden` is the belt to that
+   braces, because one 854-character line in the corpus would otherwise widen the grid
+   track and take the whole page layout with it. */
+/* ── THE PLATE TAKES THE SLACK, AND THAT IS THE WHOLE HEIGHT STORY ───────────
+   A grid item stretches to its row, and a row is as tall as its tallest card. So a
+   card whose content is shorter than its row has to put the difference somewhere, and
+   the first two attempts both put it in the wrong place:
+
+     * a FIXED four-line plate drew three lines of empty plate on any one-line fence —
+       45.2% of the corpus — which is the reserved-empty-box failure ADR-7 is about,
+       reintroduced through the back door;
+     * a plate sized to its CONTENT pushed the difference into the card's interior
+       instead. Measured at 1280px: the featured card, whose first fence is the
+       one-liner `sudo dnf -y install redis`, sat in a 354px row next to a 171px cover
+       image and carried 138px of nothing between its summary and its byline. It read
+       as broken rather than as spacious, and at 45.2% one-liners it is the COMMON
+       case, not an edge one.
+
+   The plate grows instead. `flex: 1 0 auto` on the media makes it absorb the row's
+   slack before the `margin-block-start: auto` above can — flex-grow is resolved first
+   — so a short fence becomes a TALLER PICTURE rather than a hole under the text. That
+   is also the reading the design asks for: the plate is the picture, and a picture
+   filling its frame is what a card is supposed to look like.
+
+   `align-items: center` is the other half. Left at the top, a one-liner in a 199px
+   plate reads as a plate that failed to load; centred, it reads as a poster, which
+   for a featured card is exactly right. There is deliberately no max height: the
+   template caps the source at four lines (eight on the featured card), so the plate
+   can never grow past its own content plus whatever the row hands it, and the failure
+   mode of an extreme row is a tall picture rather than clipped code. */
+.rb-card-media {
+  display: flex;
+  position: relative;
+  flex: 1 0 auto;
+  min-width: 0;
+}
+.rb-card-plate {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  padding: var(--rb-space-4) var(--rb-space-4) var(--rb-space-5);
+  background: var(--rb-code-bg);
+  border-radius: var(--rb-radius-code);
+  font-size: var(--rb-text-sm);
+}
+.rb-card-plate > * { flex: 1; min-width: 0; }
+.rb-card-plate .highlight,
+.rb-card-plate pre {
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  overflow: hidden;
+  font-size: inherit;
+}
+.rb-card-plate pre > code { padding-inline-end: 0; width: auto; }
+/* A 60-character cap is a bound on the worst case (the corpus's longest line is 854),
+   not a fit: at a three-column card ~38 characters are visible, so most plates clip.
+   The fade makes the clip read as "there is more of this" rather than as a glyph
+   sliced in half. `to right` and not a logical direction because there is no logical
+   gradient keyword and code is set left-to-right even in the RTL fixture. */
+.rb-card-plate .chroma,
+.rb-card-plate pre {
+  -webkit-mask-image: linear-gradient(to right, #000 88%, transparent 100%);
+          mask-image: linear-gradient(to right, #000 88%, transparent 100%);
+}
+/* "Language in the corner", the same corner the block itself puts it in (code.css
+   .rb-code-lang) — so a card and the block it previews name the language in the same
+   place as well as with the same word. */
+.rb-card-lang {
+  position: absolute;
+  inset-block-end: var(--rb-space-2);
+  inset-inline-end: var(--rb-space-4);
+  color: var(--rb-code-chrome-fg);
+  font-family: var(--rb-font-mono);
+  font-size: var(--rb-text-xs);
+  letter-spacing: 0.04em;
+}
+/* Not a flex-grower: it has an aspect ratio, and stretching it would crop or squash a
+   photograph the consumer chose. A cover card takes the auto-margin path instead. */
+.rb-card-cover {
+  display: block;
+  flex: 0 0 auto;
+  inline-size: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--rb-radius-code);
+}
+
+/* ── Tags and terms — pills ─────────────────────────────────────────────────── */
+.rb-terms { display: flex; flex-wrap: wrap; gap: var(--rb-space-4); margin-block-start: var(--rb-space-6); }
+.rb-terms-group { display: flex; flex-wrap: wrap; align-items: center; gap: var(--rb-space-2); }
+.rb-terms-label,
+.rb-term-count { color: var(--rb-color-text-muted); font-size: var(--rb-text-xs); }
+.rb-terms-list,
+.rb-term-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rb-space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.rb-term {
+  display: inline-block;
+  padding: var(--rb-space-1) var(--rb-space-3);
+  background: var(--rb-color-bg-subtle);
+  color: var(--rb-color-text-muted);
+  font-size: var(--rb-text-sm);
+  text-decoration: none;
+}
+.rb-term:hover { background: var(--rb-color-accent); color: var(--rb-color-accent-contrast); }
+
+/* Filter pills scroll sideways on a narrow viewport rather than wrapping to four
+   rows of chrome above the thing the reader came for. Only the taxonomy browse list
+   does this — an article's own tags are content and are allowed to wrap. */
+@media (max-width: 56.24rem) {
+  .rb-term-group .rb-term-list {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    padding-block-end: var(--rb-space-2);
+  }
+  .rb-term-group .rb-term-list > li { scroll-snap-align: start; flex: 0 0 auto; }
+}
+.rb-term-groups { display: grid; gap: var(--rb-space-5); }
+.rb-term-group-heading { font-size: var(--rb-text-lg); margin: 0 0 var(--rb-space-2); }
+
+/* ── Article layout: the floating TOC rail ────────────────────────────────────
+   `min-width: 0` on the children is not defensive tidying, it is the fix for a
+   measured bug. A grid item's automatic minimum size is its MIN-CONTENT size, and the
+   min-content of a column of prose containing a code block is the width of that
+   block's longest line — `pre > code` is `width: max-content` (code.css REQ-CB-3), so
+   the 854-character line in the corpus made the implicit column 7,400px wide and gave
+   the whole document a horizontal scrollbar. Measured in Chromium at 360px:
+   documentElement.scrollWidth 773 against clientWidth 360 before, 360 after. The
+   <pre> is already its own scroll container; this stops the page becoming one too. */
+.rb-article-layout { display: grid; gap: var(--rb-space-6); }
+.rb-article-layout > * { min-width: 0; }
+@media (min-width: 56.25rem) {
+  .rb-article-layout { grid-template-columns: minmax(0, 1fr) 14rem; align-items: start; }
+  .rb-article-layout > .rb-prose { grid-area: 1 / 1; }
+  .rb-toc {
+    grid-area: 1 / 2;
+    position: sticky;
+    inset-block-start: var(--rb-space-5);
+    max-block-size: calc(100vh - var(--rb-space-8));
+    overflow-y: auto;
+  }
+}
+.rb-toc-heading {
+  font-size: var(--rb-text-xs);
+  font-family: var(--rb-font-sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rb-color-text-subtle);
+  margin: 0 0 var(--rb-space-2);
+}
+.rb-toc-list { list-style: none; margin: 0; padding: 0; }
+.rb-toc-list--nested { padding-inline-start: var(--rb-space-3); }
+.rb-toc-link {
+  display: block;
+  position: relative;
+  padding: var(--rb-space-1) var(--rb-space-3) var(--rb-space-1) var(--rb-space-5);
+  color: var(--rb-toc-fg);
+  font-size: var(--rb-text-sm);
+  line-height: var(--rb-leading-tight);
+  text-decoration: none;
+}
+.rb-toc-link:hover { background: var(--rb-color-bg-subtle); color: var(--rb-color-text); }
+/* Scroll-spy sets aria-current; the dot is the visual half of the same fact. Drawn
+   in the accent at 3:1 against the page (--rb-toc-marker), on the inline-start edge
+   so it reads as a position marker on the rail rather than a bullet. */
+.rb-toc-link[aria-current] { color: var(--rb-toc-fg-active); }
+/* Inside the link's own padding, not in the margin outside it: the rail is
+   `overflow-y: auto` for long tables of contents, and overflow-y also clips
+   overflow-x — a marker hung to the inline-start of the box was invisible. */
+.rb-toc-link[aria-current]::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: var(--rb-space-2);
+  inset-block-start: 50%;
+  translate: 0 -50%;
+  inline-size: 6px;
+  block-size: 6px;
+  border-radius: var(--rb-radius-pill);
+  background: var(--rb-toc-marker);
+}
+
+/* ── The same TOC, as a sheet ───────────────────────────────────────────────────
+   ONE partial rendered twice (article/toc.html takes a `variant`), not two
+   templates that will drift. Native <details>, so it opens and closes with the
+   JavaScript bundle deleted — which is also the only reason "one partial rendered
+   twice" is achievable at all: a JS-driven sheet would need state the rail does not
+   have. Each render carries its own heading id so the duplication is not a duplicate
+   id, and only the rail carries `data-rb-toc`, so scroll-spy binds once. */
+.rb-toc-sheet { display: none; }
+@media (max-width: 56.24rem) {
+  .rb-toc { display: none; }
+  .rb-toc-sheet {
+    display: block;
+    position: sticky;
+    inset-block-start: var(--rb-space-3);
+    z-index: var(--rb-z-sheet);
+    margin-block-end: var(--rb-space-5);
+    background: var(--rb-color-surface);
+    border: 1px solid var(--rb-color-border);
+    border-radius: var(--rb-radius-md);
+    box-shadow: var(--rb-shadow-md);
+  }
+  .rb-toc-sheet > summary {
+    padding: var(--rb-space-3) var(--rb-space-4);
+    min-block-size: var(--rb-target-touch);
+    font-size: var(--rb-text-sm);
+    color: var(--rb-color-text-muted);
+    list-style-position: inside;
+  }
+  .rb-toc-sheet .rb-toc-list {
+    max-block-size: 50vh;
+    overflow-y: auto;
+    padding: 0 var(--rb-space-3) var(--rb-space-3);
+  }
+  .rb-toc-sheet .rb-toc-heading { display: none; }
+}
+
+/* ── Article tail: series, prev/next, related ───────────────────────────────── */
+.rb-series,
+.rb-related,
+.rb-post-nav {
+  max-width: var(--rb-measure);
+  margin-block-start: var(--rb-space-7);
+}
+.rb-series {
+  padding: var(--rb-space-4) var(--rb-space-5);
+  background: var(--rb-color-bg-subtle);
+  border-radius: var(--rb-radius-md);
+  border-inline-start: 3px solid var(--rb-color-accent-2);
+}
+.rb-series-heading,
+.rb-related-heading { font-size: var(--rb-text-lg); margin: 0 0 var(--rb-space-2); }
+.rb-series-progress { margin: 0 0 var(--rb-space-3); color: var(--rb-color-text-muted); font-size: var(--rb-text-sm); }
+.rb-series-list { margin: 0; padding-inline-start: var(--rb-space-5); }
+.rb-series-current { color: var(--rb-color-text); font-weight: var(--rb-weight-medium); }
+.rb-related-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--rb-space-2); }
+.rb-related-date { color: var(--rb-color-text-muted); font-size: var(--rb-text-sm); margin-inline-start: var(--rb-space-2); }
+.rb-post-nav { display: flex; flex-wrap: wrap; gap: var(--rb-space-3); }
+.rb-post-nav-link {
+  flex: 1 1 14rem;
+  padding: var(--rb-space-3) var(--rb-space-4);
+  border: 1px solid var(--rb-color-border);
+  border-radius: var(--rb-radius-md);
+  text-decoration: none;
+  color: var(--rb-color-text);
+}
+.rb-post-nav-link:hover { border-color: var(--rb-color-border-strong); }
+.rb-post-nav-next { text-align: end; }
+.rb-post-nav-label { display: block; color: var(--rb-color-text-muted); font-size: var(--rb-text-xs); }
+
+/* ── Archive — compact pill rows, deliberately not cards ─────────────────────
+   497 rows on one page (archive.html does not paginate, on purpose), so the row has
+   to stay cheap: a date, a link, and a hover surface. */
+.rb-archive-year { margin-block-end: var(--rb-space-6); }
+.rb-archive-year-heading {
+  font-size: var(--rb-text-xl);
+  color: var(--rb-color-text-subtle);
+  margin: 0 0 var(--rb-space-2);
+}
+.rb-archive-list { list-style: none; margin: 0; padding: 0; }
+.rb-archive-item {
+  display: flex;
+  gap: var(--rb-space-4);
+  align-items: baseline;
+  padding: var(--rb-space-2) var(--rb-space-4);
+  border-radius: var(--rb-radius-pill);
+}
+.rb-archive-item:hover { background: var(--rb-color-bg-subtle); }
+.rb-archive-item a { color: var(--rb-color-text); text-decoration: none; }
+.rb-archive-item a:hover { text-decoration: underline; }
+.rb-archive-date {
+  flex: 0 0 3.5rem;
+  color: var(--rb-color-text-muted);
+  font-size: var(--rb-text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Pagination ─────────────────────────────────────────────────────────────── */
+.rb-pagination { margin-block-start: var(--rb-space-7); }
+.rb-pagination-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rb-space-1);
+  align-items: center;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.rb-pagination-list a,
+.rb-pagination-gap {
+  display: inline-block;
+  min-inline-size: var(--rb-target-min);
+  padding: var(--rb-space-2) var(--rb-space-3);
+  border-radius: var(--rb-radius-pill);
+  text-align: center;
+  text-decoration: none;
+  font-size: var(--rb-text-sm);
+}
+.rb-pagination-list a:hover { background: var(--rb-color-bg-subtle); }
+.rb-pagination-list [aria-current] {
+  display: inline-block;
+  padding: var(--rb-space-2) var(--rb-space-3);
+  border-radius: var(--rb-radius-pill);
+  background: var(--rb-color-accent);
+  color: var(--rb-color-accent-contrast);
+  font-size: var(--rb-text-sm);
+}
+.rb-pagination-status { margin: var(--rb-space-2) 0 0; color: var(--rb-color-text-muted); font-size: var(--rb-text-sm); }
 
 .rb-empty { color: var(--rb-color-text-muted); }
 
@@ -94,4 +588,31 @@
   padding-block: var(--rb-space-5);
   color: var(--rb-color-text-muted);
   font-size: var(--rb-text-sm);
+}
+.rb-footer-nav-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rb-space-4);
+  list-style: none;
+  margin: 0 0 var(--rb-space-3);
+  padding: 0;
+}
+.rb-footer-powered { margin-inline-start: var(--rb-space-3); }
+
+/* ── Coarse pointers — WCAG 2.2 target size (specs/003 §3.6) ─────────────────
+   24px is the conformance floor and the design draws 44, which is the number that
+   actually stops a thumb missing. It is applied by POINTER, not by width: a 1,024px
+   tablet needs it and a 600px browser window on a laptop does not. */
+@media (pointer: coarse) {
+  .rb-nav-list a,
+  .rb-search-link,
+  .rb-term,
+  .rb-toc-link,
+  .rb-pagination-list a,
+  .rb-theme-toggle {
+    min-block-size: var(--rb-target-touch);
+    display: inline-flex;
+    align-items: center;
+  }
+  .rb-archive-item { min-block-size: var(--rb-target-touch); align-items: center; }
 }

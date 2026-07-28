@@ -1,11 +1,27 @@
 /* ═══════════════════════════════════════════════════════════════════════════════
-   chroma-light.css — the syntax palette: semantic values (light) + the class map.
+   chroma-light.css — the syntax palette: semantic values + the class map.
    OWNED BY: the design-system workstream.
 
    ADR-2 — class-based Chroma (`noClasses: false`), both palettes in the ONE
    fingerprinted stylesheet, scoped by [data-theme] rather than shipped as two files.
    Inline Chroma styles make dual-theme highlighting impossible without emitting every
    block twice.
+
+   ── THE PLATE IS DARK IN BOTH THEMES, SO THIS FILE IS NO LONGER "THE LIGHT ONE" ──
+   tokens.css sets --rb-code-bg to #211f1b in the light theme and #171512 in the dark
+   one. Both are warm near-blacks a fifth of a stop apart, so the values below are a
+   LIGHT-ON-DARK palette and they are the palette for BOTH themes. That is not a
+   shortcut: the two plates differ by 0.006 in relative luminance, which is under the
+   rounding of a single hex step on most of these hues, and shipping a second set of
+   eight foregrounds tuned to that difference would be two palettes to keep honest
+   for no measurable gain. scripts/check_contrast.py asserts every one of them
+   against BOTH plates independently, so the claim is checked rather than assumed.
+
+   chroma-dark.css therefore carries only what the darker plate genuinely changes —
+   the two diff bands, which can go deeper before they stop being perceptible. The
+   consumer-facing retheming surface is unchanged: a
+   `:root[data-theme="dark"] { --rb-syn-literal: … }` override still wins, because
+   these are (0,1,0) `:root` declarations and that one is (0,2,0).
 
    ── HOW THIS IS SCOPED, AND WHY IT IS NOT ONE PREFIX PER RULE ─────────────────
    The stub proposed repeating `:root[data-theme="…"] .chroma .<token>` for every
@@ -18,17 +34,8 @@
 
        * the CLASS MAP — which Chroma token belongs to which semantic role — is
          written ONCE, unscoped, at the bottom of this file. It never varies by theme.
-       * the VALUES are ~11 custom properties, scoped by [data-theme] exactly the way
-         tokens.css scopes its own (light here, dark in chroma-dark.css).
-
-   The scoping contract is therefore still `[data-theme]`, and ADR-2 is satisfied —
-   but a theme can no longer bleed, because there is only one place a colour comes
-   from. It is also smaller against the 8 KB budget, and it hands consumers an
-   11-property retheming surface instead of a 60-selector fork (docs/design-tokens.md §6).
-
-   Light is the unprefixed `:root` case, matching tokens.css: `[data-theme="light"]`
-   and `[data-theme="auto"]` under a light OS both fall through to it, and the two
-   dark rules in chroma-dark.css are (0,2,0) selectors that override it when they match.
+       * the VALUES are custom properties, so a consumer reskins the whole palette
+         by assigning eleven properties rather than forking sixty selectors.
 
    ── TUNED FOR SHELL FIRST ─────────────────────────────────────────────────────
    79% of the corpus is shell (7,143 of 9,046 blocks). Rendering the reference
@@ -49,8 +56,8 @@
 
    Comments are the token most themes fail on, and the reason is that they reach for
    low CONTRAST to make comments recede. This palette uses low CHROMA instead: the
-   comment grey is near-neutral but still clears 6.4:1, so it recedes visually without
-   dropping under AA.
+   comment is a warm near-neutral grey that still clears 6.3:1, so it recedes
+   visually without dropping under AA.
 
    Every value is asserted by scripts/check_contrast.py against --rb-code-bg AND
    --rb-code-hl-bg AND the diff backgrounds, in both themes, plus a dichromacy
@@ -58,19 +65,35 @@
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* Hues: literal 176°, name 128°, builtin 267°, keyword 339°, variable 30°,
-     error 5°. None within 25° of the 212° accent — see tokens.css. The two greys
-     are near-neutral (HSL S ≈ 0.11–0.16) and carry no hue signal. */
-  --rb-syn-comment:  #515a64;
-  --rb-syn-punct:    #465160;
-  --rb-syn-literal:  #014743;
-  --rb-syn-builtin:  #5d22a6;
-  --rb-syn-variable: #7f4001;
-  --rb-syn-keyword:  #760f33;
-  --rb-syn-name:     #056011;
-  --rb-syn-error:    #8e1a10;
-  --rb-syn-del-bg:   #efcdd0;
-  --rb-syn-ins-bg:   #b4e0bd;
+  /* Hues: literal 177°, builtin 273°, variable 57°, keyword 340°, name 126°,
+     error 353°. None within 25° of the 25° terracotta accent — see tokens.css. The
+     two greys are warm near-neutrals (HSL S ≈ 0.13–0.18) and carry no hue signal, so
+     the guard exempts them.
+
+     Amber and red left the palette when the accent moved to 25°, and that cost
+     something real: `--rb-syn-variable`, the shell `$FOO`, is the archive's
+     third-commonest token and amber was the obvious colour for it. It is now the
+     one gold the guard still permits, at 57° — 32° clear of the accent — and
+     `--rb-syn-error` has moved from red to the rose side of it at 353°, where the
+     wavy underline in the class map is doing more of the work than the hue is.
+
+     These eight were SOLVED rather than picked. The constraint set — 4.5:1 on two
+     plates and three bands, every co-occurring pair separable after deuteranopia AND
+     protanopia, 25° clear of the accent, comments the most recessive token — has no
+     obvious closed form, and hand-tuning it produced three successive palettes that
+     each failed one pair. The search that produced these is the same arithmetic
+     scripts/check_contrast.py runs, so the gate is the oracle rather than a
+     rubber stamp. */
+  --rb-syn-comment:  #afa18c;
+  --rb-syn-punct:    #c5beb3;
+  --rb-syn-literal:  #31cdc4;
+  --rb-syn-builtin:  #c58ff0;
+  --rb-syn-variable: #c3bc45;
+  --rb-syn-keyword:  #ea95b1;
+  --rb-syn-name:     #5ace66;
+  --rb-syn-error:    #fb7c8a;
+  --rb-syn-del-bg:   #5a2c31;
+  --rb-syn-ins-bg:   #213d1d;
 }
 
 /* ── The class map. Theme-independent: roles, not colours. ─────────────────────
@@ -100,7 +123,7 @@
 .chroma .mi, .chroma .il, .chroma .mo { color: var(--rb-syn-literal); }
 
 /* Weight is a second, non-colour signal separating keywords from variables — the
-   one pair in the shell set that sits on the red/yellow axis dichromats compress. */
+   one pair in the shell set that sits on the yellow/rose axis dichromats compress. */
 .chroma .k, .chroma .kc, .chroma .kd, .chroma .kn, .chroma .kp, .chroma .kr,
 .chroma .kt, .chroma .ow, .chroma .or, .chroma .gd { color: var(--rb-syn-keyword); }
 .chroma .k, .chroma .kd, .chroma .kn, .chroma .kr { font-weight: var(--rb-weight-medium); }
