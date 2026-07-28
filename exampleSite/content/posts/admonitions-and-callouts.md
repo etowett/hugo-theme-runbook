@@ -69,3 +69,59 @@ These are written as **GitHub alert blockquotes**, not as shortcodes, on purpose
 ```sh
 sudo systemctl restart redis
 ```
+
+## The shortcodes, now that they exist
+
+The sections above deliberately use GitHub alert syntax rather than shortcodes, because when this
+page was written `layouts/shortcodes/` was empty and a call to a shortcode that does not exist is a
+hard build failure, not a graceful degradation. Both shortcodes have since landed, so the fixture
+picks them up here.
+
+This is not redundancy. CI builds with `--printUnusedTemplates --panicOnWarning`, so a shortcode the
+theme ships and no fixture invokes fails the build — which is exactly what it should do. A
+capability with no fixture is a capability nobody is testing.
+
+Both invocation forms, because the shortcode accepts either and migrating content should not have to
+be rewritten:
+
+{{< admonition type="warning" title="This drops the database" >}}
+`DROP DATABASE` is not reversible without a backup. Confirm you have one that restores, not merely
+one that exists.
+{{< /admonition >}}
+
+{{< admonition tip "The faster way" >}}
+`redis-cli --scan --pattern 'session:*'` beats `KEYS` on a live instance.
+{{< /admonition >}}
+
+An unknown type degrades to `note` rather than emitting a class no stylesheet knows about — a
+silently unstyled warning box is worse than a styled note:
+
+{{< admonition type="nonsense" >}}
+Rendered as a note.
+{{< /admonition >}}
+
+Collapsible, via native `<details>` and zero JavaScript:
+
+{{< admonition type="caution" title="Long prerequisite list" collapsible="true" open="false" >}}
+Collapsed by default, keyboard-operable for free, and still present in find-in-page.
+{{< /admonition >}}
+
+## Collapsible output
+
+`details` exists for the `journalctl` dumps and 200-line `terraform plan` output a reader needs to
+skip past but that must stay in the DOM, in the page source and in find-in-page. A JavaScript
+accordion breaks all three.
+
+{{< details summary="Full systemctl status output" >}}
+```text
+● redis.service - Redis persistent key-value database
+     Loaded: loaded (/usr/lib/systemd/system/redis.service; enabled)
+     Active: active (running) since Tue 2026-07-28 09:14:22 UTC; 3h ago
+   Main PID: 1183 (redis-server)
+     CGroup: /system.slice/redis.service
+             └─1183 /usr/bin/redis-server 127.0.0.1:6379
+```
+{{< /details >}}
+
+The fenced block above is inside the shortcode on purpose: `.Inner` goes through `RenderString`, so
+it must still reach the code-block render hook and keep its copy button and its box-drawing glyphs.

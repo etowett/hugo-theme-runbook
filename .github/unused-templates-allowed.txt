@@ -1,0 +1,21 @@
+# Templates that are allowed to be unused by the exampleSite build.
+#
+# CI fails on any unused template NOT listed here. That forcing function is worth
+# keeping: it is what caught render-image.html, admonition.html, details.html and
+# archive.html shipping with no fixture reaching them.
+#
+# But "unused by the demo site" and "dead code" are not the same thing for a theme
+# published for general use. A fallback exists precisely for inputs the demo does not
+# contain. Deleting one to satisfy a lint makes the theme worse for the consumer it
+# was written for.
+#
+# FORMAT:  <template path> :: <reason>
+#
+# Every entry MUST carry a reason. This is the same rule the external-link exclusion
+# list uses, and for the same cause: without it, someone tidying up later cannot tell
+# a deliberate fallback from an oversight, and will delete the wrong one.
+#
+# Adding an entry is a design decision. If a template can be reached by a fixture,
+# write the fixture instead — that is almost always the better answer.
+
+/list.html :: Hugo resolves section.html, taxonomy.html and term.html ahead of it, so it cannot fire on the five kinds Hugo has today. It stays for a consumer's custom list kind or a future Hugo one, and it renders its title through utils/term-title.html so it degrades correctly if it ever does serve a term page.
