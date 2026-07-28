@@ -56,6 +56,12 @@ admonitionWarning: "Warning"
 admonitionCaution: "Caution"
 admonitionDanger: "Danger"
 detailsSummary: "Details"
+# tabs — the accessible name of the jump strip when the block has no visible title.
+# There is deliberately no "selected tab" or "tab N of M" string here: the shortcode
+# stacks every panel rather than switching between them (ADR-5), so there is no state
+# to announce and nothing that would need translating into a state announcement.
+tabsVariants: "Variants"
+tabsUnnamed: "Option {{ .Number }}"
 
 # ── Lists and taxonomies ──────────────────────────────────────────────────────
 noPosts: "Nothing here yet."
