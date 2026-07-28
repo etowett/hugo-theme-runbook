@@ -24,28 +24,43 @@
   the script text on the line below changes, because the hash covers that text byte
   for byte, including whitespace.
 */ -}}
-{{- $rb := site.Params.runbook -}}
+{{- /* Read through utils/settings.html like every other template. This partial used
+       to read site.Params.runbook directly and was the only one that did — see the
+       note in settings.html for what that cost. */ -}}
+{{- $rb := partialCached "utils/settings.html" . -}}
 {{- $nonce := $rb.cspNonce -}}
 <script{{ with $nonce }} nonce="{{ . }}"{{ end }}>(function(){try{var t=localStorage.getItem("runbook:theme:v1");if(t==="light"||t==="dark"||t==="auto"){document.documentElement.dataset.theme=t}}catch(e){}})();</script>
 {{- /* <meta name="theme-color"> — specs/003 §3.2, synced to the active palette.
 
-  The values are the two --rb-color-bg literals from assets/css/tokens.css. They are
-  literals because a <meta> cannot read a custom property, and scripts/check_contrast.py
-  asserts that they still match tokens.css so the duplication cannot rot silently.
+  ▸ THIS IS THE ONLY PLACE THE THEME EMITS theme-color. head/seo.html used to emit a
+    second, media-scoped pair as well. Because head.html renders this partial first and
+    a browser honours the FIRST matching theme-color, that pair was dead markup — and
+    worse, it was the CONFIGURABLE one, so params.runbook.themeColor was silently
+    ignored while appearing to work. Two streams implemented the same requirement
+    independently and neither could see the other's copy.
 
-  For the `auto` default this is expressed with media-scoped metas, which is the
-  zero-JS answer and is correct on its own. For an explicit light/dark default there
-  is one unconditional meta. Neither can express "the reader chose dark on a light
-  OS" — that case is a stored preference, so js/modules/theme.js collapses the pair
-  into a single resolved meta once it runs. */ -}}
+  The values come from config via utils/settings.html, which supplies the two
+  --rb-color-bg literals from assets/css/tokens.css as defaults. A <meta> cannot read
+  a custom property, so that duplication is unavoidable; scripts/check_contrast.py
+  asserts the defaults still match tokens.css so it cannot rot silently.
+
+  Mode-awareness is why this lives here rather than in seo.html. For the `auto`
+  default the media-scoped pair is the zero-JS answer and is correct on its own. For
+  an explicit light/dark default a media query is simply WRONG — it would paint the
+  browser chrome to the OS preference while the page renders the configured one — so
+  that case emits a single unconditional meta.
+
+  Neither form can express "the reader chose dark on a light OS": that is a stored
+  preference, so js/modules/theme.js collapses the pair into one resolved meta once it
+  runs. */ -}}
 {{- $mode := $rb.themeMode | default "auto" -}}
 {{- if eq $mode "light" }}
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="{{ $rb.themeColorLight }}">
 {{- else if eq $mode "dark" }}
-<meta name="theme-color" content="#0d1117">
+<meta name="theme-color" content="{{ $rb.themeColorDark }}">
 {{- else }}
-<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="{{ $rb.themeColorLight }}" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="{{ $rb.themeColorDark }}" media="(prefers-color-scheme: dark)">
 {{- end }}
 
 {{- /* REQ-FONT-2 — the opt-outs, emitted only when a consumer has actually opted out,

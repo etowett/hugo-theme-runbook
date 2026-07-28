@@ -64,10 +64,14 @@
 <meta name="robots" content="{{ . }}">
 {{- end }}
 
-{{- /* specs/003 §3.2 — theme-color follows the active palette. The values are
-       config, not tokens: CSS custom properties are not readable from <head>. */}}
-<meta name="theme-color" content="{{ $rb.themeColorLight }}" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="{{ $rb.themeColorDark }}" media="(prefers-color-scheme: dark)">
+{{- /* theme-color is emitted by head/theme-guard.html, not here.
+
+       It used to be emitted in both places. head.html renders the guard first and a
+       browser honours the first matching theme-color, so this pair never won — which
+       made params.runbook.themeColor look supported while doing nothing. The guard
+       also handles the case this pair could not: when themeMode is explicitly light
+       or dark, a media query paints the browser chrome to the OS preference rather
+       than to the configured theme. */}}
 
 {{- /* ── Open Graph ─────────────────────────────────────────────────────────── */}}
 <meta property="og:site_name" content="{{ site.Title }}">

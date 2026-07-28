@@ -55,7 +55,33 @@
 {{- $prevNext := true -}}{{ if isset $rb "showprevnext" }}{{ $prevNext = $rb.showPrevNext }}{{ end }}
 {{- $showTerms := true -}}{{ if isset $rb "showterms" }}{{ $showTerms = $rb.showTerms }}{{ end }}
 
+{{- /* themeMode and cspNonce are here so that head/theme-guard.html can stop reading
+       site.Params.runbook directly. It was the one template that bypassed this partial,
+       which is how params.runbook.themeColor came to be silently ignored: the guard
+       emitted hard-coded colours and, being first in <head>, beat the configurable pair
+       seo.html emitted. A "single place configuration is read" with one exception is
+       not a single place.
+
+       themeMode is validated rather than passed through. An unrecognised value used to
+       fall through to the media-scoped branch, which is the `auto` behaviour — right by
+       accident, and silently wrong for anyone who typed "system". */ -}}
+{{- $mode := lower (printf "%v" ($rb.themeMode | default "auto")) -}}
+{{- if not (in (slice "auto" "light" "dark") $mode) }}{{ $mode = "auto" }}{{ end -}}
+
+{{- /* REQ-FONT-2. These two need the isset dance rather than `| default`, because
+       `default` cannot distinguish "unset" from "explicitly false" — and false is the
+       value that carries meaning here: it is what selects the zero-byte system stack.
+       Both must be real booleans, since head/theme-guard.html tests `eq … false`. */ -}}
+{{- $bundledCodeFont := true -}}
+{{- if isset $rb "bundledcodefont" }}{{ $bundledCodeFont = $rb.bundledCodeFont }}{{ end -}}
+{{- $codeFontLigatures := false -}}
+{{- if isset $rb "codefontligatures" }}{{ $codeFontLigatures = $rb.codeFontLigatures }}{{ end -}}
+
 {{- return dict
+      "themeMode"           $mode
+      "cspNonce"            ($rb.cspNonce | default "")
+      "bundledCodeFont"     $bundledCodeFont
+      "codeFontLigatures"   $codeFontLigatures
       "dateFormat"          ($rb.dateFormat | default ":date_long")
       "showReadingTime"     $showReadingTime
       "showLastmod"         $showLastmod
