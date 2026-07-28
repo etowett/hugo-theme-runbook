@@ -90,7 +90,29 @@
 {{- $plate := "" -}}
 {{- $plateLabel := "" -}}
 {{- if not $coverURL -}}
-  {{- $m := findRESubmatch "(?s)(?:\\A|\\n)```([A-Za-z0-9_+#-]*)[^\\n]*\\n(.*?)\\n?```" $page.RawContent 1 -}}
+  {{- /* BACKTICK AND TILDE. CommonMark allows either delimiter and Hugo's render hook
+         fires on both (specs/004 §1), so matching only ``` meant a post whose first
+         fence is ~~~ silently lost its plate — the card's whole contract. No fixture
+         caught it, because every other fixture happens to open with a backtick: exactly
+         the gap a corpus-derived fixture set leaves for third-party content.
+
+         WHICH delimiter opens the post is decided FIRST, and that ordering is the
+         whole trick. Trying backticks and falling back to tildes looks equivalent and
+         is not: on a post that opens with ~~~ and uses ``` further down, the backtick
+         pattern matches the LATER block and the fallback never runs, so the card
+         previews the wrong fence. That is a worse failure than the one being fixed —
+         it is silently wrong rather than silently absent — and it is what the fixture
+         below caught.
+
+         One combined alternation cannot work either: Go's RE2 has no backreferences,
+         so the closing delimiter cannot be tied to the opening one, and `[`~]{3}` would
+         happily close a backtick fence on a tilde. So: find the opener, then build the
+         matching pattern from it. */ -}}
+  {{- $delim := "```" -}}
+  {{- with findRE "(?s)(?:\\A|\\n)(?:```|~~~)" $page.RawContent 1 -}}
+    {{- if strings.Contains (index . 0) "~~~" }}{{ $delim = "~~~" }}{{ end -}}
+  {{- end -}}
+  {{- $m := findRESubmatch (printf "(?s)(?:\\A|\\n)%s([A-Za-z0-9_+#-]*)[^\\n]*\\n(.*?)\\n?%s" $delim $delim) $page.RawContent 1 -}}
   {{- with $m -}}
     {{- $first := index . 0 -}}
     {{- $type := lower (index $first 1) -}}
@@ -102,7 +124,8 @@
     {{- range $i, $line := split (index $first 2) "\n" -}}
       {{- if lt $i $cap -}}
         {{- $line = strings.TrimRight "\r" $line -}}
-        {{- $lines = $lines | append (cond (gt (len $line) 90) (printf "%s…" (substr $line 0 89)) $line) -}}
+        {{- $max := cond $featured 90 52 -}}
+        {{- $lines = $lines | append (cond (gt (len $line) $max) (printf "%s…" (substr $line 0 (sub $max 1))) $line) -}}
       {{- end -}}
     {{- end -}}
     {{- $src := strings.TrimRight "\n" (delimit $lines "\n") -}}
