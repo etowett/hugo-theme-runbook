@@ -11,8 +11,69 @@
       *changes* the answer, it is never required to produce one
     * live system-theme changes are handled in js/modules/theme.js, not here
 
+  The script deliberately does NOT touch <meta name="theme-color"> or the font
+  overrides below. Everything else in this partial is static markup the server can
+  emit correctly, and the inline script is the one thing on the page that blocks the
+  first paint — so it keeps exactly the one job that has to happen before paint and
+  nothing else. js/modules/theme.js reconciles the meta afterwards.
+
   CSP: this is an inline <script>. Consumers running a nonce/hash policy set
-  params.runbook.cspNonce, which is emitted below. The hash is published per release.
+  params.runbook.cspNonce, which is emitted below and is the path that needs no
+  coordination with a release. For a hash policy, docs/design-tokens.md §5 carries
+  the current sha256 and the one-liner that regenerates it — recompute it whenever
+  the script text on the line below changes, because the hash covers that text byte
+  for byte, including whitespace.
 */ -}}
-{{- $nonce := site.Params.runbook.cspNonce -}}
+{{- $rb := site.Params.runbook -}}
+{{- $nonce := $rb.cspNonce -}}
 <script{{ with $nonce }} nonce="{{ . }}"{{ end }}>(function(){try{var t=localStorage.getItem("runbook:theme:v1");if(t==="light"||t==="dark"||t==="auto"){document.documentElement.dataset.theme=t}}catch(e){}})();</script>
+{{- /* <meta name="theme-color"> — specs/003 §3.2, synced to the active palette.
+
+  The values are the two --rb-color-bg literals from assets/css/tokens.css. They are
+  literals because a <meta> cannot read a custom property, and scripts/check_contrast.py
+  asserts that they still match tokens.css so the duplication cannot rot silently.
+
+  For the `auto` default this is expressed with media-scoped metas, which is the
+  zero-JS answer and is correct on its own. For an explicit light/dark default there
+  is one unconditional meta. Neither can express "the reader chose dark on a light
+  OS" — that case is a stored preference, so js/modules/theme.js collapses the pair
+  into a single resolved meta once it runs. */ -}}
+{{- $mode := $rb.themeMode | default "auto" -}}
+{{- if eq $mode "light" }}
+<meta name="theme-color" content="#ffffff">
+{{- else if eq $mode "dark" }}
+<meta name="theme-color" content="#0d1117">
+{{- else }}
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
+{{- end }}
+
+{{- /* REQ-FONT-2 — the opt-outs, emitted only when a consumer has actually opted out,
+  so the default path costs zero bytes.
+
+  `:root:root` is not a typo. This <style> is emitted before head/css.html, so on
+  equal specificity the linked stylesheet would win on source order; doubling :root
+  raises specificity to (0,2,0) and settles it regardless of order. It is also why
+  this cannot simply be appended to tokens.css — the value has to depend on site
+  configuration, and tokens.css is a static asset with no template context.
+
+  bundledCodeFont=false gives the zero-byte system stack of REQ-FONT-2, and because
+  nothing then references the "JetBrains Mono" family, the @font-face in base.css
+  never triggers a download.
+
+  codeFontLigatures=true is honoured for the system stack and for a consumer who
+  drops in their own full JetBrains Mono build. It is a NO-OP against the subset
+  Runbook ships, which carries no `calt`/`liga` lookups at all — see
+  docs/design-tokens.md §4 for why those 17 KB were left out.
+
+  There is deliberately no branch for params.runbook.bundledProseFont. Open decision
+  #2 closed it OFF, and Runbook ships no prose face at all — so a branch here would
+  point --rb-font-sans at a family that does not exist. A consumer who wants one adds
+  the @font-face through the custom-head.html hook and overrides --rb-font-sans
+  themselves; docs/design-tokens.md §4 spells it out. */ -}}
+{{- if eq $rb.bundledCodeFont false }}
+<style{{ with $nonce }} nonce="{{ . }}"{{ end }}>:root:root{--rb-font-mono:var(--rb-font-mono-system)}</style>
+{{- end -}}
+{{- if $rb.codeFontLigatures }}
+<style{{ with $nonce }} nonce="{{ . }}"{{ end }}>pre,code,kbd,samp{font-variant-ligatures:normal}</style>
+{{- end -}}

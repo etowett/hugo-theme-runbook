@@ -52,7 +52,7 @@ jobs:
             primary: true
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: peaceiris/actions-hugo@v3
         with:
@@ -172,7 +172,7 @@ jobs:
 
       - name: Upload build and budget report
         if: matrix.primary
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: exampleSite-build
           path: |
@@ -186,7 +186,7 @@ jobs:
     name: Contrast (WCAG 2.2 AA)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Every prose pair and every Chroma token, both themes
         run: |
           if [ ! -f scripts/check_contrast.py ]; then
@@ -204,5 +204,5 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: python3 scripts/check_showcase.py

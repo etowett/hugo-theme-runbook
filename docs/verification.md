@@ -73,6 +73,13 @@ that omits it is not reproducible. `scripts/check_budgets.py` shells out to the 
 rather than using zlib, so its numbers match the command quoted in
 [005 §5](../specs/005-performance-budgets.md#5-reproducibility) by hand.
 
+**Compare page weights on one platform only.** Measured on the same build, GNU gzip on the Linux
+runner and Apple gzip on macOS disagree: the article p50 reads 2,585 B on CI and 2,728 B locally.
+The theme-shell figures happen to agree exactly (CSS 2,125 B, JS 481 B), but that is luck, not a
+property. So the p50/p90 gates and any `--baseline` file must be produced and consumed on the same
+platform — a baseline captured on a laptop and compared on a runner reports a regression that is
+really a difference of gzip implementation.
+
 ---
 
 ## 2. What CI runs

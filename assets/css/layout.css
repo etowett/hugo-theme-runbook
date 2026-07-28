@@ -47,11 +47,14 @@
   padding: 0;
   margin-inline-end: auto;
 }
+/* The visible boundary of an interactive control, so it takes --rb-color-border-strong
+   (3:1, WCAG 1.4.11) and not the hairline --rb-color-border that separates list rows.
+   That distinction is the whole reason tokens.css carries two border tiers. */
 .rb-theme-toggle {
   min-width: var(--rb-target-min);
   min-height: var(--rb-target-min);
   background: none;
-  border: 1px solid var(--rb-color-border);
+  border: 1px solid var(--rb-color-border-strong);
   border-radius: var(--rb-radius-sm);
   color: var(--rb-color-text-muted);
   cursor: pointer;
@@ -59,6 +62,7 @@
   font: inherit;
   font-size: var(--rb-text-sm);
 }
+.rb-theme-toggle:hover { color: var(--rb-color-text); }
 
 .rb-main { padding-block: var(--rb-space-6) var(--rb-space-8); }
 
