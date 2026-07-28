@@ -1,0 +1,62 @@
+{
+  "_comment": [
+    "Lighthouse CI — SCAFFOLD ONLY, deliberately not wired into CI yet. specs/007 §3.3.",
+    "",
+    "It runs against the built exampleSite demo and NEVER against production citizix:",
+    "AdSense and GTM put 100 permanently out of reach there, and the showcase's own rules",
+    "forbid live tracking credentials in exampleSite anyway (specs/009 §2, §3). Measure",
+    "citizix-shaped pages separately and report third-party effects independently from",
+    "first-party theme effects.",
+    "",
+    "numberOfRuns is 5 and the aggregation method is median-run, because the performance",
+    "score is variance-prone on shared CI runners and a single run turns a real gate into a",
+    "coin flip that people learn to re-run until green.",
+    "",
+    "A perfect automated score is reported as an automated score. It is NOT WCAG",
+    "conformance and must never be described as such — specs/007 §3.3 and §4.",
+    "",
+    "Not enabled yet because the theme is a foundation stub: there is no TOC, no copy",
+    "button and no real stylesheet, so any number recorded now measures the scaffold.",
+    "Turn it on at M4 alongside the visual baselines, and pin the Chrome and Lighthouse",
+    "versions in the workflow at the same time — an unpinned Lighthouse moves scores on",
+    "its own release schedule and the gate becomes noise."
+  ],
+  "ci": {
+    "collect": {
+      "staticDistDir": "./public-lighthouse",
+      "url": [
+        "http://localhost/index.html",
+        "http://localhost/posts/index.html",
+        "http://localhost/posts/code-block-smoke-test/index.html",
+        "http://localhost/posts/code-blocks-158/index.html",
+        "http://localhost/posts/code-block-767-lines/index.html",
+        "http://localhost/posts/tables-and-data/index.html",
+        "http://localhost/posts/prose-only-no-code/index.html",
+        "http://localhost/tags/index.html"
+      ],
+      "numberOfRuns": 5,
+      "settings": {
+        "preset": "desktop",
+        "onlyCategories": ["performance", "accessibility", "best-practices", "seo"]
+      }
+    },
+    "assert": {
+      "assertions": {
+        "categories:accessibility": ["error", { "minScore": 1, "aggregationMethod": "median-run" }],
+        "categories:best-practices": ["error", { "minScore": 1, "aggregationMethod": "median-run" }],
+        "categories:seo": ["error", { "minScore": 1, "aggregationMethod": "median-run" }],
+        "categories:performance": ["error", { "minScore": 0.98, "aggregationMethod": "median-run" }],
+
+        "render-blocking-resources": ["error", { "maxLength": 0 }],
+        "cumulative-layout-shift": ["error", { "maxNumericValue": 0 }],
+        "target-size": "error",
+        "uses-responsive-images": "off",
+        "unused-javascript": "off"
+      }
+    },
+    "upload": {
+      "target": "filesystem",
+      "outputDir": "./.github/lighthouse/results"
+    }
+  }
+}

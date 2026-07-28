@@ -1,0 +1,15 @@
+# specs/009 §5 lists Dependabot for CI actions among the things a maintained theme is
+# expected to ship. The theme itself has no dependencies to update — ADR-1: no Node, no
+# npm, no build toolchain — so this only covers the workflow actions, which is exactly
+# where an unpatched dependency would sit unnoticed.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    labels:
+      - dependencies
+    commit-message:
+      prefix: "ci"
