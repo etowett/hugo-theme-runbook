@@ -4,6 +4,8 @@ date: 2026-07-20
 description: "CommonMark allows ~~~ as well as ```. This post opens with one, which is the only way to catch a card plate that only knows backticks."
 tags: ["fixtures"]
 categories: ["Meta"]
+series: ["Theme foundations"]
+weight: 2
 ---
 
 ~~~sh

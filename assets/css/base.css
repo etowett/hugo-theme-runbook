@@ -4,7 +4,20 @@
    Consumes tokens.css only. Must not contain layout (that is layout.css) or anything
    about the code block (that is code.css). */
 
-/* ── The bundled code face (REQ-FONT-1, ADR-6) ────────────────────────────────
+/* ── Bundled fonts ────────────────────────────────────────────────────────────
+   Caprasimo is the OFL-licensed display face from the approved Citizix direction.
+   It is self-hosted: editorial character must not make every reader contact Google.
+   Setting bundledDisplayFont=false leaves a complete system-font fallback and
+   prevents this face from downloading. */
+@font-face {
+  font-family: "Caprasimo";
+  src: url("../fonts/caprasimo-latin.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* The bundled code face (REQ-FONT-1, ADR-6)
    ONE variable file, weight 100–800, so real bold is available inside a code block
    without a second request and without the browser synthesising an oblique.
 
@@ -69,24 +82,9 @@ body {
 }
 
 /* ── Headings ───────────────────────────────────────────────────────────────
-   THE HEADINGS ARE THE DISPLAY FACE, AND THE THEME SHIPS NO DISPLAY FACE.
-
-   The design this comes from imported Caprasimo from fonts.googleapis.com. Success
-   criterion 3 (specs/001 §5) is zero theme-added third-party hosts and ADR-6 requires
-   self-hosting, and the font budget is already spent: 25,032 B of a 30 KB ceiling on
-   the JetBrains Mono subset that REQ-FONT-1 makes non-optional. A second family does
-   not fit, and a *display* family — which needs the full Latin range plus punctuation
-   to set a headline honestly — is the worst value per byte of anything one could add.
-
-   So what carries the character is the GEOMETRY, and it costs nothing: weight 400 at
-   46–52px, leading 1.05, tracking -0.015em. That is a large, light, tightly-set
-   headline, and it reads as deliberate on any system stack — the thing that makes a
-   default-looking heading is 700 weight at 32px with default leading, and none of
-   those three survive here. --rb-font-display exists as the seam: point it at a face
-   through the custom-head.html hook and nothing else has to change.
-
-   `font-weight: 400` on a heading is the single most load-bearing line in this file
-   and the easiest to "fix" by accident. */
+   The display face is the visual bridge between the warm, technical page surface and
+   its editorial hierarchy. `font-weight: 400` is load-bearing: Caprasimo's own shape
+   provides the emphasis; synthetic bold makes it heavy and cramped. */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--rb-font-display);
   line-height: var(--rb-leading-display);

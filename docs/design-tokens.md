@@ -221,22 +221,19 @@ construction:
 Nothing below the code block moves when the face swaps in. This is why the default is defensible
 against the hard CLS = 0 assertion in [007 §3.3](../specs/007-verification.md#33-lighthouse--rewritten).
 
-### Why there is no display face, and what carries the character instead
+### The self-hosted display face and its fallback
 
-The design this palette comes from imports **Caprasimo** and **Figtree** from
-`fonts.googleapis.com`. Success criterion 3 ([001 §5](../specs/001-overview.md)) is *zero
-theme-added third-party hosts* and [ADR-6](../specs/006-architecture-decisions.md) requires
-self-hosting, so the delivery is rejected outright. The question is whether the *type* can be
-kept, and the honest answer is: the geometry yes, the face no.
+The approved Citizix direction uses **Caprasimo** for the brand and headings. The original source
+loaded it from `fonts.googleapis.com`, but success criterion 3 ([001 §5](../specs/001-overview.md))
+rules out a third-party font request. Runbook now ships the Latin WOFF2 from the OFL release at
+`static/fonts/caprasimo-latin.woff2` instead. It is 20,772 B raw, independently below the 30 KB
+per-subset budget that `check_budgets.py` enforces; it does not consume the code font's budget.
 
-**The face does not fit.** The font budget is 30 KB and the JetBrains Mono subset already spends
-25,032 B of it, which REQ-FONT-1 makes non-optional — box-drawing glyphs in 44% of the archive.
-That leaves ~5.6 KB. A *display* face needs the full Latin range plus punctuation to set a
-headline honestly, and no such subset lands in 5.6 KB; a display face is also the worst value per
-byte of anything one could add, because it appears on one to three lines per page.
+`params.runbook.bundledDisplayFont` defaults to `true`. Set it to `false` to keep the same sizing
+and geometry on the system sans fallback without downloading Caprasimo. A consumer can also replace
+`--rb-font-display` from `custom-head.html`.
 
-**So Runbook ships the geometry and no face, and says so.** What actually makes a heading read as
-designed rather than as a default is not the family:
+The geometry remains deliberate, including in the fallback:
 
 | | Default-looking | Runbook |
 |---|---|---|
@@ -246,10 +243,8 @@ designed rather than as a default is not the family:
 | line-height | 1.2–1.3 | **1.05** (`--rb-leading-display`) |
 | letter-spacing | 0 | **-0.015em** (`--rb-tracking-display`) |
 
-All four survive the system stack intact and cost nothing. `--rb-font-display` exists as the
-**seam**: it resolves to `--rb-font-sans` by default, and a consumer who wants a display face adds
-one `@font-face` through the `custom-head.html` hook and points that one property at it. Nothing
-else in the theme has to change, and they own the resulting byte count.
+All four survive the system stack intact. Caprasimo supplies the distinctive silhouette; the
+geometry prevents the opt-out path from falling back to default browser heading proportions.
 
 Below `h3` the tracking is switched back to `normal` and the weight to 500: at 19px a -0.015em
 pull is a fifth of a pixel per glyph and reads as a rendering fault rather than as tight setting.
@@ -266,6 +261,9 @@ one adds the `@font-face` through the `custom-head.html` hook and overrides `--r
 
 | | |
 |---|---|
+| Display source | [Caprasimo](https://github.com/google/fonts/tree/main/ofl/caprasimo), Latin WOFF2 from the Google Fonts release endpoint |
+| Display licence | **OFL-1.1**. Text shipped at `static/fonts/Caprasimo-OFL.txt` |
+| Display output | `static/fonts/caprasimo-latin.woff2` — **20,772 B**, against a ≤ 30 KB per-subset budget |
 | Source | [JetBrains Mono v2.304](https://github.com/JetBrains/JetBrainsMono/releases/tag/v2.304), `fonts/variable/JetBrainsMono[wght].ttf` |
 | Licence | **OFL-1.1, no Reserved Font Name** — a subset may legally keep the name. Text shipped at `static/fonts/OFL.txt` |
 | Tool | `fonttools` 4.63.0 (`pyftsubset`), brotli for WOFF2 |

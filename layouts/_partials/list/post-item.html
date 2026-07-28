@@ -68,6 +68,7 @@
 {{- else -}}
   {{- with $page.Summary }}{{ $summary = . | plainify | htmlUnescape | replaceRE `\s+` " " | strings.TrimSpace | truncate 200 "…" }}{{ end -}}
 {{- end -}}
+{{- $tags := partial "utils/terms.html" (dict "page" $page "taxonomy" "tags") -}}
 
 {{- /* 1 — a cover image, if this post actually has one. Resolved here rather than
        through utils/page-image.html on purpose: that partial falls back to
@@ -146,6 +147,14 @@
   {{- end -}}
 {{- end -}}
 <li class="rb-post-list-item{{ if $featured }} rb-post-list-item--featured{{ end }}">
+  <div class="rb-card-meta">
+    {{- if $featured }}<span class="rb-card-featured">{{ i18n "featured" }}</span>{{ end -}}
+    {{ partial "article/meta.html" $page }}
+  </div>
+  <h{{ $level }} class="rb-post-list-title"><a href="{{ $page.RelPermalink }}">{{ $page.LinkTitle }}</a></h{{ $level }}>
+  {{- with $summary }}
+  <p class="rb-post-list-summary">{{ . }}</p>
+  {{- end }}
   {{- with $coverURL }}
   <img class="rb-card-cover" src="{{ . }}" alt="" loading="lazy" decoding="async">
   {{- else }}{{ with $plate }}
@@ -154,9 +163,12 @@
     {{- with $plateLabel }}<span class="rb-card-lang" aria-hidden="true">{{ . }}</span>{{ end }}
   </div>
   {{- end }}{{ end }}
-  <h{{ $level }} class="rb-post-list-title"><a href="{{ $page.RelPermalink }}">{{ $page.LinkTitle }}</a></h{{ $level }}>
-  {{- with $summary }}
-  <p class="rb-post-list-summary">{{ . }}</p>
-  {{- end }}
-  {{ partial "article/meta.html" $page }}
+  <footer class="rb-card-footer">
+    {{- with $tags }}
+    <ul class="rb-card-tags">
+      {{- range first 3 . }}<li><a class="rb-card-tag" href="{{ .RelPermalink }}">{{ partial "utils/term-title.html" . }}</a></li>{{ end -}}
+    </ul>
+    {{- end }}
+    <a class="rb-card-read" href="{{ $page.RelPermalink }}">{{ i18n "readPost" }} <span aria-hidden="true">→</span></a>
+  </footer>
 </li>

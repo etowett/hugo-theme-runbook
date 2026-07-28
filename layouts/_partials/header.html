@@ -27,7 +27,7 @@
     <a class="rb-brand" href="{{ site.Home.RelPermalink }}">{{ site.Title }}</a>
 
     {{- with site.Menus.main }}
-    <ul class="rb-nav-list">
+    <ul class="rb-nav-list rb-nav-list--desktop">
       {{- range . }}
       {{- $url := .URL -}}
       {{- with .Page }}{{ $url = .RelPermalink }}{{ end -}}
@@ -38,12 +38,28 @@
     </ul>
     {{- end }}
 
+    {{- with site.Menus.main }}
+    <details class="rb-nav-mobile">
+      <summary aria-label="{{ i18n "primaryNavigation" }}"><svg class="rb-control-icon" aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M4 7h16M4 12h16M4 17h16"/></svg></summary>
+      <ul class="rb-nav-list rb-nav-list--mobile">
+        {{- range . }}
+        {{- $url := .URL -}}
+        {{- with .Page }}{{ $url = .RelPermalink }}{{ end -}}
+        <li><a href="{{ $url }}"
+          {{- if $.IsMenuCurrent "main" . }} aria-current="page"
+          {{- else if $.HasMenuCurrent "main" . }} aria-current="true"{{ end }}>{{ .Name }}</a></li>
+        {{- end }}
+      </ul>
+    </details>
+    {{- end }}
+
     {{- if $rb.search.enable }}
-    <a class="rb-search-link" href="{{ "search/" | relURL }}">{{ i18n "search" }}</a>
+    <a class="rb-search-link" href="{{ "search/" | relURL }}"><svg class="rb-control-icon" aria-hidden="true" viewBox="0 0 24 24" focusable="false"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg><span class="rb-search-label">{{ i18n "search" }}</span></a>
     {{- end }}
 
     {{- if $rb.showThemeToggle }}
     <button type="button" class="rb-theme-toggle" data-rb-theme-toggle hidden>
+      <svg class="rb-control-icon" aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M12 3a9 9 0 1 0 9 9c0-5-4-9-9-9Z"/><path d="M12 3v18"/></svg>
       <span class="rb-theme-toggle-label">{{ i18n "toggleTheme" }}</span>
     </button>
     {{- end }}

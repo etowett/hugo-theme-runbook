@@ -4,6 +4,8 @@ date: 2026-07-28
 description: "The Layer-1 code-block torture page: every fence shape the reference corpus contains, on one URL."
 tags: ["fixtures", "code"]
 categories: ["Meta"]
+series: ["Theme foundations"]
+weight: 1
 ---
 
 The Layer-1 torture page from

@@ -176,19 +176,17 @@
      substituting mid-block breaks column alignment in captured terminal output;
      prose has no equivalent failure, so it pays no bytes.
 
-     --rb-font-display is a SEAM, not a face. Runbook ships no display font: the
-     source design imported Caprasimo from fonts.googleapis.com, and success
-     criterion 3 (specs/001 §5) is zero theme-added third-party hosts. What carries
-     the character is the geometry below — 400 weight at 46–52px, leading 1.05,
-     tracking -0.015em — and that survives the system stack intact. A consumer who
-     wants a display face adds one @font-face through the custom-head.html hook and
-     points this one property at it; nothing else in the theme has to change. */
+     --rb-font-display is Caprasimo, the self-hosted OFL display face in the approved
+     Citizix direction. It carries the editorial identity of headings and the brand
+     without making a reader contact a third-party font host. Consumers can still
+     disable it through params.runbook.bundledDisplayFont or replace the variable in
+     custom-head.html. */
   --rb-font-sans-system: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --rb-font-mono-system: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 
   --rb-font-sans: var(--rb-font-sans-system);
   --rb-font-mono: "JetBrains Mono", var(--rb-font-mono-system);
-  --rb-font-display: var(--rb-font-sans);
+  --rb-font-display: "Caprasimo", var(--rb-font-sans-system);
 
   --rb-text-xs:    0.78rem;
   --rb-text-sm:    0.875rem;
@@ -240,7 +238,7 @@
   /* ── Measure and page shell ─────────────────────────────────────────────── */
   --rb-measure:       70ch;   /* prose measure — specs/003 §3.1 says 68–72ch */
   --rb-content-width: 46rem;
-  --rb-page-width:    72rem;  /* with the TOC rail and a three-column card grid */
+  --rb-page-width:    84rem;  /* reference-width desktop grid, with the TOC rail */
   --rb-gutter:        var(--rb-space-5);
 
   /* ── Controls ───────────────────────────────────────────────────────────── */

@@ -40,9 +40,27 @@
   {{- range first 3 .ByCount }}{{ $names = $names | append (upper (partial "utils/term-title.html" .Page)) }}{{ end -}}
   {{- $cats = delimit $names " · " -}}
 {{- end -}}
+{{- /* A companion surface gives the home hero a second beat without inventing a
+       site-specific marketing claim. It appears only when a registered series has at
+       least two posts; a new blog keeps the complete, uncluttered single-column hero. */ -}}
+{{- $rb := partialCached "utils/settings.html" . -}}
+{{- $featuredSeriesName := "" -}}
+{{- $featuredSeriesURL := "" -}}
+{{- $featuredSeriesCount := 0 -}}
+{{- with index site.Taxonomies $rb.seriesTaxonomy -}}
+  {{- range .ByCount -}}
+    {{- if and (eq $featuredSeriesName "") (gt (len .Pages) 1) -}}
+      {{- $featuredSeriesName = partial "utils/term-title.html" .Page -}}
+      {{- $featuredSeriesURL = .Page.RelPermalink -}}
+      {{- $featuredSeriesCount = len .Pages -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
 
 <div class="rb-home">
   <header class="rb-home-header">
+    <div class="rb-home-hero">
+      <div>
     {{- with $cats }}
     <p class="rb-home-eyebrow">{{ . }}</p>
     {{- end }}
@@ -58,6 +76,15 @@
       {{- end }}
     </p>
     {{- end }}
+      </div>
+      {{- with $featuredSeriesName }}
+      <aside class="rb-home-series">
+        <p class="rb-home-series-label">{{ i18n "featuredSeries" }}</p>
+        <p class="rb-home-series-title"><a href="{{ $featuredSeriesURL }}">{{ . }}</a></p>
+        <p class="rb-home-series-count">{{ i18n "postCount" (dict "Count" $featuredSeriesCount) }}</p>
+      </aside>
+      {{- end }}
+    </div>
   </header>
 
   {{- with .Content }}
