@@ -11,3 +11,10 @@ node_modules/
 *.log
 __pycache__/
 .venv/
+
+# Agent configuration. AGENTS.md, CLAUDE.md, .mcp.json and .claude/{settings.json,skills,hooks}
+# are committed on purpose — they are project tooling. These two are per-machine and are not:
+# settings.local.json holds absolute paths from whoever ran the session, and CLAUDE.local.md is
+# personal preference. Committing either puts one contributor's laptop into everyone's config.
+.claude/settings.local.json
+CLAUDE.local.md
