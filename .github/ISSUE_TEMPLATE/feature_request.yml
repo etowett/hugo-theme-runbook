@@ -1,0 +1,68 @@
+name: Feature request
+description: Propose a capability the theme does not have.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Runbook is deliberately small. Its budgets are hard gates — 3 KB gzipped for all core
+        JavaScript, 8 KB for all CSS, 2 executable `<script>` tags on an article page, zero
+        third-party hosts — so a feature is a trade against something already in the budget rather
+        than an addition to it.
+
+        Two things that are answered in advance:
+
+        - **A vendor integration** (analytics, ads, comments) will not ship in the theme. The six
+          [override hooks](https://github.com/etowett/hugo-theme-runbook/blob/main/docs/extending.md)
+          exist so you can add one without forking a template, and giscus and Disqus snippets are
+          already written out there.
+        - **Anything requiring Node, npm or a build toolchain** is out
+          ([ADR-1](https://github.com/etowett/hugo-theme-runbook/blob/main/specs/006-architecture-decisions.md)).
+          That is what makes the theme a drop-in.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: >-
+        What are you trying to do that you cannot do now? Describe the situation, not the
+        solution — a good problem statement often has a cheaper answer than the one you had in mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you propose
+      description: Configuration key, hook, shortcode, template, CSS token — be specific if you can.
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: What you do today
+      description: >-
+        A custom-head override, a forked template, a snippet in every post. Knowing the workaround
+        tells us how much the gap actually costs.
+
+  - type: textarea
+    id: cost
+    attributes:
+      label: Cost
+      description: >-
+        Does it need JavaScript? Does it work with scripting disabled? Does it add a request or a
+        third-party host? Does it change existing markup — i.e. is it a major version? An answer of
+        "no idea" is fine; an answer of "none" that turns out to be wrong is not.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you file
+      options:
+        - label: >-
+            This is not something the six [override
+            hooks](https://github.com/etowett/hugo-theme-runbook/blob/main/docs/extending.md) already
+            cover.
+        - label: >-
+            This does not require Node, npm or any build toolchain on a consumer's machine.
