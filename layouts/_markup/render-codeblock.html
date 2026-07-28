@@ -1,79 +1,176 @@
 {{- /*
   ══════════════════════════════════════════════════════════════════════════════════
-  STUB — owned by the "Code block system" workstream. This is Runbook's differentiator
-  (specs/003 §3.3, REQ-CB-1 … REQ-CB-8). What is here now is the *safety floor* only:
-  enough to satisfy REQ-CB-1 so the foundation never ships the bug it exists to prevent.
+  render-codeblock.html — Runbook's differentiating feature (specs/003 §3.3).
+  Owned by the code-block workstream. Requirements REQ-CB-1 … REQ-CB-8.
+
+  Emitted shape, and nothing more than this:
+
+      <div class="rb-code" data-rb-lang="sh">
+        [<div class="rb-code-head">…]   ← only when {file=} or {caption=} says so
+        <div class="rb-code-ui">Shell [wrap] [copy]</div>
+        <div class="highlight"><pre class="chroma"><code …>
+      </div>
+
+  Both buttons ship `hidden` and are unhidden by js/modules/code.js. With JavaScript
+  off the reader gets code, a language tag and no dead controls — which is the whole
+  reason they are rendered hidden rather than rendered enabled (specs/006 ADR-5).
   ══════════════════════════════════════════════════════════════════════════════════
 
-  REQ-CB-1 — NEVER FORWARD THE SITE'S LINE-NUMBER CONFIG.
+  ── REQ-CB-1 — NEVER FORWARD THE SITE'S LINE-NUMBER CONFIG ────────────────────────
 
   transform.Highlight applies the *consuming site's* markup.highlight settings for any
-  key the caller leaves unset, and Hugo merges theme config UNDERNEATH site config, so a
-  saner theme default cannot win. The reference site sets lineNos=true and
-  lineNumbersInTable=true today; that is what puts a line-number gutter on a one-line
-  `sudo dnf -y install redis` across 484 pages.
+  key the caller leaves UNSET, and Hugo merges theme config UNDERNEATH site config, so
+  a saner theme default cannot win. An unset key is exactly where the consumer's
+  configuration gets back in.
 
-  Site configuration is untrusted input to a distributable theme. The option set below is
-  therefore built explicitly and passes lineNos on EVERY call, forced false unless this
-  individual block opted in. The archive smoke build asserts zero `lntable` output
-  against citizix's own config (specs/007 §2 Layer 2).
+  $hlOpts below is therefore built from scratch and passes every key that changes
+  emitted STRUCTURE on EVERY call, not only when the value is true:
 
-  The same principle generalises: any markup.highlight key that changes emitted
-  STRUCTURE rather than emitted COLOUR must be forced here, not merely defaulted.
+      lineNos / lineNumbersInTable   the 484-page line-number-gutter problem
+      anchorLineNos / lineNoStart    injects ids and <a> into every line
+      hl_inline                      moves highlighting from a wrapper to inline spans
+      noClasses                      ADR-2 requires class-based Chroma, not inline styles
+      guessSyntax                    speculatively colours untagged output (specs/006 Q3)
+      wrapperClass                   renames .highlight, silently unstyling every block
 
-  ── .Options VS .Attributes — VERIFIED EMPIRICALLY, Hugo v0.164.0, 2026-07-28 ──────
+  Colour-only keys (style, tabWidth) are left alone: a consumer retuning colour is not
+  a bug, a consumer restructuring the theme's markup is.
+
+  CI proves this: the exampleSite build is byte-identical with and without
+  HUGO_MARKUP_HIGHLIGHT_LINENOS=true HUGO_MARKUP_HIGHLIGHT_LINENUMBERSINTABLE=true.
+
+  ── .Options VS .Attributes — VERIFIED, Hugo v0.164.0 ─────────────────────────────
 
   Chroma-known keys (`linenos`, `hl_lines`) arrive in .Options with LOWERCASE names;
-  unknown keys (`file`, `prompt`, `output`) arrive in .Attributes. They are not
-  interchangeable — specs/004 §1.
+  unknown keys (`file`, `caption`, `prompt`, `output`) arrive in .Attributes. They are
+  not interchangeable — specs/004 §1.
 
-  Crucially: **.Options is FENCE-ONLY. It does not merge site config.** Built against a
-  site forcing lineNos=true and lineNumbersInTable=true, a block that did not opt in
-  still reported `map[hl_lines:3-4]` with no `linenos` key at all, while the block
-  carrying {linenos=true} reported `map[linenos:true]`.
+  .Options is FENCE-ONLY and does not merge site config, so it is safe to read for the
+  per-block opt-in. .Type is an EMPTY STRING for an untagged fence, not nil.
 
-  So the danger is narrower than it first looks, and the fix is exact: .Options is safe
-  to read for the per-block opt-in, and the leak happens inside transform.Highlight,
-  which applies the site's defaults for any key the CALLER LEAVES UNSET. That is why
-  lineNos and lineNumbersInTable below are passed on every call rather than only when
-  true — an unset key is where the consumer's config gets back in.
+  ── REQ-CB-6 vs Chroma ────────────────────────────────────────────────────────────
 
-  .Type is an EMPTY STRING for an untagged fence, not nil. 93 blocks in the reference
-  corpus have no language tag.
+  Chroma emits `<pre tabindex="0" class="chroma">` unconditionally and exposes no
+  option to suppress it. REQ-CB-6 wants the opposite: a tab stop only where a block
+  actually overflows, which depends on viewport and font metrics and cannot be known
+  at build time. At 18.2 blocks per post an unconditional tab stop per block is a real
+  navigation tax. So the tag is rewritten here with a targeted replace, and code.js
+  re-adds tabindex to the blocks that measure as overflowing.
 
-  ── KNOWN ISSUE FOR THE CODE-BLOCK WORKSTREAM: REQ-CB-6 vs Chroma ─────────────────
-
-  Chroma emits `<pre tabindex="0" class="chroma">` UNCONDITIONALLY — verified in the
-  output of this very hook. REQ-CB-6 requires the opposite: tabindex only on blocks
-  that actually overflow, measured client-side, because overflow depends on viewport
-  and font metrics and cannot be known at build time, and because Chrome 127+ already
-  makes scroll containers focusable. At 18 blocks per post an unconditional tab stop
-  per block is a real navigation tax.
-
-  transform.Highlight exposes no option to suppress it, so the hook has to strip it
-  from the returned markup and let js/modules/code.js re-add it where it belongs.
-  Do that with a targeted `replace` on the emitted <pre> tag, not a blanket one.
-
-  ── OUTPUT SHAPE, for whoever writes the CSS and the JS ───────────────────────────
-      <div class="highlight"><pre class="chroma"><code class="language-X" data-lang="X">
-        <span class="line"><span class="cl"> … tokens … </span></span>
-        <span class="line hl">   ← a {hl_lines} match; note it is `.line.hl`, not `.hl`
+  TWO shapes need stripping, not one. When Chroma has no lexer for the fence language —
+  which a distributable theme cannot prevent, the reference corpus alone carries 47
+  language tags — Hugo falls back to `<pre tabindex="0"><code class="language-X">` with
+  NO `class="chroma"` and NO `.highlight` wrapper at all. Verified on v0.164.0 with
+  ```pascal. Both replacements below are targeted rather than blanket: a `tabindex` in
+  the *content* of a code block is a real thing to be able to write about.
 */ -}}
-{{- $lang := or (trim .Type " ") "text" -}}
+
+{{- $type := lower (trim .Type " ") -}}
+{{- $attrs := .Attributes -}}
+{{- $opts := .Options -}}
+
+{{- /* Q3 — command-output treatment is EXPLICIT, never inferred. `text` and untagged
+       blocks are frequently configuration files, not output, so auto-detection would
+       mislabel them. Two spellings: an `output` fence language, or {output=true}. */ -}}
+{{- $output := eq $type "output" -}}
+{{- with index $attrs "output" -}}
+  {{- if or (eq . true) (eq . "true") }}{{ $output = true }}{{ end -}}
+{{- end -}}
+
+{{- /* Untagged fences reach the hook with .Type == "" — Chroma needs a lexer name.
+       Output is deliberately rendered through the plaintext lexer: the treatment
+       exists precisely to stop terminal output being speculatively coloured. */ -}}
+{{- $lang := or $type "text" -}}
+{{- if $output }}{{ $lang = "text" }}{{ end -}}
 
 {{- $lineNos := false -}}
-{{- with .Options.linenos }}{{ if or (eq . true) (eq . "true") (eq . "table") (eq . "inline") }}{{ $lineNos = true }}{{ end }}{{ end -}}
+{{- with index $opts "linenos" -}}
+  {{- if or (eq . true) (eq . "true") (eq . "table") (eq . "inline") }}{{ $lineNos = true }}{{ end -}}
+{{- end -}}
 
 {{- $hl := "" -}}
-{{- with .Options.hl_lines }}{{ $hl = . }}{{ end -}}
+{{- with index $opts "hl_lines" }}{{ $hl = . }}{{ end -}}
 
-{{- $opts := dict
+{{- /* lineNumbersInTable tracks lineNos rather than being independently configurable:
+       the table form puts the gutter in its own <td>, which is what makes it
+       excludable from a copy (REQ-CB-4). Inline line numbers land inside the same
+       <code> and would be copied with the command. */ -}}
+{{- $hlOpts := dict
     "lineNos" $lineNos
     "lineNumbersInTable" $lineNos
-    "noClasses" false
+    "anchorLineNos" false
+    "lineNoStart" 1
     "hl_lines" $hl
+    "hl_inline" false
+    "noClasses" false
+    "guessSyntax" false
+    "wrapperClass" "highlight"
 -}}
+{{- $html := string (transform.Highlight .Inner $lang $hlOpts) -}}
+{{- $html = replace $html "<pre tabindex=\"0\" class=\"chroma\">" "<pre class=\"chroma\">" -}}
+{{- $html = replace $html "<pre tabindex=\"0\">" "<pre>" -}}
+{{- $html = $html | safeHTML -}}
 
-<div class="rb-code" data-rb-lang="{{ $lang }}">
-{{- transform.Highlight .Inner $lang $opts -}}
+{{- /* Q1 — sh/bash/zsh/ksh/shell all hit Chroma's one Bash lexer already, so there is
+       no normalisation to do. The only work is cosmetic: a DISPLAY label, so a corner
+       tag reads "Shell" and "YAML" rather than "sh" and "Yaml". Anything absent here
+       falls through to title case, which is right for python, ruby, nginx, terraform
+       and the 36-language tail; the map exists for acronyms and for the shell family
+       that dominates the corpus at 79%. */ -}}
+{{- $labels := dict
+  "sh" "Shell" "shell" "Shell" "zsh" "Shell" "ksh" "Shell" "bash" "Bash" "console" "Console"
+  "yaml" "YAML" "yml" "YAML" "json" "JSON" "toml" "TOML" "ini" "INI" "cfg" "INI"
+  "conf" "Config" "env" "Env" "properties" "Properties" "csv" "CSV" "tsv" "TSV"
+  "tf" "Terraform" "hcl" "HCL" "sql" "SQL" "psql" "SQL" "graphql" "GraphQL"
+  "js" "JavaScript" "mjs" "JavaScript" "ts" "TypeScript" "jsx" "JSX" "tsx" "TSX"
+  "html" "HTML" "htm" "HTML" "css" "CSS" "scss" "SCSS" "xml" "XML" "svg" "SVG"
+  "md" "Markdown" "markdown" "Markdown" "rst" "reStructuredText"
+  "py" "Python" "rb" "Ruby" "go" "Go" "golang" "Go" "rs" "Rust" "php" "PHP"
+  "c" "C" "cpp" "C++" "cs" "C#" "kt" "Kotlin" "pl" "Perl" "lua" "Lua"
+  "ps1" "PowerShell" "powershell" "PowerShell" "bat" "Batch" "cmd" "Batch"
+  "dockerfile" "Dockerfile" "docker" "Dockerfile" "makefile" "Makefile" "make" "Makefile"
+  "nginx" "Nginx" "apache" "Apache" "systemd" "systemd" "http" "HTTP" "diff" "Diff"
+  "text" "Text" "txt" "Text" "log" "Log" "proto" "Protobuf"
+-}}
+{{- $label := "" -}}
+{{- if $output -}}
+  {{- $label = i18n "outputLabel" -}}
+{{- else if $type -}}
+  {{- $label = or (index $labels $type) (strings.Title $type) -}}
+{{- end -}}
+
+{{- /* REQ-CB-2 — NO header bar by default. A bar appears only when there is something
+       to put in it. 45.2% of blocks in the reference corpus are exactly one line and
+       57.0% are two or fewer, so a bar-by-default is chrome taller than its content on
+       the majority of blocks, and at 18.2 blocks per post it flickers on and off down
+       the page. Line numbers deliberately do NOT trigger a bar. */ -}}
+{{- $file := "" -}}{{- with index $attrs "file" }}{{ $file = . }}{{ end -}}
+{{- $caption := "" -}}{{- with index $attrs "caption" }}{{ $caption = . }}{{ end -}}
+
+{{- /* REQ-CB-4 / Q2 — prompt stripping is a per-block OPT-IN and is never inferred.
+       1,389 lines across 318 posts begin with "$ ", `#` may be a real shell comment
+       and `$` may be data, and mixed command-and-output blocks are routine. The value
+       is handed to the copy handler; nothing about the rendered code changes. */ -}}
+{{- $prompt := "" -}}{{- with index $attrs "prompt" }}{{ $prompt = . }}{{ end -}}
+{{- $head := or $file $caption -}}
+
+<div class="rb-code" data-rb-lang="{{ $lang }}"
+  {{- if $head }} data-rb-head{{ end }}
+  {{- if $output }} data-rb-output{{ end }}
+  {{- with $prompt }} data-rb-prompt="{{ . }}"{{ end -}}
+>
+{{- if $head -}}
+<div class="rb-code-head">
+  {{- with $file }}<span class="rb-code-file">{{ . }}</span>{{ end -}}
+  {{- with $caption }}<span class="rb-code-caption">{{ . }}</span>{{ end -}}
+</div>
+{{- end -}}
+<div class="rb-code-ui">
+  {{- with $label }}<span class="rb-code-lang">{{ . }}</span>{{ end -}}
+  <button class="rb-code-btn rb-code-wrap" type="button" hidden aria-pressed="false" aria-label="{{ i18n "wrapLines" }}" title="{{ i18n "wrapLines" }}" data-rb-wrap></button>
+  {{- if not $output -}}
+  <button class="rb-code-btn rb-code-copy" type="button" hidden aria-label="{{ i18n "copyAriaLabel" }}" title="{{ i18n "copy" }}" data-rb-copy data-rb-copied="{{ i18n "copied" }}" data-rb-failed="{{ i18n "copyFailed" }}"></button>
+  {{- end -}}
+</div>
+{{- $html -}}
 </div>
