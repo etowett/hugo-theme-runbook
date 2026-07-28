@@ -1,25 +1,66 @@
 {{- /*
-  list/post-item.html — one row of a list view.
+  list/post-item.html — one card of a list view.
 
-  ▸ TEXT-FIRST (ADR-7). No image slot, and no reserved aspect-ratio box. Zero of the
-    reference archive's 497 posts carry a body image and exactly one carries `image:`
-    front matter, so a card grid would be 496 empty rectangles. Cover images remain
-    supported for consumers who have them — Open Graph uses them — they simply do not
-    dictate the list layout.
+  ▸ CARDS WITHOUT PICTURES, CODE AS THE PICTURE.
 
-  Accepts either a page, or a dict so the caller can set the heading level:
+    ADR-7 says list views are text-first: no image slot, no reserved aspect-ratio box.
+    That has not been softened. Zero of the reference archive's 497 posts carry a body
+    image and exactly one carries `image:` front matter, so a photo-shaped card grid
+    would be 496 empty rectangles.
+
+    What those posts DO have is code — 9,046 fenced blocks, 18.2 per post, a median of
+    16. So the card shows the post's own FIRST FENCE, syntax-coloured, capped at four
+    lines. It is the same argument ADR-7 makes, drawn rather than written: the picture
+    is the thing the corpus actually contains.
+
+    Precedence, and the third branch is the load-bearing one:
+
+      1. `image:` / `cover:` front matter  — a real cover image, for consumers who have
+                                             them. Still supported, still never assumed.
+      2. the first fenced block            — what 99% of these posts have
+      3. NOTHING                           — no element, no placeholder, no reserved
+                                             height. The card starts at its title, and
+                                             .rb-post-list-item is a flex column with a
+                                             gap, so a missing child costs zero pixels
+                                             rather than an empty slot. ADR-7 intact.
+
+    Cost control, because this runs once per card per list page and .RawContent is not
+    free: ONE regexp over the raw source, four lines kept (eight on the featured card,
+    which is twice the width), each truncated to 90 characters — a bound on the worst
+    case rather than a fit, since the widest line in the corpus is 854 characters and
+    the plate fades out whatever does not fit. Truncating rather than emitting a scroll container is deliberate — the
+    corpus's longest line is 854 characters, and a scrollable box inside a grid card
+    would either widen its track or hide content behind an interaction nobody would go
+    looking for on a card. A card is for RECOGNISING code, not reading it.
+
+    aria-hidden, and that is not laziness. The plate previews content that exists in
+    full one link away, and the card already gives assistive technology the title, the
+    byline and the summary. Reading four truncated lines of shell aloud per card, on a
+    three-column grid, is noise that makes the list harder to use, not richer.
+
+  ▸ REQ-CB-1 APPLIES HERE TOO. transform.Highlight takes the *consuming site's*
+    markup.highlight defaults for any key left unset, so this call passes the same
+    explicit option set the render hook does. Without it, a consumer with
+    `lineNos = true` would get a line-number gutter inside every card. CI proves it:
+    scripts/check_reqcb1.py builds the whole site twice with those settings forced on
+    and diffs, and list pages are in that diff.
+
+  Accepts either a page, or a dict so the caller can set the heading level and mark
+  the featured card:
 
     {{ partial "list/post-item.html" $page }}
-    {{ partial "list/post-item.html" (dict "page" $page "level" 3) }}
+    {{ partial "list/post-item.html" (dict "page" $page "level" 3 "featured" true) }}
 
   The level matters: the home page nests its list under an <h2> section heading, so
   its items must be <h3> or the document outline is wrong (specs/003 §3.6).
 */ -}}
 {{- $page := . -}}
 {{- $level := 2 -}}
+{{- $featured := false -}}
 {{- if reflect.IsMap . -}}
   {{- $page = .page -}}
   {{- with .level }}{{ $level = . }}{{ end -}}
+  {{- with .featured }}{{ $featured = . }}{{ end -}}
 {{- end -}}
 {{- $summary := "" -}}
 {{- with $page.Description -}}
@@ -27,10 +68,72 @@
 {{- else -}}
   {{- with $page.Summary }}{{ $summary = . | plainify | htmlUnescape | replaceRE `\s+` " " | strings.TrimSpace | truncate 200 "…" }}{{ end -}}
 {{- end -}}
-<li class="rb-post-list-item">
+
+{{- /* 1 — a cover image, if this post actually has one. Resolved here rather than
+       through utils/page-image.html on purpose: that partial falls back to
+       params.runbook.seo.defaultImage, which is right for Open Graph and wrong here —
+       it would put the same picture on every card on the page. */ -}}
+{{- $cover := "" -}}
+{{- with $page.Params.image }}{{ $cover = . }}{{ end -}}
+{{- if not $cover }}{{ with $page.Params.cover }}{{ $cover = . }}{{ end }}{{ end -}}
+{{- $coverURL := "" -}}
+{{- with $cover -}}
+  {{- with $page.Resources.GetMatch . -}}
+    {{- $coverURL = .RelPermalink -}}
+  {{- else -}}
+    {{- with resources.Get . }}{{ $coverURL = .RelPermalink }}{{ else }}{{ $coverURL = $cover | absURL }}{{ end -}}
+  {{- end -}}
+{{- end -}}
+
+{{- /* 2 — otherwise the first fence. `(?s)` so `.` spans lines; the body is non-greedy
+       so it stops at the FIRST closing fence rather than the last one on the page. */ -}}
+{{- $plate := "" -}}
+{{- $plateLabel := "" -}}
+{{- if not $coverURL -}}
+  {{- $m := findRESubmatch "(?s)(?:\\A|\\n)```([A-Za-z0-9_+#-]*)[^\\n]*\\n(.*?)\\n?```" $page.RawContent 1 -}}
+  {{- with $m -}}
+    {{- $first := index . 0 -}}
+    {{- $type := lower (index $first 1) -}}
+    {{- /* Eight lines on the featured card, four elsewhere. The featured card is twice
+           as wide and roughly twice as tall, so a four-line cap left it showing less of
+           the fence than a card a third of its size — and the plate is the picture. */ -}}
+    {{- $cap := cond $featured 8 4 -}}
+    {{- $lines := slice -}}
+    {{- range $i, $line := split (index $first 2) "\n" -}}
+      {{- if lt $i $cap -}}
+        {{- $line = strings.TrimRight "\r" $line -}}
+        {{- $lines = $lines | append (cond (gt (len $line) 90) (printf "%s…" (substr $line 0 89)) $line) -}}
+      {{- end -}}
+    {{- end -}}
+    {{- $src := strings.TrimRight "\n" (delimit $lines "\n") -}}
+    {{- if $src -}}
+      {{- $plateLabel = partial "utils/code-label.html" $type -}}
+      {{- $hlOpts := dict
+          "lineNos" false "lineNumbersInTable" false "anchorLineNos" false "lineNoStart" 1
+          "hl_lines" "" "hl_inline" false "noClasses" false "guessSyntax" false
+          "wrapperClass" "highlight" -}}
+      {{- $html := string (transform.Highlight $src (or $type "text") $hlOpts) -}}
+      {{- /* REQ-CB-6 — Chroma emits `<pre tabindex="0">` unconditionally. On a card
+             that is a tab stop per card, on a list page of up to thirty of them, with
+             nothing to do once you land there. Same targeted replace as the hook. */ -}}
+      {{- $html = replace $html "<pre tabindex=\"0\" class=\"chroma\">" "<pre class=\"chroma\">" -}}
+      {{- $html = replace $html "<pre tabindex=\"0\">" "<pre>" -}}
+      {{- $plate = $html | safeHTML -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+<li class="rb-post-list-item{{ if $featured }} rb-post-list-item--featured{{ end }}">
+  {{- with $coverURL }}
+  <img class="rb-card-cover" src="{{ . }}" alt="" loading="lazy" decoding="async">
+  {{- else }}{{ with $plate }}
+  <div class="rb-card-media">
+    <div class="rb-card-plate" aria-hidden="true">{{ . }}</div>
+    {{- with $plateLabel }}<span class="rb-card-lang" aria-hidden="true">{{ . }}</span>{{ end }}
+  </div>
+  {{- end }}{{ end }}
   <h{{ $level }} class="rb-post-list-title"><a href="{{ $page.RelPermalink }}">{{ $page.LinkTitle }}</a></h{{ $level }}>
-  {{ partial "article/meta.html" $page }}
   {{- with $summary }}
   <p class="rb-post-list-summary">{{ . }}</p>
   {{- end }}
+  {{ partial "article/meta.html" $page }}
 </li>

@@ -16,18 +16,54 @@
 
   Per-page override: `toc: false` in front matter (the same key hugo-theme-stack
   uses, so migrating content does not have to be rewritten).
+
+  ▸ ONE PARTIAL, TWO RENDERS. Below 900px the rail becomes a collapsible sheet, and
+    that is this same file called a second time with `variant "sheet"` rather than a
+    second template that will drift away from this one. It is achievable only because
+    the sheet is a native <details>: a JavaScript sheet would need open/closed state
+    the rail has no concept of, and the core bundle is frozen at three modules
+    (contracts §2.3) so there is nowhere to put it anyway.
+
+    Two things the second render has to get right, and neither is optional:
+
+      * its own heading id, or the page has a duplicate id — which is invalid HTML and
+        breaks `aria-labelledby` for whichever of the two the reader reaches second;
+      * NO `data-rb-toc`, so js/modules/toc.js still binds exactly one TOC. It
+        `querySelector`s a single node, so a second marked element would be silently
+        ignored on desktop and silently preferred if the DOM order ever changed.
+
+    Which one is visible is CSS's business (layout.css), not the template's.
+
+  Called as `.` (a page) for the rail, or as a dict for anything else:
+
+    {{ partial "article/toc.html" . }}
+    {{ partial "article/toc.html" (dict "page" . "variant" "sheet") }}
 */ -}}
-{{- $rb := partialCached "utils/settings.html" . -}}
+{{- $page := . -}}
+{{- $variant := "" -}}
+{{- if reflect.IsMap . -}}
+  {{- $page = .page -}}
+  {{- with .variant }}{{ $variant = . }}{{ end -}}
+{{- end -}}
+{{- $rb := partialCached "utils/settings.html" $page -}}
 {{- $enabled := $rb.toc.enable -}}
-{{- if isset .Params "toc" }}{{ $enabled = .Params.toc }}{{ end -}}
+{{- if isset $page.Params "toc" }}{{ $enabled = $page.Params.toc }}{{ end -}}
 
 {{- if $enabled -}}
-  {{- $args := dict "headings" .Fragments.Headings "min" $rb.toc.minLevel "max" $rb.toc.maxLevel -}}
+  {{- $args := dict "headings" $page.Fragments.Headings "min" $rb.toc.minLevel "max" $rb.toc.maxLevel -}}
   {{- $flat := partial "utils/flatten-headings.html" $args -}}
   {{- if ge (len $flat) $rb.toc.minHeadings -}}
-<nav class="rb-toc" aria-labelledby="rb-toc-heading"{{ if $rb.toc.scrollSpy }} data-rb-toc{{ end }}>
-  <h2 class="rb-toc-heading" id="rb-toc-heading">{{ i18n "tableOfContents" }}</h2>
+    {{- $id := printf "rb-toc-heading%s" (cond (eq $variant "") "" (printf "-%s" $variant)) -}}
+    {{- if eq $variant "sheet" -}}
+<details class="rb-toc-sheet">
+  <summary>{{ i18n "tableOfContents" }}</summary>
+  <ol class="rb-toc-list">{{ partial "article/toc-items.html" $args }}</ol>
+</details>
+    {{- else -}}
+<nav class="rb-toc" aria-labelledby="{{ $id }}"{{ if $rb.toc.scrollSpy }} data-rb-toc{{ end }}>
+  <h2 class="rb-toc-heading" id="{{ $id }}">{{ i18n "tableOfContents" }}</h2>
   <ol class="rb-toc-list">{{ partial "article/toc-items.html" $args }}</ol>
 </nav>
+    {{- end -}}
   {{- end -}}
 {{- end -}}

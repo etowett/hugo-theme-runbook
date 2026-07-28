@@ -38,99 +38,122 @@ otherwise colour every variable name) are left uncoloured too.
 
 ---
 
-## 2. Open decision #1 — the accent hue and both palettes
+## 2. The accent, the plate, and both palettes
 
-### The accent is azure, hue ≈ 212°
+### The ground is warm and the code plate is dark in BOTH themes
 
-`--rb-color-accent` is `#0a58b0` in light and `#58a6ff` in dark. Three reasons, none of them taste:
+This is the decision everything else in the palette follows from, and it is the corpus
+profile drawn rather than a mood.
 
-1. **Convention.** Blue is the only hue a reader already decodes as "link" without the underline
-   doing the work. Runbook underlines links anyway, so the convention is free redundancy.
-2. **Luminance range.** The accent has to clear 4.5:1 as text on `#ffffff` *and* on `#161b22`,
-   at the same hue, or the theme has two accents rather than one. Azure does: 6.92:1 and 6.85:1.
-   Teal and green cannot without desaturating to grey at the dark end; orange cannot without
-   going brown at the light end.
-3. **It is the one hue family the syntax palettes do not use.**
+[002](../specs/002-corpus-profile.md) counts 9,046 fenced blocks, **zero** Markdown body images
+and **one** cover image across 497 posts. A theme for that content has exactly one picture on the
+page and it is the code. So the plate is the darkest, most saturated object on the page in the
+light theme too — `#211f1b` on a `#f5ead8` cream — instead of the barely-tinted rectangle it used
+to be. The ground went warm for the same reason: a near-black plate on a neutral `#ffffff` page
+reads as cold and as a hole; on cream it reads as an object.
 
-### The accent hue is reserved for interaction
+`scripts/check_contrast.py` resolves the plate from `--rb-code-bg`, so this made the gate start
+asserting the **light** theme's syntax palette against a **dark** plate, with no change to the
+gate. That is the whole safety story for this change and it is why the palette below is a
+light-on-dark one in both themes.
 
-No saturated Chroma token in either palette sits within **25°** of 212°, and
-`check_contrast.py` asserts it. The measured clearances are 35° (`.literal`), 55° (`.builtin`),
-84° (`.name`), 127° (`.keyword`), 153° (`.error`), 178° (`.variable`).
+**The plate is `#211f1b` and not the `#2e2b25` the source design drew.** One step deeper, for a
+measured reason: at `#2e2b25` there is no palette that simultaneously clears 4.5:1 on the
+highlight band, clears 4.5:1 on the plate, and keeps every co-occurring token pair separable after
+deuteranopia. The band's floor and the plate's floor close on each other and leave under 1.5:1 of
+lightness to distribute across eight roles — see §3 for why lightness is the escape hatch that
+matters. Three hand-tuned palettes each failed one pair before the constraint was recognised as
+arithmetic rather than taste.
 
-The payoff: on the reading surface, blue means "you can click or focus this" and nothing else.
-It matters most inside a code block, where a focused copy button sits directly on top of coloured
-tokens — a place where a blue keyword and a blue focus ring would compete.
+### The accent is terracotta, hue ≈ 25°
 
-### Method — the palettes were solved, not picked
+`--rb-color-accent` is `#8c491a` in light and `#f6a06b` in dark. This re-closes open decision #1,
+which M1 closed on azure. The three reasons azure won then are worth restating, because two of
+them still hold and the one that changed is the interesting one:
 
-Both palettes were derived by searching contrast targets under the full constraint set rather than
-chosen and then checked. The binding constraints:
+1. **Convention.** Blue is the hue a reader decodes as "link" without the underline doing the
+   work. But Runbook underlines every link anyway, and `text-decoration` — not hue — is what
+   WCAG 1.4.1 accepts as the non-colour signal. The convention was redundancy, not the affordance,
+   so it is affordable to spend.
+2. **Luminance range.** Unchanged as a requirement, and terracotta meets it: `#8c491a` is 5.72:1
+   as text on the cream and `#f6a06b` is 7.96:1 on the warm ink, at one hue.
+3. **It is the one hue family the syntax palettes do not use.** Still true — the reservation moved
+   rather than lapsed.
 
-- every token ≥ 4.5:1 on `--rb-code-bg` **and** on `--rb-code-hl-bg` and its diff band;
+**The cost, stated plainly.** Reserving 25° ± 25° took amber and red away from the syntax palette.
+`--rb-syn-variable` — the shell `$FOO`, the corpus's third-commonest token — lost the obvious
+colour for it and is now the one gold the guard still permits, at 57°. `--rb-syn-error` moved from
+red to rose at 353°, which is why the wavy underline in the class map matters more than it did.
+
+### `--rb-color-focus` is no longer an alias of the accent in the light theme
+
+The focus ring has to clear 3:1 against the cream page **and** against the dark plate, because a
+focused copy button sits on the plate. Solving both at once puts the ring in a narrow luminance
+window; `#8c491a`, tuned for 4.5:1 as *text* on cream, is only 2.07:1 on the plate. `accent-600`
+`#b2622d` satisfies both — 3.77:1 on the page, 3.35:1 on the tinted surface, 3.66:1 on the plate.
+In the dark theme no such conflict exists and focus goes back to being the accent.
+
+### `--rb-color-accent-2` — olive, and deliberately outside the reservation
+
+`#56633f` / `#aebf92`. Structural, never interactive: the series rail, the `{output=true}` marker,
+the blockquote rule. It is held at 4.5:1 so it can carry small text as well as a rule, and it is
+**not** part of the 25° guard, because it never means "click this" and so never competes with
+syntax colour for that meaning.
+
+### Method — the palette was solved, not picked
+
+The eight syntax values below were produced by search, not by hand. The constraint set is:
+
+- ≥ 4.5:1 on `--rb-code-bg` **and** `--rb-code-hl-bg` in both themes, and on the diff bands for
+  the two roles that land on them;
 - every co-occurring pair separated by hue-after-dichromacy **or** by lightness (§3);
+- ≥ 25° clear of the accent hue for anything with HSL S ≥ 0.25;
 - comments the most recessive token, but never below AA.
 
-The result is a palette that is high-contrast by construction — the weakest token in either theme
-is the comment, at 6.54:1 (light) and 6.20:1 (dark), against a 4.5:1 floor.
+That has no obvious closed form, and three successive hand-tuned attempts each failed exactly one
+pair. The search uses the same arithmetic `scripts/check_contrast.py` runs, so the gate is the
+oracle rather than a rubber stamp — reproduce any number below with
+`python3 scripts/check_contrast.py -v`.
 
-### Light — `--rb-code-bg` `#f6f7f9`
+### The syntax palette — ONE set of values, both themes
 
-| Role | Value | On code bg | On `hl-bg` | Chroma classes |
-|---|---|---|---|---|
-| code text | `#14171c` | 16.76:1 | — | *(untokenised — commands)* |
-| `--rb-syn-comment` | `#515a64` | 6.54:1 | 4.58:1 | `c ch cm c1 cs cp cpf sd gp` |
-| `--rb-syn-punct` | `#465160` | 7.52:1 | 5.27:1 | `o p` |
-| `--rb-syn-literal` | `#014743` | 9.88:1 | 6.92:1 | `s sa sb sc dl s2 se sh si sx sr s1 ss l m mb mf mh mi il mo` |
-| `--rb-syn-builtin` | `#5d22a6` | 8.73:1 | 6.12:1 | `nb bp nf fm nc nn` |
-| `--rb-syn-variable` | `#7f4001` | 7.43:1 | 5.21:1 | `nv vc vg vi vm` |
-| `--rb-syn-keyword` | `#760f33` | 10.39:1 | 7.28:1 | `k kc kd kn kp kr kt ow or gd` |
-| `--rb-syn-name` | `#056011` | 7.29:1 | 5.11:1 | `na nt nl no ni nd gi` |
-| `--rb-syn-error` | `#8e1a10` | 8.50:1 | 5.96:1 | `err gr gt` |
+Because the plate is dark in both themes and the two plates differ by 0.006 in relative luminance,
+the same eight foregrounds clear their targets on both. They are declared once, unscoped, in
+`chroma-light.css`. `chroma-dark.css` carries only the two diff bands, which can go deeper against
+the darker plate. The gate still checks both themes independently.
 
-### Dark — `--rb-code-bg` `#161b22`
+| Role | Value | Hue | On plate (light) | On plate (dark) | On `hl-bg` (light) | Chroma classes |
+|---|---|--:|--:|--:|--:|---|
+| code text | `#f5ead8` | — | 13.82:1 | 15.31:1 | — | *(untokenised — commands)* |
+| `--rb-syn-comment` | `#afa18c` | 36° | 6.50:1 | 7.20:1 | 4.72:1 | `c ch cm c1 cs cp cpf sd gp` |
+| `--rb-syn-punct` | `#c5beb3` | 37° | 8.92:1 | 9.88:1 | 6.48:1 | `o p` |
+| `--rb-syn-literal` | `#31cdc4` | 177° | 8.35:1 | 9.25:1 | 6.06:1 | `s sa sb sc dl s2 se sh si sx sr s1 ss l m mb mf mh mi il mo` |
+| `--rb-syn-builtin` | `#c58ff0` | 273° | 6.71:1 | 7.43:1 | 4.87:1 | `nb bp nf fm nc nn` |
+| `--rb-syn-variable` | `#c3bc45` | 57° | 8.30:1 | 9.20:1 | 6.03:1 | `nv vc vg vi vm` |
+| `--rb-syn-keyword` | `#ea95b1` | 340° | 7.39:1 | 8.18:1 | 5.37:1 | `k kc kd kn kp kr kt ow or gd` |
+| `--rb-syn-name` | `#5ace66` | 126° | 8.19:1 | 9.07:1 | 5.95:1 | `na nt nl no ni nd gi` |
+| `--rb-syn-error` | `#fb7c8a` | 353° | 6.54:1 | 7.25:1 | 4.75:1 | `err gr gt` |
 
-| Role | Value | On code bg | On `hl-bg` |
-|---|---|---|---|
-| code text | `#e6edf3` | 14.64:1 | — |
-| `--rb-syn-comment` | `#8f9cad` | 6.20:1 | 4.58:1 |
-| `--rb-syn-punct` | `#9facbc` | 7.50:1 | 5.54:1 |
-| `--rb-syn-literal` | `#49d2c8` | 9.34:1 | 6.90:1 |
-| `--rb-syn-builtin` | `#c296f9` | 7.43:1 | 5.50:1 |
-| `--rb-syn-variable` | `#f48a0a` | 6.99:1 | 5.17:1 |
-| `--rb-syn-keyword` | `#fba6c4` | 9.35:1 | 6.91:1 |
-| `--rb-syn-name` | `#35b546` | 6.47:1 | 4.78:1 |
-| `--rb-syn-error` | `#f88d83` | 7.52:1 | 5.56:1 |
+Measured clearances from the 25° accent: `error` **32°**, `variable` **32°**, `keyword` 45°,
+`name` 101°, `builtin` 112°, `literal` 152°. The two greys sit at HSL S 0.13–0.18 and carry no hue
+signal at all, so the guard exempts them.
 
-Hue angles are **identical across themes** — a reader switching themes should not have to relearn
-which colour means "string". Saturations are not: perceived chroma collapses on a dark background,
-so holding the same nominal saturation reads as washed-out grey. Each hue was re-tuned to land on
-its own contrast target.
+### The page palette
 
-One asymmetry is deliberate. `--rb-syn-variable` sits at 8.2:1 in dark against 6.6:1 in light, and
-`--rb-syn-keyword` inverts with it. The amber/rose pair is the one a deuteranope compresses
-hardest, and on a dark background the amber is the member that has to pull away.
+| Token | Light | On page | On tinted surface | Dark | On page |
+|---|---|--:|--:|---|--:|
+| `--rb-color-text` | `#201e1d` | 13.95:1 | 12.40:1 | `#f5ead8` | 13.82:1 |
+| `--rb-color-text-muted` | `#645c50` | 5.53:1 | 4.92:1 | `#c0b6a5` | 8.21:1 |
+| `--rb-color-text-subtle` | `#675e51` | 5.35:1 | 4.76:1 | `#a19786` | 5.71:1 |
+| `--rb-color-accent` | `#8c491a` | 5.72:1 | 5.09:1 | `#f6a06b` | 7.96:1 |
+| `--rb-color-accent-hover` | `#643312` | 8.72:1 | 7.75:1 | `#ffc6a5` | 10.87:1 |
+| `--rb-color-accent-2` | `#56633f` | 5.43:1 | 4.82:1 | `#aebf92` | 8.36:1 |
+| `--rb-color-border-strong` | `#82796a` | 3.61:1 | 3.21:1 | `#82796a` | 3.83:1 |
 
-### The cost, stated plainly
-
-Holding comments at 6.5:1 is what buys a visible highlight band (§6), because the band's depth is
-capped by the *weakest* token on it. But it also forces strings down to 9.9:1 to keep the 1.5:1
-lightness separation from comments — and teal has its maximum chroma at mid lightness, so the light
-theme's string colour lands at Lab C\* 20.7. That is a deep teal rather than a vivid one: above the
-~20 threshold where a hue starts reading as grey, but not by much, and it is the least saturated
-chromatic token in either palette.
-
-Lightening comments to 5.5:1 would give a richer string colour and collapse the highlight band from
-1.43:1 to roughly 1.20:1. The band is a functional affordance and the string colour is already
-legible as teal, so the band won.
-
-### Why comments are the token most themes fail
-
-Because the instinct is to make comments recede with low **contrast**. This palette uses low
-**chroma** instead: the comment grey is near-neutral (HSL S ≈ 0.11) and still clears 6.5:1. It
-recedes because it has no colour, not because it is faint.
-
----
+`--rb-color-accent-contrast` (`#fff2eb` on the accent fill) is **6.21:1**. The design this comes
+from filled its buttons with the base terracotta `#c67139` and set the label in `#fff2eb`, which
+is **3.29:1** — a fail. The fix was the ramp step, not the hue: the design's own stylesheet
+already set link *text* in `accent-700`, so only the *fill* had been drawn a step too light.
 
 ## 3. Colour as a signal, not just as contrast
 
@@ -197,6 +220,39 @@ construction:
 
 Nothing below the code block moves when the face swaps in. This is why the default is defensible
 against the hard CLS = 0 assertion in [007 §3.3](../specs/007-verification.md#33-lighthouse--rewritten).
+
+### Why there is no display face, and what carries the character instead
+
+The design this palette comes from imports **Caprasimo** and **Figtree** from
+`fonts.googleapis.com`. Success criterion 3 ([001 §5](../specs/001-overview.md)) is *zero
+theme-added third-party hosts* and [ADR-6](../specs/006-architecture-decisions.md) requires
+self-hosting, so the delivery is rejected outright. The question is whether the *type* can be
+kept, and the honest answer is: the geometry yes, the face no.
+
+**The face does not fit.** The font budget is 30 KB and the JetBrains Mono subset already spends
+25,032 B of it, which REQ-FONT-1 makes non-optional — box-drawing glyphs in 44% of the archive.
+That leaves ~5.6 KB. A *display* face needs the full Latin range plus punctuation to set a
+headline honestly, and no such subset lands in 5.6 KB; a display face is also the worst value per
+byte of anything one could add, because it appears on one to three lines per page.
+
+**So Runbook ships the geometry and no face, and says so.** What actually makes a heading read as
+designed rather than as a default is not the family:
+
+| | Default-looking | Runbook |
+|---|---|---|
+| weight | 700 | **400** (`--rb-weight-normal`) |
+| size, article `h1` | ~32px | **46px** (`--rb-text-4xl`) |
+| size, home `h1` | ~40px | **52px** (`--rb-text-5xl`) |
+| line-height | 1.2–1.3 | **1.05** (`--rb-leading-display`) |
+| letter-spacing | 0 | **-0.015em** (`--rb-tracking-display`) |
+
+All four survive the system stack intact and cost nothing. `--rb-font-display` exists as the
+**seam**: it resolves to `--rb-font-sans` by default, and a consumer who wants a display face adds
+one `@font-face` through the `custom-head.html` hook and points that one property at it. Nothing
+else in the theme has to change, and they own the resulting byte count.
+
+Below `h3` the tracking is switched back to `normal` and the weight to 500: at 19px a -0.015em
+pull is a fifth of a pixel per glyph and reads as a rendering fault rather than as tight setting.
 
 ### Why the prose font is off, and absent
 
@@ -325,7 +381,7 @@ Contrast-critical pairs are the ones `check_contrast.py` asserts; everything els
 
 | Token | Purpose | Gated at |
 |---|---|---|
-| `--rb-color-bg` · `--rb-color-bg-subtle` · `--rb-color-surface` | page, tinted surface (table header, blockquote, inline code), card | background |
+| `--rb-color-bg` · `--rb-color-bg-subtle` · `--rb-color-surface` | page, tinted surface (table header, blockquote, inline code, pills), card | background |
 | `--rb-color-text` | body copy | 4.5:1 on both surfaces |
 | `--rb-color-text-muted` | metadata, TOC entries | 4.5:1 on both surfaces |
 | `--rb-color-text-subtle` | decorative only — never load-bearing | 4.5:1 anyway |
@@ -346,8 +402,9 @@ in table headers and blockquotes. The white-background case is then true for fre
 |---|---|---|
 | `--rb-color-accent` | links, active state | 4.5:1 on both surfaces |
 | `--rb-color-accent-hover` | link hover | 4.5:1 |
-| `--rb-color-accent-contrast` | text **on** the accent (skip link) | 4.5:1 against the accent |
-| `--rb-color-focus` | focus ring, aliases the accent | **3:1** on page, subtle **and code** backgrounds |
+| `--rb-color-accent-contrast` | text **on** the accent (skip link, filled pill, brand) | 4.5:1 against the accent |
+| `--rb-color-accent-2` | olive. Structural only — series rail, output marker, blockquote rule. **Outside** the 25° hue reservation | 4.5:1 on both page surfaces |
+| `--rb-color-focus` | focus ring. **Not** an alias of the accent in the light theme — see §2 | **3:1** on page, subtle **and code** backgrounds |
 
 ### Code block
 
@@ -360,10 +417,12 @@ in table headers and blockquotes. The white-background case is then true for fre
 | `--rb-code-hl-bg` | `{hl_lines=…}` band | every token 4.5:1 **on it** |
 | `--rb-code-hl-border` | `{hl_lines=…}` inline-start marker | **3:1** |
 
-> `--rb-code-hl-border` is **new in this workstream and not yet consumed.** `code.css` is owned by
-> the code-block workstream; the marker wants
-> `.highlight .line.hl { border-inline-start: 2px solid var(--rb-code-hl-border); }`.
-> Until then the highlight is carried by the background tint alone.
+> `--rb-code-hl-border` **is now consumed.** `code.css` draws it as
+> `box-shadow: inset 2px 0 0 0 var(--rb-code-hl-border)` on `.line.hl` — `box-shadow` and not
+> `border-inline-start`, because a border on a `display: block` span inside a `<pre>` shifts that
+> one line's text by its own width and breaks the column alignment the bundled font exists to
+> protect. The conformant WCAG 1.4.11 signal for a highlighted line is therefore actually drawn,
+> rather than being carried by the shallow tint alone.
 
 #### Why the highlight band is shallow, and why that is correct
 
@@ -384,10 +443,21 @@ contrast is asserted.
 
 ### Type, space, shape
 
-`--rb-font-sans` / `--rb-font-mono` and their `-system` variants; `--rb-text-*` (base 17px),
-`--rb-leading-*`, `--rb-weight-*`; `--rb-space-1..8` on a 4px base; `--rb-radius-*`;
-`--rb-measure` 70ch, `--rb-content-width`, `--rb-page-width`, `--rb-gutter`; `--rb-target-min` 24px,
-`--rb-focus-width`, `--rb-focus-offset`; `--rb-transition`; `--rb-z-*`.
+`--rb-font-sans` / `--rb-font-mono` / **`--rb-font-display`** and the two `-system` variants;
+`--rb-text-*` (base 17px, up to `-4xl` 46px and `-5xl` 52px), `--rb-leading-*` (including
+**`--rb-leading-display`** 1.05), **`--rb-tracking-display`** -0.015em, `--rb-weight-*`;
+`--rb-space-1..8` on a 4px base; `--rb-radius-sm|md|lg` **8 / 16 / 28px**, plus
+**`--rb-radius-code`** 20px for the plate and **`--rb-radius-pill`** 999px for tags, nav, TOC
+entries and archive rows; **`--rb-shadow-sm|md|lg`**, warm-tinted rather than neutral black
+because a grey shadow on a cream ground reads as dirt; `--rb-measure` 70ch,
+`--rb-content-width`, `--rb-page-width` **72rem**, `--rb-gutter`; `--rb-target-min` 24px and
+**`--rb-target-touch`** 44px, `--rb-focus-width`, `--rb-focus-offset`; `--rb-transition`;
+`--rb-z-header` / **`--rb-z-sheet`** / `--rb-z-skip`.
+
+None of these are configuration. There is deliberately no `params.runbook.accent`, no radius
+setting and no font-size setting: every one of them is a value the contrast gate or the budget
+gate reasons about at build time, and a value from site config is a value neither gate can see.
+Overriding the custom properties directly is the supported route, and §7 says what that costs.
 
 ---
 

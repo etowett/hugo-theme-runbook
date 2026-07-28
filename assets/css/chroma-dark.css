@@ -1,55 +1,41 @@
 /* ═══════════════════════════════════════════════════════════════════════════════
-   chroma-dark.css — the syntax palette: semantic values, dark.
+   chroma-dark.css — the syntax palette: the dark theme's deltas.
    OWNED BY: the design-system workstream.
 
-   The class map lives in chroma-light.css and is written once, unscoped — see the
-   header there for why. This file is values only, and it is the whole dark palette:
-   eleven declarations, twice, for the same reason tokens.css repeats its dark block.
+   Almost everything that used to live here has gone, and the reason is a design
+   decision rather than a tidy-up. The code plate is now dark in BOTH themes
+   (tokens.css): #211f1b on the cream page, #171512 on the warm ink one. Two warm
+   near-blacks 0.006 apart in relative luminance do not need two palettes of eight
+   foregrounds — the same values clear 4.5:1 on both, and scripts/check_contrast.py
+   asserts that independently per theme rather than taking anyone's word for it.
 
-   Both palettes are contrast-checked INDEPENDENTLY. A token that passes on the light
-   background says nothing about the dark one, and the dark background is
-   --rb-code-bg #161b22, not the page background #0d1117 — #161b22 is the lighter of
-   the two and therefore the harder one for light-on-dark text.
+   So the class map and the foreground values are written once, in chroma-light.css,
+   and this file carries only what the darker plate actually changes.
 
-   These are not the light values lightened. Perceived saturation collapses on a dark
-   background, so holding the same hue at the same nominal chroma reads as washed-out
-   grey; each hue is re-tuned at its own saturation to land on the same contrast
-   target it hits in the light theme. The hue angles, however, ARE identical in both
-   themes — a reader switching themes should not have to relearn which colour means
-   "string".
+   ── WHAT IT CHANGES ───────────────────────────────────────────────────────────
+   The diff bands. A band has to stay PERCEPTIBLE against the plate it sits on —
+   check_contrast.py holds them at 1.35:1, explicitly as a perceptibility floor and
+   explicitly not as a WCAG claim — and against #171512 there is room to take both
+   bands deeper than #211f1b allows before they stop registering. Deeper is better
+   here: the band's job is to tint the line, and every point of luminance it gains is
+   a point of contrast the token sitting on it loses.
 
-   One asymmetry is deliberate. --rb-syn-variable sits at 8.2:1 here against 6.6:1 in
-   the light theme, and --rb-syn-keyword at 5.9:1 against 7.6:1. That inverts the
-   light theme's lightness ordering of the amber/rose pair on purpose: it is the pair
-   a deuteranope compresses hardest, and on a dark background the amber is the one
-   that needs to pull away. scripts/check_contrast.py asserts the resulting
-   separation after simulating deuteranopia and protanopia, in both themes.
+   ── THE CONSUMER SURFACE IS UNCHANGED ─────────────────────────────────────────
+   docs/design-tokens.md §7 tells consumers to retheme with
+   `:root[data-theme="dark"] { --rb-syn-literal: … }`. That still works and still
+   wins: the shared values are (0,1,0) `:root` declarations and the override is
+   (0,2,0). A consumer who wants two genuinely different syntax palettes declares the
+   dark one exactly as before; the theme simply no longer ships one it does not need.
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 @media (prefers-color-scheme: dark) {
   :root[data-theme="auto"] {
-    --rb-syn-comment:  #8f9cad;
-    --rb-syn-punct:    #9facbc;
-    --rb-syn-literal:  #49d2c8;
-    --rb-syn-builtin:  #c296f9;
-    --rb-syn-variable: #f48a0a;
-    --rb-syn-keyword:  #fba6c4;
-    --rb-syn-name:     #35b546;
-    --rb-syn-error:    #f88d83;
-    --rb-syn-del-bg:   #5c1d22;
-    --rb-syn-ins-bg:   #183a1e;
+    --rb-syn-del-bg:   #4d2429;
+    --rb-syn-ins-bg:   #1c3618;
   }
 }
 
 :root[data-theme="dark"] {
-  --rb-syn-comment:  #8f9cad;
-  --rb-syn-punct:    #9facbc;
-  --rb-syn-literal:  #49d2c8;
-  --rb-syn-builtin:  #c296f9;
-  --rb-syn-variable: #f48a0a;
-  --rb-syn-keyword:  #fba6c4;
-  --rb-syn-name:     #35b546;
-  --rb-syn-error:    #f88d83;
-  --rb-syn-del-bg:   #5c1d22;
-  --rb-syn-ins-bg:   #183a1e;
+  --rb-syn-del-bg:   #4d2429;
+  --rb-syn-ins-bg:   #1c3618;
 }

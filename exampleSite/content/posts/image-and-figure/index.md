@@ -2,6 +2,11 @@
 title: "Images and figures"
 date: 2026-07-28
 description: "The one fixture that exercises render-image. It exists because the reference archive cannot."
+# The bundle already carries this image; naming it here is what reaches the FIRST branch
+# of list/post-item.html's precedence (cover → first fence → nothing). Without it the
+# card-cover path ships untested, and a capability with no fixture is a capability
+# nobody is testing — which is the same argument the body of this post makes.
+image: "diagram.png"
 tags: ["fixtures"]
 categories: ["Meta"]
 ---

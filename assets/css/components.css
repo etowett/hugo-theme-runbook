@@ -42,8 +42,9 @@
 }
 
 .rb-admonition {
-  padding: var(--rb-space-3) var(--rb-space-4);
+  padding: var(--rb-space-3) var(--rb-space-5);
   background: var(--rb-color-bg-subtle);
+  border-radius: 0 var(--rb-radius-md) var(--rb-radius-md) 0;
   /* Logical, so the rule stays on the reading-start edge in RTL — the theme ships an
      RTL fixture and `border-left` would put this on the wrong side of it. */
   border-inline-start: 3px solid var(--rb-color-border-strong);
@@ -59,26 +60,32 @@
   text-transform: uppercase;
 }
 
-/* TIER — the three types that mean "stop and read this" take the amber already used
-   as the highlighted-line marker. It is reused rather than reinvented because it is
-   the one non-accent hue tokens.css carries that check_contrast.py already asserts at
-   3:1 against --rb-code-bg, and --rb-code-bg is byte-identical to
-   --rb-color-bg-subtle in both palettes — so this pair is gated for free. Coupling
-   noted: if the design-system workstream retunes --rb-code-hl-border for the code
-   block, this border follows it. That is the price of not shipping an ungated colour,
-   and it is the cheap end of the trade. */
+/* TIER — the three types that mean "stop and read this" take the ACCENT, and the
+   reasoning that used to be here has been invalidated rather than merely updated.
+   The old rule borrowed --rb-code-hl-border on the grounds that it was gated at 3:1
+   against --rb-code-bg and that --rb-code-bg was byte-identical to
+   --rb-color-bg-subtle, so the pair came out gated for free. --rb-code-bg is now a
+   dark plate in both themes and that identity is gone: the highlighted-line marker is
+   tuned to be seen on near-black and lands at 2.5:1 on the cream, below the 3:1 this
+   rule was relying on.
+
+   --rb-color-accent is asserted at 4.5:1 on BOTH page surfaces — a stricter bar than
+   the 3:1 a component boundary needs — so the tier is still gated, and by a pair the
+   gate actually checks rather than one it checked by coincidence. The severity is
+   still carried by the type NAME in the DOM; this is reinforcement, never the signal
+   (specs/003 §3.2). */
 .rb-admonition--warning,
 .rb-admonition--caution,
 .rb-admonition--danger {
-  border-inline-start-color: var(--rb-code-hl-border);
+  border-inline-start-color: var(--rb-color-accent);
 }
 
 /* ══ details ══════════════════════════════════════════════════════════════════
    Native <details>, zero JS. `summary { cursor: pointer }` is already in base.css. */
 .rb-details {
-  padding: var(--rb-space-2) var(--rb-space-4);
+  padding: var(--rb-space-2) var(--rb-space-5);
   border: 1px solid var(--rb-color-border);
-  border-radius: var(--rb-radius-sm);
+  border-radius: var(--rb-radius-md);
 }
 .rb-details-summary {
   padding-block: var(--rb-space-1);
@@ -106,9 +113,9 @@
    plus the block padding and the border. */
 .rb-tabs-strip a {
   display: block;
-  padding: var(--rb-space-1) var(--rb-space-3);
+  padding: var(--rb-space-1) var(--rb-space-4);
   border: 1px solid var(--rb-color-border-strong);
-  border-radius: var(--rb-radius-sm);
+  border-radius: var(--rb-radius-pill);
   font-size: var(--rb-text-sm);
   text-decoration: none;
 }

@@ -30,7 +30,7 @@ pre {
   background: var(--rb-code-bg);
   color: var(--rb-code-text);
   border: 1px solid var(--rb-code-border);
-  border-radius: var(--rb-radius-md);
+  border-radius: var(--rb-radius-code);
 
   /* REQ-CB-5 — horizontal scroll, NEVER wrap by default. 1,586 blocks contain a line
      over 80 characters and the longest is 854. Soft-wrapping a `kubeadm join` silently
@@ -88,30 +88,46 @@ pre > code {
 .rb-code pre { margin: 0; }
 
 /* ── REQ-CB-2 — the header bar, and only when there is something to put in it ──
-   {file="…"} or {caption="…"}. Line numbers deliberately do not trigger one. */
+   {file="…"} or {caption="…"}. Line numbers deliberately do not trigger one.
+
+   THE TRIGGER DID NOT MOVE, THE STYLING DID. The design this theme now follows draws
+   every code block with a filename bar. It can: every block it draws HAS a filename —
+   `baseline.sql`, `postgresql.conf`, `vacuum.sh` — and `{file=…}` is exactly what
+   raises this bar today. What REQ-CB-2 rejected was a bar on blocks with nothing to
+   put in it, and that is measured rather than argued: 45.2% of the corpus's 9,046
+   blocks are exactly one line and 57.0% are two or fewer, so a bar-by-default is
+   chrome taller than its own content on the majority of them, flickering on and off
+   down a page that averages 18.2 blocks. A one-line block still gets the corner
+   language tag and the ghost copy control and nothing else.
+
+   The bar is now part of the PLATE rather than a separate box on top of it: same
+   background, separated by a hairline. --rb-color-bg-subtle was correct while the
+   plate was a tint of the page; with the plate dark in both themes it put cream on
+   near-black. Both colours here are gated pairs — --rb-code-text and
+   --rb-code-chrome-fg are asserted against --rb-code-bg by check_contrast.py. */
 .rb-code-head {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: var(--rb-space-1) var(--rb-space-3);
   min-block-size: 2rem;
-  padding: var(--rb-space-2) 7rem var(--rb-space-2) var(--rb-space-4);
-  background: var(--rb-color-bg-subtle);
+  padding: var(--rb-space-3) 7rem var(--rb-space-3) var(--rb-space-5);
+  background: var(--rb-code-bg);
   border: 1px solid var(--rb-code-border);
-  border-block-end: 0;
-  border-radius: var(--rb-radius-md) var(--rb-radius-md) 0 0;
+  border-radius: var(--rb-radius-code) var(--rb-radius-code) 0 0;
   font-size: var(--rb-text-xs);
   line-height: var(--rb-leading-tight);
-  color: var(--rb-color-text-muted);
+  color: var(--rb-code-chrome-fg);
 }
 .rb-code-file {
   font-family: var(--rb-font-mono);
-  color: var(--rb-color-text);
+  color: var(--rb-code-text);
 }
 .rb-code[data-rb-head] pre,
 .rb-code[data-rb-head] div.chroma {
   border-top-left-radius: 0;
   border-top-right-radius: 0;
+  border-block-start: 0;
 }
 
 /* ── The corner row: language tag + controls ────────────────────────────────── */
@@ -165,7 +181,7 @@ pre > code {
   block-size: var(--rb-target-min);
   padding: 0;
   border: 1px solid transparent;
-  border-radius: var(--rb-radius-sm);
+  border-radius: var(--rb-radius-pill);
   background: transparent;
   color: var(--rb-code-chrome-fg);
   cursor: pointer;
@@ -265,10 +281,20 @@ pre > code {
 /* ── {output=true} — Q3, muted and unhighlighted ────────────────────────────────
    The hook renders these through the plaintext lexer and ships no copy button. Do not
    extend this to every `text` or untagged block: many of those are configuration
-   files, and the whole point of the treatment is that it is asked for. */
+   files, and the whole point of the treatment is that it is asked for.
+
+   The foreground is --rb-code-chrome-fg and not --rb-color-text-muted, and that is a
+   correctness fix rather than a preference. The muted PAGE text is near-black in the
+   light theme, and the output plate is now near-black too, so the old pairing would be
+   1.3:1 — unreadable, and invisible to the contrast gate because no assertion covers
+   it. --rb-code-chrome-fg is the theme's "quiet foreground inside the plate" and
+   check_contrast.py already asserts it at 4.5:1 against --rb-code-output-bg
+   specifically, so this pairing is gated. The olive rail is a second, non-colour
+   signal that the block is output rather than a command to run. */
 .rb-code[data-rb-output] pre {
   background: var(--rb-code-output-bg);
-  color: var(--rb-color-text-muted);
+  color: var(--rb-code-chrome-fg);
+  border-inline-start: 3px solid var(--rb-color-accent-2);
 }
 
 /* ── Line numbers — opt-in per block only (REQ-CB-1) ────────────────────────────
@@ -278,7 +304,7 @@ pre > code {
 .rb-code div.chroma {
   background: var(--rb-code-bg);
   border: 1px solid var(--rb-code-border);
-  border-radius: var(--rb-radius-md);
+  border-radius: var(--rb-radius-code);
   /* The WRAPPER scrolls in table mode, not the inner <pre>. A <td> grows to fit its
      content, so an inner scroll container never gets a constrained width to scroll
      against: measured in Chrome at 360px, a line-numbered block simply widened its
@@ -332,10 +358,18 @@ pre > code {
    highlight and its line number disagree. Verified against Hugo v0.164.0 output.
    --rb-code-hl-bg must clear 3:1 against --rb-code-bg in BOTH themes; the contrast
    gate covers it (specs/007 §3.1). */
+/* The inline-start marker is the WCAG 1.4.11 signal and the tint only reinforces it —
+   see the note on --rb-code-hl-bg in tokens.css for why the tint has to stay shallow.
+   docs/design-tokens.md §6 recorded --rb-code-hl-border as "declared but not yet
+   consumed"; it is consumed here, so the conformant signal is now actually drawn.
+   `box-shadow: inset` rather than `border-inline-start`, because a border on a
+   `display: block` span inside a `pre` shifts that one line's text by its width and
+   breaks the column alignment the bundled font exists to protect. */
 .rb-code .line.hl,
 .rb-code .lntable .hl {
   display: block;
   background: var(--rb-code-hl-bg);
+  box-shadow: inset 2px 0 0 0 var(--rb-code-hl-border);
 }
 /* A block-level child spans its parent's CONTENT box, so without this the highlight
    band stops exactly where the inline-end reserve begins and reads as a truncated
