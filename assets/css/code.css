@@ -1,12 +1,19 @@
 /* ═══════════════════════════════════════════════════════════════════════════════
    code.css — THE CODE BLOCK. Runbook's differentiator.
-   OWNED BY: the code-block workstream. Only the REQ-CB-8 base case is written here;
-   the rest of specs/003 §3.3 lands with the render hook.
+   OWNED BY: the code-block workstream. Consumes tokens.css by name; declares none.
 
-   Scale to design against: 9,046 blocks across 497 posts, 18.2 per post, median 16.
-   45.2% are EXACTLY ONE LINE and 57.0% are two lines or fewer. Chrome must never
-   exceed content height (REQ-CB-2), which at that distribution means no header bar by
-   default — a bar appears only when there is something to put in it.
+   Scale to design against: 9,046 blocks across 497 posts, 18.2 per post, median 16,
+   max 158 on one page. 45.2% are EXACTLY ONE LINE and 57.0% are two lines or fewer.
+   Chrome must never exceed content height (REQ-CB-2), which at that distribution
+   means no header bar by default — a bar appears only when there is something to put
+   in it, and every block instead gets one 24px-tall corner row.
+
+   FOUR markup shapes have to be styled, and they are not interchangeable:
+     1. bare        <pre><code>                        indented code, REQ-CB-8
+     2. highlighted <div class=highlight><pre class=chroma><code data-lang>
+     3. no lexer    <pre><code class="language-X">     Hugo's fallback, no wrappers
+     4. line nos    <div class=highlight><div class=chroma><table class=lntable>
+   Selectors below therefore key on `.rb-code pre`, never on `pre.chroma`.
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 /* REQ-CB-8 — `pre > code` is the STYLED BASE CASE; `.highlight` is the enhanced case
@@ -36,10 +43,30 @@ pre {
   tab-size: 4;
 }
 
+/* REQ-CB-3 — reserve inline-end space so the corner chrome never covers code, and so
+   the end of the longest line can always be scrolled clear of it.
+
+   The reserve is on the <code>, NOT on the <pre>, and this is not a style choice.
+   Padding on the inline-end of a horizontal scroll container is not part of its
+   scrollable overflow: a line that runs into that padding neither pushes it along nor
+   raises scrollWidth, so the text ends up UNDER the corner row with no way to scroll
+   it out. Measured in Chrome at 360 px: `sudo dnf -y install redis` had its last 10 px
+   behind the buttons while scrollWidth === clientWidth reported nothing to scroll.
+
+   `width: max-content` makes the code box grow to its longest line so the padding
+   lands after that line and counts as real scrollable width; `min-width: 100%` keeps a
+   short block's line-highlight backgrounds spanning the full visible width.
+
+   Consequence, and it is the right way round: a block whose longest line reaches into
+   the reserve now reports as overflowing and gets a wrap toggle and a tab stop. Those
+   are exactly the blocks with content near the chrome. */
 pre > code {
   display: block;
-  background: none;
+  width: max-content;
+  min-width: 100%;
   padding: 0;
+  padding-inline-end: 6rem;
+  background: none;
   border: 0;
   font: inherit;
   color: inherit;
@@ -49,21 +76,286 @@ pre > code {
 .highlight { margin: 0 0 var(--rb-space-5); }
 .highlight pre { margin: 0; }
 
-.rb-code { margin: 0 0 var(--rb-space-5); }
+/* ── The block wrapper ──────────────────────────────────────────────────────── */
+
+/* The corner row is positioned against THIS element, not against the <pre>. Anything
+   positioned inside the scroll container scrolls away with the code. */
+.rb-code {
+  position: relative;
+  margin: 0 0 var(--rb-space-5);
+}
 .rb-code .highlight,
 .rb-code pre { margin: 0; }
 
-/* Line-number gutter, when a block opts in (REQ-CB-1: opt-in only, never inherited).
-   REQ-CB-4 — it must be excluded from a copy, so it is unselectable. */
-.highlight .lnt,
-.highlight .ln {
+/* ── REQ-CB-2 — the header bar, and only when there is something to put in it ──
+   {file="…"} or {caption="…"}. Line numbers deliberately do not trigger one. */
+.rb-code-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--rb-space-1) var(--rb-space-3);
+  min-block-size: 2rem;
+  padding: var(--rb-space-2) 7rem var(--rb-space-2) var(--rb-space-4);
+  background: var(--rb-color-bg-subtle);
+  border: 1px solid var(--rb-code-border);
+  border-block-end: 0;
+  border-radius: var(--rb-radius-md) var(--rb-radius-md) 0 0;
+  font-size: var(--rb-text-xs);
+  line-height: var(--rb-leading-tight);
+  color: var(--rb-color-text-muted);
+}
+.rb-code-file {
+  font-family: var(--rb-font-mono);
+  color: var(--rb-color-text);
+}
+.rb-code[data-rb-head] pre,
+.rb-code[data-rb-head] div.chroma {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+/* ── The corner row: language tag + controls ────────────────────────────────── */
+.rb-code-ui {
+  position: absolute;
+  inset-block-start: var(--rb-space-1);
+  inset-inline-end: var(--rb-space-1);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--rb-space-1);
+  /* The row is a layout box over the code; only its buttons take pointer events, so
+     text selection and scrolling still work through the gaps. */
+  pointer-events: none;
+}
+
+/* Q1 — a DISPLAY label only. `sh`, `bash`, `zsh` and `shell` all hit Chroma's one Bash
+   lexer already; the hook maps them to "Shell" for the reader and changes nothing else.
+   Excluded from selection so a whole-article copy does not pick up "Shell YAML Shell". */
+.rb-code-lang {
+  font-family: var(--rb-font-mono);
+  font-size: var(--rb-text-xs);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--rb-code-chrome-fg);
+  padding-inline: var(--rb-space-1);
+  user-select: none;
+  -webkit-user-select: none;
+  /* Bounds the width of the whole row, which is what the reserve above is sized
+     against. Without a cap, one `reStructuredText` block would put its own corner row
+     over the end of its longest line. */
+  max-inline-size: 4.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* REQ-CB-3 — the copy control is ALWAYS present, never hover-revealed: a
+   hover-revealed control has no trigger at all on a coarse pointer, and iOS Safari is
+   in the browser matrix. "Ghost" here means no border and no surface at rest — NOT
+   reduced opacity, which would drop the icon below 3:1 and fail the contrast gate.
+   --rb-code-chrome-fg is already a passing muted value; hover and focus swap it for
+   --rb-code-chrome-fg-hover and add a surface. */
+.rb-code-btn {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* WCAG 2.2 target size — specs/003 §3.6. --rb-target-min is 24px. */
+  inline-size: var(--rb-target-min);
+  block-size: var(--rb-target-min);
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--rb-radius-sm);
+  background: transparent;
+  color: var(--rb-code-chrome-fg);
+  cursor: pointer;
+  transition: color var(--rb-transition), background-color var(--rb-transition),
+              border-color var(--rb-transition);
+}
+
+/* `[hidden]` in the UA sheet is a bare element selector and LOSES to `.rb-code-btn`'s
+   display. Without this rule every control renders for readers with JavaScript off —
+   which is the exact failure the `hidden` attribute is there to prevent. */
+.rb-code-btn[hidden] { display: none; }
+
+.rb-code:hover .rb-code-btn,
+.rb-code:focus-within .rb-code-btn {
+  background: var(--rb-code-bg);
+  border-color: var(--rb-code-border);
+}
+.rb-code-btn:hover,
+.rb-code-btn:focus-visible {
+  color: var(--rb-code-chrome-fg-hover);
+  background: var(--rb-code-bg);
+  border-color: var(--rb-color-border-strong);
+}
+
+/* REQ-CB-3 — coarse pointers have no hover state to reveal anything with, so the
+   controls are at full contrast permanently. */
+@media (hover: none), (pointer: coarse) {
+  .rb-code-btn {
+    color: var(--rb-code-chrome-fg-hover);
+    background: var(--rb-code-bg);
+    border-color: var(--rb-code-border);
+  }
+}
+
+/* Icons are masked pseudo-elements rather than inline SVG: an SVG in the markup costs
+   its bytes once per block, and at 9,046 blocks the theme should not be paying for
+   the same two glyphs 9,046 times. If a browser ignores mask-image the button still
+   paints a small solid square — visible and operable, never invisible. */
+.rb-code-btn::before {
+  content: "";
+  inline-size: 14px;
+  block-size: 14px;
+  background-color: currentColor;
+}
+.rb-code-copy::before {
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='9' width='13' height='13' rx='2'/%3E%3Cpath d='M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1'/%3E%3C/svg%3E") center / 14px no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='9' width='13' height='13' rx='2'/%3E%3Cpath d='M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1'/%3E%3C/svg%3E") center / 14px no-repeat;
+}
+/* Copy confirmation is announced to assistive technology through an aria-live region;
+   this is the same confirmation for everyone else. */
+.rb-code-copy[data-rb-state="ok"] { color: var(--rb-code-chrome-fg-hover); }
+.rb-code-copy[data-rb-state="ok"]::before {
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 12.5 9 17.5 20 6.5'/%3E%3C/svg%3E") center / 14px no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 12.5 9 17.5 20 6.5'/%3E%3C/svg%3E") center / 14px no-repeat;
+}
+.rb-code-wrap::before {
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 5h18M3 19h6M3 12h13a3 3 0 0 1 0 6h-4l2-2m-2 2 2 2'/%3E%3C/svg%3E") center / 14px no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 5h18M3 19h6M3 12h13a3 3 0 0 1 0 6h-4l2-2m-2 2 2 2'/%3E%3C/svg%3E") center / 14px no-repeat;
+}
+.rb-code-wrap[aria-pressed="true"] {
+  color: var(--rb-code-chrome-fg-hover);
+  background: var(--rb-code-bg);
+  border-color: var(--rb-color-border-strong);
+}
+
+/* The copy confirmation for screen readers. One region per page, created by code.js,
+   so there is nothing to announce and nothing in the DOM until JavaScript runs. */
+.rb-code-live {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ── REQ-CB-5 — the wrap toggle ─────────────────────────────────────────────────
+   Session-local and NOT persisted, which is a behaviour in code.js, not here: this is
+   only the visual half. Wrapping is a property of the one long line being inspected,
+   not a reading preference — persisting it silently re-breaks the next command the
+   reader copies by eye. What is copied never changes with it. */
+.rb-code[data-rb-wrapped] pre {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+/* max-content is the width of the longest UNWRAPPED line, so it has to go or the box
+   stays wide and nothing wraps. The reserve stays: wrapped text must clear the corner
+   row too. */
+.rb-code[data-rb-wrapped] pre > code {
+  width: auto;
+  min-width: 0;
+}
+
+/* ── {output=true} — Q3, muted and unhighlighted ────────────────────────────────
+   The hook renders these through the plaintext lexer and ships no copy button. Do not
+   extend this to every `text` or untagged block: many of those are configuration
+   files, and the whole point of the treatment is that it is asked for. */
+.rb-code[data-rb-output] pre {
+  background: var(--rb-code-output-bg);
+  color: var(--rb-color-text-muted);
+}
+
+/* ── Line numbers — opt-in per block only (REQ-CB-1) ────────────────────────────
+   In table mode the border and background move to the wrapper so the gutter and the
+   code do not render as two separate boxes side by side. `div.chroma` exists ONLY in
+   table mode; in every other mode `chroma` is a class on the <pre> itself. */
+.rb-code div.chroma {
+  background: var(--rb-code-bg);
+  border: 1px solid var(--rb-code-border);
+  border-radius: var(--rb-radius-md);
+  /* The WRAPPER scrolls in table mode, not the inner <pre>. A <td> grows to fit its
+     content, so an inner scroll container never gets a constrained width to scroll
+     against: measured in Chrome at 360px, a line-numbered block simply widened its
+     table and the excess was clipped by the wrapper — invisible AND unreachable, with
+     scrollWidth === clientWidth reporting nothing wrong. The gutter scrolling away
+     with the code is the accepted cost; unreachable code is not. */
+  overflow-x: auto;
+}
+.rb-code div.chroma pre {
+  border: 0;
+  border-radius: 0;
+  background: none;
+  overflow: visible;
+}
+.rb-code .lntable {
+  width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+  font-size: inherit;
+}
+.rb-code .lntable td.lntd {
+  padding: 0;
+  border: 0;
+  vertical-align: top;
+  background: none;
+}
+/* The gutter is not code, so it reserves nothing. */
+.rb-code .lntable td.lntd:first-child pre {
+  padding-inline-end: var(--rb-space-2);
+}
+.rb-code .lntable td.lntd:first-child pre > code {
+  width: auto;
+  min-width: 0;
+  padding-inline-end: 0;
+}
+.rb-code .lntable td.lntd:last-child { width: 100%; }
+
+/* REQ-CB-4 — the gutter must be excluded from a copy. code.js copies the
+   `code[data-lang]` element, which is the other <td>, so this is belt and braces for
+   a manual drag-select. */
+.lnt, .ln {
   color: var(--rb-code-gutter-fg);
   user-select: none;
   -webkit-user-select: none;
 }
 
-/* {hl_lines=...} — for the 3.5% of blocks over 30 lines.
-   Chroma emits `<span class="line hl">`, so the selector is `.line.hl` — a bare `.hl`
-   matches nothing. Verified against Hugo v0.164.0 output. --rb-code-hl-bg must clear
-   3:1 against --rb-code-bg in BOTH themes; the contrast gate covers it (specs/007 §3.1). */
-.highlight .line.hl { background: var(--rb-code-hl-bg); display: block; }
+/* {hl_lines=…} — for the 3.5% of blocks over 30 lines.
+   Chroma emits `<span class="line hl">` on the code side, so the selector is
+   `.line.hl` — a bare `.hl` matches nothing there. In the line-number gutter it emits
+   the opposite: a bare `<span class="hl">` wrapping the `.lnt`. Both are needed or the
+   highlight and its line number disagree. Verified against Hugo v0.164.0 output.
+   --rb-code-hl-bg must clear 3:1 against --rb-code-bg in BOTH themes; the contrast
+   gate covers it (specs/007 §3.1). */
+.rb-code .line.hl,
+.rb-code .lntable .hl {
+  display: block;
+  background: var(--rb-code-hl-bg);
+}
+/* A block-level child spans its parent's CONTENT box, so without this the highlight
+   band stops exactly where the inline-end reserve begins and reads as a truncated
+   highlight rather than a highlighted line. */
+.rb-code .line.hl {
+  margin-inline-end: -6rem;
+  padding-inline-end: 6rem;
+}
+
+/* ── Narrow viewports ───────────────────────────────────────────────────────────
+   Below ~480px the corner row and the code are competing for the same 310px. Holding
+   the desktop reserve there costs 112px — over a third of the column — and turns
+   `sudo dnf -y install redis`, the single most common block shape in the corpus, into
+   a scroll container. The language tag is the only decorative thing in that row, and
+   the same information is still on the element as data-rb-lang and on the <code> as
+   `language-*`, so it is what gives way. The copy control never does: REQ-CB-3 exists
+   because this is exactly where a hover-revealed control would have vanished. */
+@media (max-width: 30rem) {
+  .rb-code-lang { display: none; }
+  pre > code { padding-inline-end: 3.75rem; }
+  .rb-code .line.hl { margin-inline-end: -3.75rem; padding-inline-end: 3.75rem; }
+  .rb-code-head { padding-inline-end: 4.25rem; }
+}
