@@ -1,0 +1,339 @@
+name: Archive parity
+
+# specs/007 §2 Layer 2 — the archive smoke build, plus the specs/010 §2 URL manifest diff.
+#
+# ── WHY THIS IS NOT ON THE PULL-REQUEST PATH ─────────────────────────────────────────
+#
+# Not because it is slow. The whole job is about 90 seconds: two Hugo builds of 1,154
+# pages at ~4 s each, a manifest diff at ~11 s, and the gzip distribution.
+#
+# It is off the PR path because **the reference archive is a private repository and this
+# one is public**. Reading it needs a token, and:
+#
+#   * `pull_request` from a fork gets no secrets, so the job would fail on every
+#     external contribution — a red X nobody can act on, which is precisely what
+#     docs/verification.md §2 says teaches people to ignore CI;
+#   * a public repository's workflow that can read a private repository is a surface
+#     worth keeping down to triggers only a maintainer can pull.
+#
+# `workflow_dispatch` and `schedule` both run from the base repository with base-repo
+# secrets and are never triggered by a fork. That is the whole reason for this split.
+#
+# ── WHAT IS NEVER UPLOADED ───────────────────────────────────────────────────────────
+#
+# The built site. Artifacts on a public repository are downloadable by anyone, and the
+# build is the full text of a private content repository. The manifests ARE uploaded:
+# they contain only URLs, canonicals and sitemap entries of a site that is public on the
+# web, and without them a failure is unactionable.
+#
+# ── CONTENT IS PINNED ────────────────────────────────────────────────────────────────
+#
+# specs/007 §2 requires the corpus pinned. It is pinned to a SHA below rather than to a
+# branch, because a "no regression against the baseline" comparison across two different
+# content commits measures the corpus changing, not the theme changing (specs/005 §3.1).
+# Bump CITIZIX_REF deliberately, in its own commit, and regenerate the budget baseline in
+# the same one.
+
+on:
+  workflow_dispatch:
+    inputs:
+      citizix_ref:
+        description: "Reference-archive commit to build (default: the pinned SHA)"
+        type: string
+        required: false
+      enforce_page_weight:
+        description: "Enforce the page-weight distribution gates"
+        type: boolean
+        default: false
+  schedule:
+    # 04:00 UTC Sundays. Weekly, not daily: the archive changes on its own schedule and
+    # nothing here can break without either this repository or that one moving.
+    - cron: "0 4 * * 0"
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: parity-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CITIZIX_REPO: etowett/citizix
+  # Pinned 2026-07-28. 500 posts, 8,907 fenced code blocks, 1,154 pages, 357 aliases.
+  CITIZIX_REF: dc1b32120de94cb8698bb17654f9ee03ac435efe
+  # Assertions on the RUNBOOK build at that content pin. Non-alias HTML pages and
+  # meta-refresh aliases respectively; see docs/migration.md §1 for why they differ from
+  # Stack's 1,089 / 356.
+  EXPECT_PAGES: 1058
+  EXPECT_ALIASES: 354
+
+jobs:
+  parity:
+    name: Reference archive — build, diff, weigh
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the theme
+        uses: actions/checkout@v7
+        with:
+          path: hugo-theme-runbook
+
+      - name: Is the archive reachable?
+        id: gate
+        env:
+          TOKEN: ${{ secrets.CITIZIX_TOKEN }}
+        run: |
+          if [ -z "${TOKEN}" ]; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::CITIZIX_TOKEN is not set — the reference archive is private."
+            echo "::notice::Skipping cleanly rather than failing: a fork cannot have this secret,"
+            echo "::notice::and a permanent red X on work nobody can fix is worse than no check."
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out the reference archive (pinned)
+        if: steps.gate.outputs.available == 'true'
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ env.CITIZIX_REPO }}
+          ref: ${{ inputs.citizix_ref || env.CITIZIX_REF }}
+          token: ${{ secrets.CITIZIX_TOKEN }}
+          # hugo-theme-stack is a submodule and is the baseline half of the diff.
+          submodules: true
+          path: archive
+          persist-credentials: false
+
+      - name: Install Hugo
+        if: steps.gate.outputs.available == 'true'
+        uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: latest
+          extended: true
+
+      - name: Stage two source trees
+        if: steps.gate.outputs.available == 'true'
+        # Never build in the checkout itself — see the "not yours to change" rule in
+        # specs/010. Each migration step below is a documented step in
+        # docs/migration.md; this job is the executable form of that guide, so a change
+        # to one that is not made in the other will show up as a parity failure.
+        run: |
+          set -euo pipefail
+          STACK="$RUNNER_TEMP/stack-site"
+          RB="$RUNNER_TEMP/runbook-site"
+          mkdir -p "$STACK" "$RB"
+
+          # Baseline: the archive exactly as it ships, overrides and all.
+          for d in content static assets archetypes layouts themes; do
+            cp -R "archive/$d" "$STACK/"
+          done
+          cp archive/config.yaml "$STACK/"
+
+          # Candidate: the same content with the migration applied.
+          #  · no site layouts     — migration.md §5, all eleven overrides retire
+          #  · no theme submodule  — Runbook comes from --themesDir
+          #  · a rewritten config  — migration.md §2.3
+          for d in content static assets archetypes; do
+            cp -R "archive/$d" "$RB/"
+          done
+          cp hugo-theme-runbook/.github/parity/citizix-runbook.yaml "$RB/config.yaml"
+
+          #  · the search page must drop `json` from `outputs` — migration.md §3.
+          #    Runbook ships no JSON output template for a page kind, and under
+          #    --panicOnWarning the missing layout is a hard build failure rather than a
+          #    line that scrolls past.
+          python3 - "$RB/content/page/search/index.md" <<'PY'
+          import re, sys
+          p = sys.argv[1]
+          t = open(p, encoding="utf-8").read()
+          new = re.sub(r"(?m)^\s*-\s*json\s*$\n", "", t, count=1)
+          if new == t:
+              sys.exit("search page no longer declares `outputs: json` — "
+                       "delete this step and the paragraph in docs/migration.md §3")
+          open(p, "w", encoding="utf-8").write(new)
+          PY
+
+          echo "STACK_SITE=$STACK" >> "$GITHUB_ENV"
+          echo "RB_SITE=$RB" >> "$GITHUB_ENV"
+
+      - name: Build the baseline (hugo-theme-stack)
+        if: steps.gate.outputs.available == 'true'
+        run: |
+          hugo --source "$STACK_SITE" \
+               --destination "$RUNNER_TEMP/public-stack" \
+               --cleanDestinationDir --gc --minify
+
+      - name: Build the candidate (Runbook)
+        if: steps.gate.outputs.available == 'true'
+        # --panicOnWarning is the point of this step. Hugo logs a missing layout, a
+        # shortcode called with the wrong arguments and a deprecated function at WARN and
+        # then exits 0, so without it a build that renders nothing useful is a green tick.
+        run: |
+          hugo --source "$RB_SITE" \
+               --themesDir "$GITHUB_WORKSPACE" \
+               --theme hugo-theme-runbook \
+               --destination "$RUNNER_TEMP/public-runbook" \
+               --cleanDestinationDir --gc --minify \
+               --panicOnWarning --printPathWarnings
+
+      - name: REQ-CB-1 at archive scale
+        if: steps.gate.outputs.available == 'true'
+        # The per-PR gate (scripts/check_reqcb1.py) proves this on exampleSite in a few
+        # seconds and is strictly stronger as a test of *structure*. This run proves it
+        # against 8,907 real fenced blocks in 47 languages, which is the input the
+        # fixture is a model of. Both are worth having; only this one meets the corpus.
+        run: |
+          HUGO_MARKUP_HIGHLIGHT_LINENOS=true \
+          HUGO_MARKUP_HIGHLIGHT_LINENUMBERSINTABLE=true \
+          hugo --source "$RB_SITE" \
+               --themesDir "$GITHUB_WORKSPACE" \
+               --theme hugo-theme-runbook \
+               --destination "$RUNNER_TEMP/public-hostile" \
+               --cleanDestinationDir --gc --minify \
+               --panicOnWarning
+          if ! diff -rq "$RUNNER_TEMP/public-runbook" "$RUNNER_TEMP/public-hostile"; then
+            echo "::error::REQ-CB-1 — the archive build is NOT identical under the"
+            echo "::error::consumer's own lineNos/lineNumbersInTable configuration."
+            exit 1
+          fi
+          echo "Byte-identical under hostile line-number configuration."
+
+      - name: Build-wide invariants
+        if: steps.gate.outputs.available == 'true'
+        working-directory: hugo-theme-runbook
+        run: |
+          python3 scripts/check_parity.py --audit "$RUNNER_TEMP/public-runbook" \
+                  --expect-pages "$EXPECT_PAGES" --expect-aliases "$EXPECT_ALIASES"
+
+      - name: URL / canonical / RSS / sitemap / OG / JSON-LD manifest diff
+        if: steps.gate.outputs.available == 'true'
+        working-directory: hugo-theme-runbook
+        # Fails on any difference that is not in .github/parity/reviewed-differences.json
+        # WITH A REASON. A theme swap producing zero differences would mean the new theme
+        # was the old theme; the deliverable is that every difference is deliberate and
+        # written down.
+        #
+        # Emitted as two manifests and then diffed, rather than diffed in one pass, so
+        # that a failure leaves both artefacts behind. Without them the report says what
+        # moved but not what the other side looked like.
+        run: |
+          python3 scripts/check_parity.py --emit "$RUNNER_TEMP/public-stack" \
+                  --out "$RUNNER_TEMP/manifest-stack.json"
+          python3 scripts/check_parity.py --emit "$RUNNER_TEMP/public-runbook" \
+                  --out "$RUNNER_TEMP/manifest-runbook.json"
+          python3 scripts/check_parity.py \
+                  --manifests "$RUNNER_TEMP/manifest-stack.json" \
+                              "$RUNNER_TEMP/manifest-runbook.json" \
+                  --json "$RUNNER_TEMP/parity-diff.json"
+
+      - name: JSON-LD parses, and Article values are asserted
+        if: steps.gate.outputs.available == 'true'
+        working-directory: hugo-theme-runbook
+        # --require-article because this corpus is 489 article pages: without it the
+        # value assertions are inert and the check degrades to "the JSON parses", which
+        # is exactly what let the reference site ship double-encoded structured data on
+        # 493 of 493 pages for months (specs/004 §2a).
+        run: python3 scripts/check_jsonld.py "$RUNNER_TEMP/public-runbook" --require-article
+
+      - name: Internal link and fragment crawl
+        if: steps.gate.outputs.available == 'true'
+        working-directory: hugo-theme-runbook
+        # ⚠️ ADVISORY, and only because of a bug in the ARCHIVE, not in the theme.
+        #
+        # The Runbook build now has exactly the same link health as the Stack build: one
+        # failure, `#security-hardening` on a page that defines no such heading, which
+        # fails identically on both. It is a content bug in the reference site and the fix
+        # belongs there (docs/migration.md §9). Blocking this job on it would mean a red X
+        # that nobody working on the THEME can act on, which docs/verification.md §2 says
+        # is how people learn to ignore CI.
+        #
+        # Remove `continue-on-error` once the archive fixes that link. Everything else the
+        # crawl used to report here was the raw-vs-percent-encoded fragment comparison,
+        # fixed in scripts/check_links.py in this change.
+        #
+        # Internal links only. The external sweep is weekly and lives in scheduled.yml
+        # (specs/007 §3.5): it takes minutes over thousands of links and fails when a
+        # third party's documentation site is down.
+        continue-on-error: true
+        run: python3 scripts/check_links.py "$RUNNER_TEMP/public-runbook"
+
+      - name: Page weight — distribution and per-page no-regression
+        if: steps.gate.outputs.available == 'true'
+        working-directory: hugo-theme-runbook
+        # The baseline is captured from the SAME content commit as the comparison, in the
+        # same job, on the same runner. All three matter: a different commit measures the
+        # corpus changing, and a different platform measures gzip changing — GNU gzip and
+        # Apple gzip disagree on the same bytes (docs/verification.md §1).
+        #
+        # --article-glob is explicit because the archive uses flat /:slug/ permalinks and
+        # the default `posts/*/index.html` matches nothing there.
+        run: |
+          python3 scripts/check_budgets.py "$RUNNER_TEMP/public-stack" \
+                  --article-glob '*/index.html' \
+                  --write-baseline "$RUNNER_TEMP/stack-baseline.json"
+          python3 scripts/check_budgets.py "$RUNNER_TEMP/public-runbook" \
+                  --article-glob '*/index.html' \
+                  --baseline "$RUNNER_TEMP/stack-baseline.json" \
+                  --json "$RUNNER_TEMP/budgets.json" \
+                  ${{ inputs.enforce_page_weight && '--enforce-page-weight' || '' }}
+
+      - name: Upload the manifests
+        if: always() && steps.gate.outputs.available == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-manifests
+          # URLs, canonicals, sitemap entries and byte counts only. The BUILT SITE is
+          # deliberately absent: artifacts on a public repository are downloadable by
+          # anyone and the build is the full text of a private content repository.
+          path: |
+            ${{ runner.temp }}/manifest-stack.json
+            ${{ runner.temp }}/manifest-runbook.json
+            ${{ runner.temp }}/parity-diff.json
+            ${{ runner.temp }}/stack-baseline.json
+            ${{ runner.temp }}/budgets.json
+          retention-days: 14
+
+      - name: Open or update a tracking issue
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          TITLE="Archive parity against the reference site is failing"
+          cat > "$RUNNER_TEMP/body.md" <<'BODY'
+          The weekly archive parity build failed.
+
+          Read the failing step first — the three failure modes need completely different
+          responses:
+
+          * **The manifest diff.** A URL, canonical, alias, RSS item, sitemap entry, `og:url`
+            or JSON-LD `mainEntityOfPage` moved. Either put it back, or add a rule to
+            `.github/parity/reviewed-differences.json` **with a reason** — the reason is
+            structurally mandatory and `scripts/check_parity.py` fails on an empty one, so
+            that the next person tidying the file cannot delete a real decision.
+          * **REQ-CB-1.** The archive build stopped being byte-identical under the reference
+            site's own `lineNos` / `lineNumbersInTable` settings. Something in
+            `layouts/_markup/render-codeblock.html` stopped forcing a structure-changing key,
+            and the consumer's configuration is back in the theme's output.
+            docs/contracts.md §3 has the mechanism: an UNSET key is where it gets in.
+          * **Page weight.** Check whether it is the distribution gate or the per-page
+            no-regression rule. The second one is the meaningful test — a theme cannot
+            compress content, but it must never make a given page heavier than the theme it
+            replaced rendered it.
+
+          If the archive content moved rather than the theme, bump `CITIZIX_REF` in this
+          workflow in its own commit and say so — the baseline and the comparison have to be
+          the same content commit or the numbers measure the corpus, not the theme.
+          BODY
+          printf '\nRun: %s\n' "$RUN_URL" >> "$RUNNER_TEMP/body.md"
+          EXISTING=$(gh issue list --state open --label ci-parity \
+            --search "$TITLE in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh label create ci-parity --description "Opened by the archive parity job" \
+              --color 0E8A16 2>/dev/null || true
+            gh issue create --title "$TITLE" --label ci-parity \
+              --body-file "$RUNNER_TEMP/body.md"
+          fi
