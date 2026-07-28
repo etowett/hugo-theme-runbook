@@ -1,0 +1,108 @@
+# citizix content built with hugo-theme-runbook.
+# Derived from ~/Code/my/citizix/config.yaml by scripts/check_parity.py's documented
+# recipe (docs/migration.md). Everything that is theme-independent is carried over
+# byte-for-byte so the parity diff isolates THEME differences, not config drift.
+
+baseurl: "https://citizix.com/"
+locale: en-us
+theme: hugo-theme-runbook
+pagination:
+  pagerSize: 10
+title: Citizix, The Best blog for Linux, Opensource, Devops, Cloud and all things awesome tech.
+copyright: Citizix, Ltd.
+
+languages:
+  en:
+    label: English
+    title: Citizix, The Best blog for Linux, Opensource, Devops, Cloud and all things awesome tech.
+    weight: 1
+    params:
+      description: The best blog for Devops, Cloud, Infrastructure, Opensource and Tech Content
+
+disqusShortname: citizix
+googleAnalytics: G-3N524KGTGT
+DefaultContentLanguage: en
+hasCJKLanguage: false
+
+permalinks:
+  post: /:slug/
+  page: /:slug/
+
+params:
+  mainSections:
+    - post
+  description: The best blog for Devops, Cloud, Infrastructure, Opensource and Tech Content
+
+  runbook:
+    themeMode: auto
+    showThemeToggle: true
+    dateFormat: "Jan 02, 2006"
+    author:
+      name: Eutychus Towett
+      url: https://citizix.com/about-us/
+    logo: /android-chrome-512x512.png
+    seo:
+      jsonLd: true
+      twitterSite: "@citizixdotcom"
+      defaultImage: /og-default.png
+    toc:
+      enable: true
+      minLevel: 2
+      maxLevel: 4
+    related:
+      enable: true
+      limit: 5
+    search:
+      enable: false
+    taxonomy:
+      rareThreshold: 1
+
+related:
+  includeNewer: true
+  threshold: 60
+  toLower: false
+  indices:
+    - name: tags
+      weight: 100
+    - name: categories
+      weight: 200
+
+markup:
+  goldmark:
+    renderer:
+      unsafe: false
+  tableOfContents:
+    endLevel: 4
+    ordered: true
+    startLevel: 2
+  highlight:
+    noClasses: false
+    codeFences: true
+    guessSyntax: true
+    lineNoStart: 1
+    lineNos: false
+    lineNumbersInTable: false
+    tabWidth: 4
+
+minify:
+  disableHTML: false
+  disableCSS: false
+  disableJS: false
+  disableJSON: false
+  disableXML: false
+  minifyOutput: true
+  tdewolff:
+    html:
+      keepWhitespace: false
+    css:
+      version: 2
+      precision: 2
+    js:
+      keepVarNames: false
+      precision: 2
+
+imaging:
+  resampleFilter: lanczos
+  quality: 85
+  anchor: smart
+  bgColor: "#ffffff"

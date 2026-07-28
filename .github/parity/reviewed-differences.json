@@ -1,0 +1,71 @@
+{
+  "$comment": [
+    "Reviewed differences between the hugo-theme-stack build and the Runbook build of",
+    "the reference archive (citizix.com). Consumed by scripts/check_parity.py.",
+    "",
+    "EVERY RULE NEEDS A NON-EMPTY `reason` AND THE SCRIPT ENFORCES THAT.  An",
+    "unexplained allow-rule is indistinguishable from someone silencing a real",
+    "regression; six months later nobody can tell which it was.  Same rule, same",
+    "reasoning, as .github/link-exclusions.json (docs/verification.md §2).",
+    "",
+    "A rule marked `defect: true` is NOT a design decision.  It is a known bug that is",
+    "allowed only so the gate keeps reporting the other 100 differences instead of",
+    "failing on the same two lines forever.  Delete the rule when the bug is fixed —",
+    "check_parity.py prints every reason on every run, so it stays visible.",
+    "",
+    "Measured 2026-07-28 against citizix@dc1b321 with Hugo v0.164.0+extended.",
+    "Full analysis and per-difference reasoning: docs/migration.md."
+  ],
+  "rules": [
+    {
+      "surface": "url",
+      "kind": "removed",
+      "match": "^/(tags|categories)/page/[0-9]+/$",
+      "reason": "Runbook's /tags/ and /categories/ BROWSE pages are unpaginated by design (specs/003 §3.4): every term, grouped by initial letter and counted, on one page. Stack paginates them at pagerSize, which on this archive minted /tags/page/2..30/ and /categories/page/2..3/. Those 31 URLs disappear. They are indexed today, so the site must ship 301s (see docs/migration.md §4) — this rule records that the LOSS is intended, not that the redirects are optional."
+    },
+    {
+      "surface": "alias",
+      "kind": "removed",
+      "match": "^/(tags|categories)/page/1/$",
+      "reason": "Hugo mints /page/1/ as a meta-refresh alias to the unpaginated first page. No pagination on the taxonomy browse page means no page/1 to alias. Same root cause as the url rule above."
+    },
+    {
+      "surface": "canonical",
+      "kind": "removed",
+      "match": "^/(tags|categories)/page/[0-9]+/$",
+      "reason": "Consequence of the pages themselves no longer existing, not an independent canonical change. No page that still exists changed its canonical."
+    },
+    {
+      "surface": "og_url",
+      "kind": "removed",
+      "match": "^/(tags|categories)/page/[0-9]+/$",
+      "reason": "Consequence of the pages themselves no longer existing. No page that still exists changed its og:url."
+    },
+    {
+      "surface": "jsonld_main",
+      "kind": "removed",
+      "match": "^/(about-us|contact-us|privacy-policy|search)/$",
+      "reason": "specs/003 §3.7 item 4 — page kinds map to schema types EXPLICITLY. citizix's schema.html emits @type Article for every .IsPage, so a privacy policy and a search page both claimed to be news articles with a mainEntityOfPage. Runbook types them WebPage, which has no mainEntityOfPage. This is a correction; the four URLs are unchanged and still carry BreadcrumbList."
+    },
+    {
+      "surface": "sitemap",
+      "kind": "removed",
+      "match": "^https://citizix\\.com/(og-default|android-chrome-512x512)\\.png$",
+      "reason": "These are <image:loc> values, not page URLs — citizix overrides layouts/sitemap.xml with a Google image-sitemap extension. It fires on `.Params.image`, which exactly two pages in a 1,154-page build carry, and on one of those it emits an empty <image:title/> because `$.Title` inside `range .Data.Pages` resolves to the sitemap page. Runbook uses Hugo's internal sitemap. See docs/migration.md §5 for why the override is classified citizix-only and recommended for deletion rather than porting."
+    },
+    {
+      "surface": "rss_item",
+      "kind": "changed",
+      "match": "^/index\\.xml$",
+      "defect": true,
+      "reason": "DEFECT (templates/SEO stream): layouts/rss.xml uses `site.RegularPages` for the home feed instead of filtering to `params.mainSections`, so /about-us/, /contact-us/, /privacy-policy/ and /search/ are published as feed items. Stack's feed carries 490 posts; Runbook's carries 494 pages. Delete this rule when rss.xml filters by mainSections."
+    },
+    {
+      "surface": "rss_item",
+      "kind": "changed",
+      "match": "^/(tags|categories)/index\\.xml$",
+      "defect": true,
+      "reason": "DEFECT (templates/SEO stream): layouts/rss.xml ranges `.RegularPages`, which is EMPTY on a taxonomy list kind — a term is not a regular page. /tags/index.xml drops from 295 items to 0 and /categories/index.xml from 28 to 0, so both feeds ship as valid-but-empty channels. Fix is either `.Pages` for taxonomy kinds or not emitting RSS for them at all. Delete this rule when it is fixed."
+    }
+  ]
+}

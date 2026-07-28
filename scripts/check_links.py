@@ -39,7 +39,7 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from html.parser import HTMLParser
 from pathlib import Path
-from urllib.parse import urljoin, urlparse, urldefrag
+from urllib.parse import unquote, urljoin, urlparse, urldefrag
 
 DEFAULT_EXCLUSIONS = Path(".github/link-exclusions.json")
 USER_AGENT = "hugo-theme-runbook-link-check/1.0 (+https://github.com/etowett/hugo-theme-runbook)"
@@ -130,7 +130,18 @@ def gather(build: Path, base_host: str):
             elif u.scheme:
                 continue
 
-            path, frag = u.path, u.fragment
+            # Fragments are compared PERCENT-DECODED, ids are not.
+            #
+            # A user agent percent-decodes a fragment before matching it against element
+            # ids, so `#%e2%80%94` and `#—` address the same element. The two sides are
+            # spelled differently for a structural reason, not by accident: Go's
+            # html/template normalises URL-context attributes and `safeURL` does not
+            # suppress that, so `href="#{{ .Anchor }}"` emits the encoded form, while the
+            # matching `id="{{ .Anchor }}"` is not a URL context and keeps the raw
+            # character. Comparing them raw reports every non-ASCII heading on a site as a
+            # broken fragment — `exampleSite`'s Arabic RTL fixture alone accounts for
+            # eight, and the reference archive adds more.
+            path, frag = u.path, unquote(u.fragment)
             if not path:
                 # Pure fragment: must exist on this page.
                 if frag and frag not in anchors_by_page[rel]:
