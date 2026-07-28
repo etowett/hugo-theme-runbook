@@ -35,7 +35,8 @@ A Markdown title — the third argument — produces a real `<figure>` and `<fig
 ## A remote destination
 
 Nothing local to measure, so `width` and `height` are correctly omitted rather than guessed. The
-image is deliberately not fetched at build time — the theme adds zero third-party hosts, and a
+host is deliberately NOT the site's own baseURL — `https://example.com/...` would be
+resolved as an internal link and reported as a broken one by the link crawl. The image is not fetched at build time — the theme adds zero third-party hosts, and a
 fixture must not be the exception that puts one in the budget.
 
-![A remote image that is never fetched](https://example.com/not-fetched.png)
+![A remote image that is never fetched](https://images.example.net/diagram.png)

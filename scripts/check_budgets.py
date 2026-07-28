@@ -344,7 +344,17 @@ def main() -> int:
     print()
     print("Page-weight budgets — distribution gates, never a universal ceiling")
     if not weights:
+        # Loud, not a quiet line. The default glob is `posts/*/index.html`, which matches
+        # NOTHING on a site using flat `/:slug/` permalinks — which the reference archive
+        # does for all 490 posts. The distribution gate then measured zero pages and the
+        # script still printed PASS, so the one gate that watches real page weight was
+        # silently not running. A check that measures nothing must say so.
         print(f"  no pages matched {args.article_glob}")
+        report.todos.append(
+            f"article glob {args.article_glob!r} matched no pages in {build} — the page-weight "
+            f"distribution gate did NOT run. Pass --article-glob for this site's permalink "
+            f"shape (a flat /:slug/ site wants '*/index.html')"
+        )
     else:
         values = list(weights.values())
         p50 = percentile(values, 50)

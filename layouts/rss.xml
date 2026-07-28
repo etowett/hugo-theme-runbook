@@ -24,8 +24,36 @@
   Dates are guarded: `.Date.IsZero` produces no `<pubDate>` rather than a 1970
   timestamp that sorts a dateless post to the beginning of every feed reader.
 */ -}}
+{{- /* Page selection, per kind. Two bugs lived in the two lines this replaces, and
+       both were found by building the real 497-post archive rather than exampleSite.
+
+  HOME used site.RegularPages, which is every regular page on the site — so /about-us/,
+  /contact-us/, /privacy-policy/ and /search/ published as feed items. mainSections is
+  the configurable answer to "what counts as a post" and is what the rest of the theme
+  already uses (specs/003 §3.4); a feed is exactly the place it matters, because a
+  subscriber gets the privacy policy delivered as news.
+
+  TAXONOMY (/tags/, /categories/) used .RegularPages, which on a taxonomy list kind is
+  EMPTY — the children of /tags/ are term pages, not articles. So /tags/index.xml and
+  /categories/index.xml were valid, well-formed, entirely empty feeds. Against the
+  reference archive that is 295 and 28 items going to zero, and nothing failed: an
+  empty feed is not an error to any validator.
+  Term pages (/tags/linux/) were always fine — .RegularPages is correct there. */ -}}
+{{- $mainPages := where site.RegularPages "Section" "in" site.Params.mainSections -}}
 {{- $pages := .RegularPages -}}
-{{- if .IsHome }}{{ $pages = site.RegularPages }}{{ end -}}
+{{- if .IsHome -}}
+  {{- $pages = $mainPages -}}
+{{- else if eq .Kind "taxonomy" -}}
+  {{- /* Every page carrying any term in this taxonomy, newest first. Collected from
+         the terms rather than taken as "all posts", so a site whose taxonomy covers
+         part of the corpus gets a feed that means what its URL says. */ -}}
+  {{- $collected := slice -}}
+  {{- range .Pages }}{{ range .Pages }}{{ $collected = $collected | append . }}{{ end }}{{ end -}}
+  {{- /* NOT `$collected | uniq | sort "Date" "desc"`. A Go template pipeline appends
+         the piped value as the LAST argument, so that spelling calls
+         sort "Date" "desc" (uniq $collected) and fails with `can't sort string`. */ -}}
+  {{- $pages = sort (uniq $collected) "Date" "desc" -}}
+{{- end -}}
 {{- $limit := site.Config.Services.RSS.Limit -}}
 {{- if ge $limit 1 }}{{ $pages = $pages | first $limit }}{{ end -}}
 {{- printf "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?>" | safeHTML }}

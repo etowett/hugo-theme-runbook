@@ -423,7 +423,7 @@ is in the capture set specifically (REQ-FONT-1).
 | Theme-shell budgets | **implemented** as hard gates |
 | Script-tag budget | **implemented**, counting executable scripts — §4 |
 | Page-weight distribution + no-regression | mechanism **implemented**, thresholds are **placeholders**, no baseline committed — §4 |
-| Internal link and fragment crawl | **implemented**, runs per PR |
+| Internal link and fragment crawl | **implemented**, runs nightly in `scheduled.yml` and in `parity.yml` — NOT in `ci.yml`, so it is not a per-PR gate |
 | External link sweep | **implemented**, weekly, tracking issue on failure |
 | Showcase compliance | **implemented**, advisory until the screenshots exist — §5 |
 | Contrast gate | **not mine** — design workstream. CI job exists and passes with a notice until the script lands |
