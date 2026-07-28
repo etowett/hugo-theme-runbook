@@ -62,7 +62,7 @@ pre, code, kbd, samp { font-variant-ligatures: none; }
 
 /* Every focusable pill, tag and control ends up here, so the radius is declared once
    rather than on each of them. */
-:where(button, .rb-term, .rb-toc-link, .rb-nav-list a) { border-radius: var(--rb-radius-pill); }
+:where(button, a.rb-term, .rb-toc-link, .rb-nav-list a) { border-radius: var(--rb-radius-pill); }
 
 *, *::before, *::after { box-sizing: border-box; }
 

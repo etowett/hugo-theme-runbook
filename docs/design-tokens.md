@@ -435,9 +435,12 @@ the conformant 1.4.11 signal is `--rb-code-hl-border` at 3:1.
 
 ### Table of contents
 
-`--rb-toc-fg`, `--rb-toc-fg-active`, `--rb-toc-marker` — aliases of the muted/accent tokens,
-declared separately so the templates workstream has a name to consume and so the selected-entry
-contrast is asserted.
+`--rb-toc-fg`, `--rb-toc-fg-active`, `--rb-toc-marker`, `--rb-toc-active-bg` — named TOC
+tokens, declared separately so the templates workstream has a stable seam to consume and so the
+selected entry's text and marker contrast are asserted. The light palette uses a pale peach
+active pill; the dark palette inverts that relationship, using the accent as the pill fill with
+its contrast foreground. This keeps selected navigation visible when the dark card and subtle
+surfaces intentionally resolve to the same value.
 
 ### Type, space, shape
 

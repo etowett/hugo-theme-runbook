@@ -162,6 +162,10 @@
   --rb-toc-fg:              var(--rb-color-text-muted);
   --rb-toc-fg-active:       var(--rb-color-accent);
   --rb-toc-marker:          var(--rb-color-accent);
+  /* The selected entry is a pale peach pill, not the general tinted surface. The
+     distinction matters most in dark mode, where surface and bg-subtle are the
+     same value by design. */
+  --rb-toc-active-bg:       #f2d3bd;
 
   /* ── Type ───────────────────────────────────────────────────────────────── */
   /* REQ-FONT-2 — the system stacks are the zero-byte fallback and stay fully
@@ -292,6 +296,13 @@
     --rb-color-accent-2:      #aebf92;
     --rb-color-focus:         var(--rb-color-accent);
 
+    /* A selected TOC entry uses the interactive accent as its fill in the dark
+       palette. Its foreground and marker invert so the active state remains a full
+       pill rather than a dot on an indistinguishable card surface. */
+    --rb-toc-fg-active:       var(--rb-color-accent-contrast);
+    --rb-toc-marker:          var(--rb-color-accent-contrast);
+    --rb-toc-active-bg:       var(--rb-color-accent);
+
     --rb-code-bg:             #171512;
     --rb-code-text:           #f5ead8;
     --rb-code-border:         #3a352c;
@@ -323,6 +334,10 @@
   --rb-color-accent-contrast: #211f1b;
   --rb-color-accent-2:      #aebf92;
   --rb-color-focus:         var(--rb-color-accent);
+
+  --rb-toc-fg-active:       var(--rb-color-accent-contrast);
+  --rb-toc-marker:          var(--rb-color-accent-contrast);
+  --rb-toc-active-bg:       var(--rb-color-accent);
 
   --rb-code-bg:             #171512;
   --rb-code-text:           #f5ead8;

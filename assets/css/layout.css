@@ -522,7 +522,7 @@
   margin: 0;
   padding: 0;
 }
-.rb-term {
+a.rb-term {
   display: inline-block;
   padding: var(--rb-space-1) var(--rb-space-3);
   background: var(--rb-color-bg-subtle);
@@ -530,7 +530,7 @@
   font-size: var(--rb-text-sm);
   text-decoration: none;
 }
-.rb-term:hover { background: var(--rb-color-accent); color: var(--rb-color-accent-contrast); }
+a.rb-term:hover { background: var(--rb-color-accent); color: var(--rb-color-accent-contrast); }
 
 /* Filter pills scroll sideways on a narrow viewport rather than wrapping to four
    rows of chrome above the thing the reader came for. Only the taxonomy browse list
@@ -559,13 +559,23 @@
 .rb-article-layout { display: grid; gap: var(--rb-space-6); }
 .rb-article-layout > * { min-width: 0; }
 @media (min-width: 56.25rem) {
-  .rb-article-layout { grid-template-columns: minmax(0, 1fr) 14rem; align-items: start; }
+  .rb-article-layout {
+    /* A TOC has long labels in the real corpus, so it needs room to wrap them
+       sensibly without taking the prose column below its reading measure. The
+       clamp remains viable at the 900px desktop breakpoint and reaches the
+       reference-like 18rem rail on a normal desktop. */
+    grid-template-columns: minmax(0, 1fr) clamp(15rem, 20vw, 18rem);
+    align-items: start;
+  }
   .rb-article-layout > .rb-prose { grid-area: 1 / 1; }
   .rb-toc {
     grid-area: 1 / 2;
     position: sticky;
     inset-block-start: var(--rb-space-5);
-    max-block-size: calc(100vh - var(--rb-space-8));
+    /* Navigation must remain a compact card rather than growing to the full
+       height of a tall desktop viewport. Long tables of contents scroll inside
+       this bounded rail; the mobile sheet keeps its own larger touch target. */
+    max-block-size: min(26rem, calc(100vh - var(--rb-space-8)));
     overflow-y: auto;
     padding: var(--rb-space-5);
     background: var(--rb-color-surface);
@@ -576,7 +586,7 @@
 }
 .rb-toc-heading {
   font-size: var(--rb-text-xs);
-  font-family: var(--rb-font-sans);
+  font-family: var(--rb-font-mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--rb-color-text-subtle);
@@ -594,10 +604,10 @@
   text-decoration: none;
 }
 .rb-toc-link:hover { background: var(--rb-color-bg-subtle); color: var(--rb-color-text); }
-/* Scroll-spy sets aria-current; the dot is the visual half of the same fact. Drawn
-   in the accent at 3:1 against the page (--rb-toc-marker), on the inline-start edge
-   so it reads as a position marker on the rail rather than a bullet. */
-.rb-toc-link[aria-current] { background: var(--rb-color-bg-subtle); color: var(--rb-toc-fg-active); }
+/* Scroll-spy sets aria-current; the dot is the visual half of the same fact. Its
+   palette-scoped token clears 3:1 on the selected pill, and the inline-start edge
+   makes it read as a position marker on the rail rather than a bullet. */
+.rb-toc-link[aria-current] { background: var(--rb-toc-active-bg); color: var(--rb-toc-fg-active); }
 /* Inside the link's own padding, not in the margin outside it: the rail is
    `overflow-y: auto` for long tables of contents, and overflow-y also clips
    overflow-x — a marker hung to the inline-start of the box was invisible. */
