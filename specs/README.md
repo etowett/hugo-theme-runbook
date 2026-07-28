@@ -21,7 +21,7 @@ is its reference deployment and the archive every design decision here was measu
 | [009 — Showcase compliance](009-showcase-compliance.md) | Hugo Themes submission requirements |
 | [010 — citizix migration](010-citizix-migration.md) | Migration and cutover for the reference deployment |
 
-## The five decisions that matter most
+## The six decisions that matter most
 
 1. **The code block is the product.** 9,046 fenced blocks across 497 posts — 18.2 per post, 79%
    shell, **45.2% exactly one line**. Chrome must never exceed content height, so no block gets a
@@ -48,6 +48,13 @@ is its reference deployment and the archive every design decision here was measu
    today. Without documented hooks for head markup, analytics and comments, every consumer forks
    templates and every update becomes a merge conflict.
    ([006](006-architecture-decisions.md) ADR-8)
+
+6. **Structured data is assembled as a map, never interpolated.** Go's `html/template` re-escapes
+   `jsonify` output inside a `<script>` block, so the obvious way to write JSON-LD emits
+   double-encoded values and dates that are not valid ISO 8601. It still *parses*, so review does
+   not catch it — the reference site shipped it on **493 of 493** article pages. Build the object,
+   `jsonify` once, mark it `safeJS`, and assert on parsed values in CI.
+   ([004](004-hugo-mechanics.md) §2a, [007](007-verification.md) §3.5)
 
 ## Status
 

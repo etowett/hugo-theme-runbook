@@ -5,7 +5,16 @@
 
 ---
 
-## 1. Prerequisite: fix two content bugs first
+> **Status update, 2026-07-28.** Everything in §1 is **done** (citizix#62), and several §3–§4 items
+> landed with it. What actually happened is worth recording, because it changed the shape of this
+> migration: fixing the two content bugs surfaced a much larger set of problems — malformed
+> structured data on every article, line-number tables on 484 pages, 12 dead outbound links, a
+> WordPress artifact welded into URLs — none of which were visible until something started checking.
+> The migration is now starting from a materially cleaner base than this document assumed.
+>
+> Still open: §2 URL parity (needs a Runbook build to diff against) and the §3 override porting.
+
+## 1. Prerequisite: fix two content bugs first — ✅ done (citizix#62)
 
 Both are live rendering bugs on citizix.com today, both are one-line fixes, and both belong in the
 citizix repo — **not** in the theme, and not as theme fixtures. Fix them before migration work so the
@@ -85,18 +94,37 @@ Plus:
   ([004](004-hugo-mechanics.md) REQ-CB-1), but leaving the site config wrong is a trap for anyone
   who later bypasses the hook.
 
-## 4. Free wins available at cutover
+## 4. Free wins — ✅ taken ahead of the migration (citizix#62)
 
-Two changes that are pure improvement and cost nothing:
+Both were identified here as "available at cutover" and were worth doing immediately instead,
+because they were live defects rather than migration work.
 
-**Remove `articleBody` from JSON-LD.** `layouts/partials/head/schema.html:52` emits
-`{{ $.Plain | jsonify }}`, duplicating the entire article as structured data. It costs more gzipped
-bytes than every line-number table on the page combined, with no verified SEO benefit.
+**`articleBody` removed from JSON-LD.** The template emitted `{{ $.Plain | jsonify }}`, duplicating
+the entire article as structured data on 489 pages.
 
-**Fix the double-encoded JSON-LD values.** The current template emits malformed values — the puppet
-page produces `"headline":"\"How to …\""` and `"datePublished":"\"2022-03-03T21:55:03Z\""`. Shipping
-correct JSON-LD is simultaneously a validity fix and the single largest article-HTML saving
-available.
+**Double-encoded JSON-LD fixed.** All 493 article pages were emitting `"headline":"\"How to …\""`
+and a `datePublished` that was not a valid ISO 8601 date. Root cause and the required pattern are
+now specified in [004](004-hugo-mechanics.md) §2a — **Runbook must not reintroduce it.**
+
+Measured effect of these two plus the line-number change, across all 493 article pages:
+
+| | Before | After |
+|---|--:|--:|
+| Median article | 10,663 B gz | **9,168 B** (−14.0%) |
+| p90 | 15,488 B gz | **11,644 B** (−24.8%) |
+| Archive total | 5.59 MiB | **4.56 MiB** (−18.4%) |
+
+This matters for [005](005-performance-budgets.md): the page-weight distribution gates were set
+against the *old* baseline. The p50 gate of ≤9,000 B was written when the median was 10,663; the
+median is now 9,168 without Runbook having been built. **Re-baseline those gates before M3**, or
+they will be trivially satisfied and measure nothing.
+
+## 4a. A trap for anyone merging taxonomy terms
+
+A term's `_index.md` keeps its page building **even when no post carries the term**. Removing a tag
+from every post therefore leaves an orphaned term page listing nothing, rather than the redirect you
+intended — the `_index.md` has to go too, and the redirect belongs on the *surviving* term as an
+`aliases` entry. Hit during citizix#72; see [004](004-hugo-mechanics.md) §4a REQ-TAX-2.
 
 ## 5. Cutover procedure
 

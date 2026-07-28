@@ -136,11 +136,30 @@ Two figures moved sharply from issue #1 and both change design conclusions:
 The H2/H3 hierarchy remains flat and consistent (5,347 of 5,709 headings are H2 or H3), so a TOC
 keyed to H2–H3 covers 93.7% of headings.
 
-## 7. Taxonomy is fragmented
+## 7. Taxonomy
 
-**49 distinct category strings** and **312 distinct tag strings** appear in front matter. The build
-produces **43 category term pages and 306 tag term pages** — Hugo normalises term keys, so
-`Linux`/`linux` and `GCP`/`gcp`/`gCP` each collapse to a single page.
+> **Re-measured 2026-07-28 (evening).** This section originally described a fragmented taxonomy —
+> 49 categories with case-duplicates, 312 tags including typos and malformed entries. The reference
+> site has since cleaned it up (citizix#63, #65, #72, #76). Both the original numbers and the
+> current ones are kept below, because **the design conclusions were drawn from the messy state and
+> most of them still hold** — a theme cannot assume a consumer's taxonomy is clean.
+
+| | When the spec was written | Now |
+|---|--:|--:|
+| Distinct category strings | 49 | **28** |
+| Distinct tag strings | 312 | **302** |
+| Tags used exactly once | 159 | **150** |
+| Categories holding ≤3 posts | 19 | **4** |
+| Malformed tags (spaces, `salt - saltstack`) | 5 | **0** |
+| Typo tags (`kubernetees`, `rocky-lonux`) | 5 | **0** |
+
+The build produces **43 category and 308 tag directories** — more than the 28/302 in front matter,
+because retired terms now serve redirects from their old URLs.
+
+**What this does not change:** half of all tags are still used exactly once, so a tag cloud remains
+the wrong browse affordance, and grouped/counted browse pages are still the right answer. What it
+does change is that "the taxonomy is fragmented" is no longer a *citizix* problem — it is a
+third-party-robustness assumption, like §9 below.
 
 > Issue #1 §1.7 claims these are "case-duplicates that Hugo treats as distinct terms". **That is
 > false.** Verified: `public/categories/` contains one `linux/`, one `aws/`, one `gcp/`, one
@@ -168,8 +187,14 @@ Case and hyphenation variants in front matter:
 
 Plus `Uncategorized` (8 posts).
 
-Only **8 posts** carry a minority-spelling category. This is a content fix, not a theme feature —
-Runbook should not build normalisation machinery to paper over ten bad strings.
+Only **8 posts** carried a minority-spelling category. This was a content fix, not a theme feature —
+Runbook should not build normalisation machinery to paper over ten bad strings. It has since been
+done in content, which is the right layer.
+
+**But one taxonomy problem *is* the theme's job, and this exercise proved it.** Cleaning the terms
+required 83 `_index.md` files, **60 of them existing solely to override a display title** that Hugo
+derives badly (`Amazon-Eks`, `Sql-Server`, `Ci-Cd`). That is boilerplate no consumer should have to
+write. See [004](004-hugo-mechanics.md) §4a, REQ-TAX-1.
 
 ## 7a. Two corpus facts that drive specific features
 
@@ -244,9 +269,12 @@ text at parse time). citizix PR #60 §4 documents the reasoning.
 **Issue #1 §3.4's load-bearing claim — "218 posts (43.9% of the archive) render as unstyled
 `<pre>`" — is now 0% and must not survive into the spec in that form.**
 
-### Two survivors, both live bugs on citizix.com
+### Two survivors — found here, since fixed in content (citizix#62)
 
-Verified against built HTML, not inferred:
+> Both were verified against built HTML, fixed in the reference repo, and are recorded here because
+> they are the **only remaining empirical basis** for the theme styling bare `pre > code` at all.
+> With them gone, that requirement rests entirely on the render-hook behaviour in
+> [004](004-hugo-mechanics.md) §1 and on third-party robustness — not on this archive.
 
 1. **`2022-03-03-how-to-install-and-configure-puppet-7-server-on-ubuntu-20-04.md:268`** opens a
    fence with **four** backticks (` ````sh `) and closes at line 270 with **three**. CommonMark
@@ -271,8 +299,12 @@ different grounds.
 ## 10. URL surface — theme-swap migration risk is low
 
 - All published posts render at root-level `/{slug}/`, driven by front-matter `url:` on 494/497
-  posts. **The configured `permalinks.post: /p/:slug/` is entirely unused — the build produces no
-  `/p/` directory at all.** Because `url:` lives in content, no theme change can alter post URLs.
+  posts. Because `url:` lives in content, no theme change can alter post URLs.
+- The site *was* configured `permalinks.post: /p/:slug/` while building nothing at `/p/` — inert,
+  but armed: any future post written without a `url:` would have landed there, inconsistent with
+  every other post. Changed to `/:slug/` in citizix#72 so the default matches the convention.
+  **Worth checking in any consumer's config before a theme swap**, since it only misfires on new
+  content and so looks harmless right up until it isn't.
 - The build reports "355 aliases", but these are **not** legacy redirects. Only **3** come from
   front matter (`aliases:` on the about page). The remaining ~351 are Hugo's automatic
   `/page/1/` → list-root pagination redirects.
@@ -281,13 +313,23 @@ different grounds.
 
 ## 11. Reproducing these measurements
 
-The profiling scripts are not yet committed. Until they are, the corpus profile is reproduced with a
-fence-aware parser that:
+```bash
+python3 scripts/profile_corpus.py --dir ../citizix/content/post
+```
 
-1. splits front matter on the leading `---` delimiter pair;
-2. walks the body tracking fence open/close with CommonMark marker-length semantics (a closing fence
-   must use the same character and be at least as long as the opener);
-3. classifies every line as `code` or `prose` and applies all metrics to the correct partition.
+Stdlib only, no dependencies. It splits front matter on the leading `---` pair, walks the body
+tracking fences with CommonMark marker-length semantics (a closing fence must use the same character
+and be at least as long as the opener), classifies every line as code or prose, and applies each
+metric to the correct partition.
 
-**TODO(eutychus): commit the profiler to `scripts/` in this repo so §1–§9 are reproducible in CI and
-can act as a drift detector against the citizix archive.**
+**Run it rather than trusting the numbers above.** They have already gone stale twice in a single
+day — once when the reference site's WordPress cleanup landed, which is why this document exists at
+all, and again when its taxonomy was consolidated. §7 records both states for exactly that reason.
+
+Which is itself a design finding worth stating plainly:
+
+> The measurements that stayed **stable** across both rewrites are the code-shape ones in §1–§4 —
+> block count, blocks per post, shell share, single-line proportion. Those moved by less than 0.1%
+> while the taxonomy moved 43%. **Design against the code shape; treat taxonomy and front-matter
+> coverage as a snapshot**, because a consumer's will differ and even this one's did not hold still
+> for a day.

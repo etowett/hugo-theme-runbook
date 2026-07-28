@@ -232,8 +232,13 @@ snippet in the migration guide, not as shipped bytes.
 - **Series support** via a `series` taxonomy with prev/next. Note that **themes cannot register
   taxonomies** — the consumer must add it to site config, so this ships with documentation or it
   does not work.
-- **Real taxonomy browse pages** — grouped, counted, alphabetised. Not a tag cloud: 159 of 312 tags
+- **Real taxonomy browse pages** — grouped, counted, alphabetised. Not a tag cloud: half of all tags
   are used exactly once, so a cloud is mostly noise. Needs a low-usage grouping strategy.
+- **Term titles are rendered, not derived.** Hugo capitalises each hyphen segment, so kebab-case
+  terms display as `Amazon-Eks`, `Sql-Server`, `Ci-Cd`. Runbook renders them through a partial with
+  an optional `params.taxonomyTitles` acronym map — see [004](004-hugo-mechanics.md) §4a,
+  REQ-TAX-1. Without this every consumer hand-writes a term `_index.md` per multi-word term; the
+  reference site accumulated **60 such files purely for display titles**.
 - **Client-side search** over a build-time **metadata-only** JSON index
   ([005](005-performance-budgets.md) §4). No external service.
 - Archive page grouped by year.
@@ -272,15 +277,22 @@ accessible names · target size ≥ 24×24 px.
 JSON-LD `Article` + `BreadcrumbList` · OG + Twitter card with per-page image fallback · canonical
 URLs · full-content RSS · clean sitemap · per-page `robots` control · `lastmod` surfaced in markup.
 
-Three specific requirements:
+Five specific requirements:
 
-1. **Do not emit `articleBody` in JSON-LD.** citizix's current
-   `layouts/partials/head/schema.html:52` emits `{{ $.Plain | jsonify }}`, duplicating the entire
-   article as structured data. It costs more gzipped bytes than every line-number table on the page
-   combined ([005](005-performance-budgets.md) §2), and provides no verified SEO benefit.
-2. **Map page kinds to schema types explicitly.** `Article` must not be emitted for every `.IsPage`.
-3. **Degrade cleanly when `lastmod` is absent.** Coverage is now 90.1%, up from 27.6% — but never
-   print "Invalid date" on the remaining 49 posts.
+1. **Assemble structured data as a map and serialise it once** — `dict … | jsonify | safeJS`. Never
+   interpolate `{{ .Foo | jsonify }}` into a hand-written JSON literal. Go's `html/template`
+   re-escapes it inside a `<script>` block, producing double-encoded values and dates that are not
+   valid ISO 8601. This hit **493 of 493** article pages on the reference site.
+   See [004](004-hugo-mechanics.md) §2a, REQ-SEO-1. **This is the single easiest way to ship broken
+   structured data, and it looks correct in review.**
+2. **Do not emit `articleBody` in JSON-LD.** Duplicating the entire article as structured data cost
+   the reference site ~432 B gzip per page — more than every line-number table on the page combined
+   ([005](005-performance-budgets.md) §2) — for no verified SEO benefit.
+3. **Do not emit `<meta name="keywords">`.** Search engines have ignored it since 2009 and Bing
+   treats it as a spam signal. `hugo-theme-stack` emits it whenever the front matter field is
+   present, which is ~100 bytes of dead weight per page; Runbook must not.
+4. **Map page kinds to schema types explicitly.** `Article` must not be emitted for every `.IsPage`.
+5. **Degrade cleanly when `lastmod` is absent.** Never print "Invalid date".
 
 ## 3.8 Internationalisation
 

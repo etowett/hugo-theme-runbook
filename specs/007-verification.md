@@ -137,10 +137,29 @@ results.
 
 ### 3.5 Correctness and compatibility
 
-- HTML validity; RSS/XML validity; JSON-LD validity; canonical URLs; OG values; sitemap output.
+- HTML validity; RSS/XML validity; canonical URLs; OG values; sitemap output.
+- **JSON-LD is parsed and asserted, not eyeballed.** Every `<script type="application/ld+json">`
+  block in the build must `json.loads()` cleanly, and for `Article` pages the test must assert that
+  `headline` does not begin with a quote character and that `datePublished` matches
+  `^\d{4}-\d{2}-\d{2}T`. Both assertions exist because the reference site shipped double-encoded
+  JSON-LD on **493 of 493** article pages for months — it parses, so nothing short of a value-level
+  assertion catches it. See [004](004-hugo-mechanics.md) §2a.
+- Build with `--panicOnWarning`. Hugo demotes real problems (missing layouts, broken shortcode
+  arguments) to warnings that scroll past in CI output.
 - **URL/alias manifest diff** between the Stack and Runbook builds — see
   [010](010-citizix-migration.md) §2.
-- Internal link crawl against the production-equivalent build.
+- Internal link crawl against the production-equivalent build, on every PR.
+- **External link sweep on a schedule, never per-PR.** Learned on the reference site: its link
+  check excluded every absolute URL, so no outbound link had ever been verified, and 12 dead links
+  accumulated — including two pointing at repos that no longer existed and one pointing at a page
+  that never had. But the sweep takes ~2 minutes over 8,400 links, hits rate limits, and fails when
+  a third party's docs site goes down. Gating a PR on that produces a red X nobody can act on,
+  which teaches people to ignore CI.
+
+  So: weekly, opening a tracking issue on failure. Two design notes that mattered in practice —
+  (a) the exclusion list must carry **a reason per entry**, because some hosts return 403/418 to
+  any checker while working fine in a browser and someone will otherwise "clean up" a real
+  exclusion; (b) exclude only false positives. A genuinely dead link gets fixed, not excluded.
 - Build with `unsafe: false`, `noClasses: false`, JS disabled, storage disabled, and a strict CSP.
 - **Build against both the declared minimum Hugo version and latest Hugo.** The showcase uses latest.
 - Zero-JS pass: every page navigable and readable with scripting disabled.

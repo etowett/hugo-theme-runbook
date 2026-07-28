@@ -87,6 +87,61 @@ than emitted *colour* must be forced by the hook, not merely defaulted.
 
 ---
 
+## 2a. `jsonify` inside a `<script>` block is double-encoded
+
+**Added 2026-07-28 after this bug was found and fixed across all 493 article pages on the
+reference site (citizix#61, citizix#62).** The spec calls for JSON-LD in
+[003](003-design-spec.md) §3.7, so Runbook would have hit it too.
+
+Go's `html/template` applies **contextual autoescaping**. Inside
+`<script type="application/ld+json">` it treats the body as a JS context and re-escapes anything
+written there — including output that is already valid JSON. So the natural-looking template:
+
+```go-html-template
+<script type="application/ld+json">
+{
+  "headline": {{ .Title | jsonify }},
+  "datePublished": {{ .Date.Format "2006-01-02T15:04:05Z07:00" | jsonify }}
+}
+</script>
+```
+
+emits:
+
+```json
+{"headline":"\"How to Install Redis 6 on Rocky Linux 8\"","datePublished":"\"2026-03-04T10:00:00Z\""}
+```
+
+Every string value carries literal quote characters. The JSON still *parses*, which is why this
+survives casual inspection — but `datePublished` is no longer a valid ISO 8601 date to any consumer,
+and `headline` contains quotes a search engine will index.
+
+On the reference site this affected **493 of 493 article pages** and every `jsonify`'d field:
+`headline`, `description`, `author.name`, `author.url`, `publisher.name`, `datePublished`,
+`dateModified`, `mainEntityOfPage.@id`, `keywords`, `articleSection`, `genre`.
+
+### REQ-SEO-1 — build the object, serialise once
+
+> Structured data MUST be assembled as a map and serialised in a single `jsonify`, with the result
+> marked `safeJS`. Values MUST NOT be interpolated individually into a hand-written JSON literal.
+
+```go-html-template
+{{- $schema := dict
+    "@context" "https://schema.org"
+    "@type" "Article"
+    "headline" .Title
+    "datePublished" (.Date.Format "2006-01-02T15:04:05Z07:00")
+-}}
+<script type="application/ld+json">{{ $schema | jsonify | safeJS }}</script>
+```
+
+Both `| jsonify | safeJS` per field and the whole-object form produce correct output — verified on
+Hugo v0.164.0. The whole-object form is required anyway because it makes recurrence *structurally*
+impossible rather than depending on someone remembering a filter at each of eleven call sites, which
+is exactly how the reference site regressed.
+
+---
+
 ## 3. Hook file location and precedence
 
 Hugo ≥ 0.146 resolves render hooks from `layouts/_markup/render-codeblock.html`. The legacy path
@@ -123,6 +178,51 @@ The requirement survives for two different and more durable reasons:
 The change from issue #1 is one of **priority, not content**: this is no longer a citizix-blocking,
 milestone-defining requirement. It is a robustness requirement that costs little and should not
 gate the code-block milestone.
+
+---
+
+## 4a. Taxonomy term titles are derived badly, and `_index.md` is a trap
+
+**Added 2026-07-28 from the reference site's taxonomy cleanup (citizix#63, #65, #72, #76).**
+
+### Hugo capitalises each hyphen segment
+
+A term with no `_index.md` gets its title from the term key with each hyphen-separated segment
+capitalised. For a corpus that uses kebab-case terms — the normal convention — that produces:
+
+| Term | Hugo renders | Should be |
+|---|---|---|
+| `alma-linux` | Alma-Linux | Alma Linux |
+| `amazon-eks` | Amazon-Eks | Amazon EKS |
+| `sql-server` | Sql-Server | SQL Server |
+| `github-actions` | Github-Actions | GitHub Actions |
+| `ci-cd` | Ci-Cd | CI/CD |
+| `infrastructure-as-code` | Infrastructure-as-Code | Infrastructure as Code |
+
+This is the term page's `<title>` **and** its on-page heading — the first thing a reader sees.
+
+The reference site now carries **83 taxonomy `_index.md` files, 60 of which exist solely to
+override a display title**. That is pure boilerplate every consumer of any theme has to write.
+
+> **REQ-TAX-1.** Runbook renders term titles through a partial that (a) replaces hyphens with
+> spaces and title-cases, and (b) consults an optional site-configurable acronym/spelling map
+> (`params.taxonomyTitles`) for cases capitalisation cannot infer — `EKS`, `SQL`, `GitHub`,
+> `CI/CD`, `cert-manager`. A term's own `_index.md` `title` always wins.
+
+This turns 60 files of boilerplate into a handful of config entries, and it is a genuine
+differentiator: no widely-used Hugo theme does it.
+
+### A term `_index.md` keeps the page alive at zero posts
+
+Verified the hard way: after removing a tag from every post that used it, the term page kept
+building — because an `_index.md` for that term still existed. The result was an orphaned page
+listing nothing, rather than the intended redirect.
+
+> **REQ-TAX-2.** Document this in the theme's taxonomy guide. Retiring a term means deleting its
+> `_index.md`, not just removing the term from front matter. Any redirect must live on the
+> *surviving* term's `_index.md` as an `aliases` entry.
+
+The theme cannot prevent it, but every consumer merging duplicate terms will hit it.
 
 ---
 

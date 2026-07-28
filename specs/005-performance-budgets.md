@@ -86,6 +86,31 @@ what the theme emits.
 | `<script>` tags per article | **≤ 2** | 11 | Inline theme guard + one deferred bundle |
 | Third-party hosts added by the theme | **0** | 2 (`fonts.googleapis.com`, `fonts.gstatic.com`) | Site-owner integrations excluded |
 
+> ### ⚠️ Re-baseline required before M3
+>
+> **Measured 2026-07-28 (evening).** Since §2 was written, the reference site fixed its JSON-LD
+> (removing a duplicated full-text `articleBody`) and turned off site-wide line numbers — citizix#62.
+> Those changes alone moved the article distribution:
+>
+> | | When §3.2 was set | Now, still on Stack |
+> |---|--:|--:|
+> | Median article | 10,663 B gz | **9,159 B** |
+> | p90 | 15,488 B gz | **11,626 B** |
+> | Max | 77,935 B gz | **47,509 B** |
+> | Archive total | 5.59 MiB | **4.56 MiB** |
+> | Articles under 7 KB gz | 22 (4.5%) | **45 (9.1%)** |
+>
+> The p50 gate below was set to ≤9,000 B against a 10,663 B median. The median is now 9,159 B
+> **without Runbook existing yet**, so that gate now measures almost nothing. The p90 gate of
+> ≤14,000 B is already met by 11,626 B.
+>
+> **Re-derive §3.2 from a fresh Stack baseline at the start of M3.** More generally: a
+> "no-regression against Stack" gate is only meaningful against a baseline captured at the same
+> commit as the comparison, so the baseline must be regenerated, not copied from this document.
+>
+> The theme-shell budgets in §3.1 are unaffected — CSS is still 10,031 B gz, JS 4,778 B gz, and an
+> article still carries 11 `<script>` tags.
+
 ### 3.2 Page-weight budgets — distribution gates, not ceilings
 
 Measured across the **real citizix archive**, gating the *distribution* rather than every page.
