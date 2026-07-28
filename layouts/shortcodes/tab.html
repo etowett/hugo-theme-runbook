@@ -1,0 +1,30 @@
+{{- /*
+  tab — one panel of a `tabs` block. Emits nothing itself.
+
+  It renders its body and hands it to the parent's store, so tabs.html can emit the
+  jump strip before the panels. Hugo runs nested shortcodes inner-to-outer, so the
+  store is complete by the time the parent template runs.
+
+  Parameters:
+      name   the panel label, e.g. "apt". Falls back to a translated "Option N", so a
+             forgotten name degrades to something readable rather than an empty
+             heading and a link with no text.
+      id     override the anchor slug, which otherwise comes from `name`. Use it when
+             the label is long, or translated, and the URL should not be.
+
+  Used outside a `tabs` block this is a hard build error rather than a silent no-op:
+  the alternative is content that exists in the author's Markdown and nowhere in the
+  built page, which is the failure this shortcode family exists to avoid.
+*/ -}}
+{{- if not .Parent -}}
+  {{- errorf "shortcode `tab` must be nested inside `tabs` — see %s" .Position -}}
+{{- else -}}
+  {{- $panels := .Parent.Store.Get "panels" | default slice -}}
+  {{- $name := or (.Get "name") (.Get 0) (i18n "tabsUnnamed" (dict "Number" (add (len $panels) 1))) -}}
+  {{- /* anchorize, not urlize: this becomes an element id, and anchorize is the
+         function that applies the same rules Hugo uses for heading anchors, so a
+         panel anchor and a heading anchor cannot disagree about the same words. */ -}}
+  {{- $slug := anchorize (or (.Get "id") $name) -}}
+  {{- $body := .Inner | .Page.RenderString (dict "display" "block") -}}
+  {{- .Parent.Store.Set "panels" ($panels | append (dict "name" $name "slug" $slug "body" $body)) -}}
+{{- end -}}

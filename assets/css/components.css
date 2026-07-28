@@ -1,6 +1,5 @@
 /* components.css — shortcode and content-component styles.
-   OWNED BY: the shortcodes workstream. Placeholder; `with resources.Get` in
-   head/css.html skips a file that does not exist, so this can stay empty safely.
+   OWNED BY: the shortcodes workstream.
 
    Loaded after layout.css and before code.css, so a component can build on the page
    shell and a code block inside a component still wins on code-specific rules.
@@ -8,15 +7,132 @@
    Consumes tokens from tokens.css by name. Do not add or rename a --rb-* token here;
    the names are a shared contract (docs/contracts.md §2.1).
 
-   ▸ USAGE REALITY CHECK before spending bytes here. The reference archive uses
+   ▸ USAGE REALITY CHECK — WHY THIS FILE IS SMALL. The reference archive uses
      `admonition` in exactly ONE post out of 497, and `tabs`, `details` and `filetree`
      ZERO times. These are authoring affordances for future content, not a retrofit,
      and they must cost nothing on the 496 pages that do not use them. The whole CSS
-     budget is 8,000 B gzipped for the entire theme.
+     budget is 8,000 B gzipped for the ENTIRE theme, and search.css has not landed
+     yet. Every rule below had to earn its bytes against that.
 
-   ▸ TABS MUST EXPOSE EVERY PANEL WITHOUT JAVASCRIPT (ADR-5). The core JS bundle is
-     frozen at three modules and tabs are not one of them. A CSS-only mechanism
-     (:has(), :target, or the checkbox pattern) or plain stacked panels are the options
-     — a tab strip that hides content when scripting is off is a correctness bug, not a
-     degraded experience.
+   ▸ TABS ARE STACKED PANELS, NOT A SWITCHING STRIP (ADR-5). Nothing here hides a
+     panel, because nothing may: the core JS bundle is frozen at three modules and
+     tabs are not one of them, so a CSS-only switch would `display: none` the panels
+     the reader did not pick — losing them from find-in-page, from print, and from
+     the search index, on a page that claims to document them. The reasoning in full
+     is in layouts/shortcodes/tabs.html.
+
+   ▸ NO NEW HUES. tokens.css declares no status colours, and this file may not add
+     one: a colour that is not in tokens.css is a colour scripts/check_contrast.py
+     never gates, and shipping an unverified foreground/background pair is exactly
+     what specs/003 §3.2 exists to prevent. So severity is carried by the type NAME,
+     which is a real translated word in the DOM (and therefore survives greyscale,
+     deuteranopia and a screen reader — specs/003 §3.2's "never colour alone"), with
+     ONE tier of reinforcement drawn from a token that is already gated. If status
+     tokens are added to tokens.css later, the two rules marked TIER below are the
+     only ones that need to change.
 */
+
+/* ══ admonition ═══════════════════════════════════════════════════════════════
+   Both shapes the shortcode can emit — a <div role="note"> and a <details> — carry
+   .rb-admonition, so one rule set covers both. */
+.rb-admonition,
+.rb-details,
+.rb-tabs {
+  margin-block: var(--rb-space-5);
+}
+
+.rb-admonition {
+  padding: var(--rb-space-3) var(--rb-space-4);
+  background: var(--rb-color-bg-subtle);
+  /* Logical, so the rule stays on the reading-start edge in RTL — the theme ships an
+     RTL fixture and `border-left` would put this on the wrong side of it. */
+  border-inline-start: 3px solid var(--rb-color-border-strong);
+}
+
+/* Set as a LABEL, not as prose: the reader has to be able to tell "Warning" from the
+   sentence after it without relying on colour. */
+.rb-admonition-title {
+  margin: 0 0 var(--rb-space-2);
+  font-size: var(--rb-text-sm);
+  font-weight: var(--rb-weight-bold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* TIER — the three types that mean "stop and read this" take the amber already used
+   as the highlighted-line marker. It is reused rather than reinvented because it is
+   the one non-accent hue tokens.css carries that check_contrast.py already asserts at
+   3:1 against --rb-code-bg, and --rb-code-bg is byte-identical to
+   --rb-color-bg-subtle in both palettes — so this pair is gated for free. Coupling
+   noted: if the design-system workstream retunes --rb-code-hl-border for the code
+   block, this border follows it. That is the price of not shipping an ungated colour,
+   and it is the cheap end of the trade. */
+.rb-admonition--warning,
+.rb-admonition--caution,
+.rb-admonition--danger {
+  border-inline-start-color: var(--rb-code-hl-border);
+}
+
+/* ══ details ══════════════════════════════════════════════════════════════════
+   Native <details>, zero JS. `summary { cursor: pointer }` is already in base.css. */
+.rb-details {
+  padding: var(--rb-space-2) var(--rb-space-4);
+  border: 1px solid var(--rb-color-border);
+  border-radius: var(--rb-radius-sm);
+}
+.rb-details-summary {
+  padding-block: var(--rb-space-1);
+  font-weight: var(--rb-weight-medium);
+}
+
+/* ══ tabs ═════════════════════════════════════════════════════════════════════
+   A jump strip of same-page links, then every panel, stacked. No :checked, no
+   :target-driven hiding, no aria-selected — there is no selection to represent. */
+.rb-tabs-title {
+  margin: 0 0 var(--rb-space-2);
+  font-weight: var(--rb-weight-bold);
+}
+.rb-tabs-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rb-space-2);
+  margin: 0 0 var(--rb-space-4);
+  padding: 0;
+  list-style: none;
+}
+/* The visible boundary of something the reader can operate, so it takes the 3:1
+   --rb-color-border-strong tier and not the hairline (WCAG 1.4.11). The box clears
+   the 24 px target minimum on its own: 0.875rem text at the inherited line height
+   plus the block padding and the border. */
+.rb-tabs-strip a {
+  display: block;
+  padding: var(--rb-space-1) var(--rb-space-3);
+  border: 1px solid var(--rb-color-border-strong);
+  border-radius: var(--rb-radius-sm);
+  font-size: var(--rb-text-sm);
+  text-decoration: none;
+}
+.rb-tabs-panel {
+  margin-block-end: var(--rb-space-5);
+  padding-inline-start: var(--rb-space-4);
+  border-inline-start: 2px solid var(--rb-color-border);
+}
+/* The one legitimate use of :target here — it marks where the reader landed, it does
+   not decide what is visible. Accent is the interaction colour and the reader got
+   here by following a link, so it is saying the true thing. */
+.rb-tabs-panel:target {
+  border-inline-start-color: var(--rb-color-accent);
+}
+.rb-tabs-panel-title {
+  margin: 0 0 var(--rb-space-2);
+  font-size: var(--rb-text-base);
+  line-height: var(--rb-leading-tight);
+}
+
+/* A component's last child must not push a trailing margin against the component's
+   own padding — otherwise every box looks bottom-heavy by one paragraph gap. */
+.rb-admonition-body > :last-child,
+.rb-details-body > :last-child,
+.rb-tabs-panel > :last-child {
+  margin-block-end: 0;
+}
