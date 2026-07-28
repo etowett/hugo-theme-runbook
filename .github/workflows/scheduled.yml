@@ -1,0 +1,166 @@
+name: Scheduled
+
+# Checks that must not gate a pull request.
+#
+# The latest-Hugo build is here because it can break with no change to this repository:
+# the Hugo Themes showcase rebuilds every theme daily at 00:00 UTC against latest Hugo,
+# and a theme that stops building disappears from the showcase with no notice and no
+# action by the maintainer (specs/009 §4). A push-triggered job cannot catch that,
+# because there is no push.
+#
+# The external link sweep is here because it takes minutes, hits rate limits, and fails
+# when a third party's documentation site is down. specs/007 §3.5: gating a PR on that
+# produces a red X nobody can act on, which teaches people to ignore CI.
+
+on:
+  schedule:
+    # 22:00 UTC daily — two hours BEFORE the showcase rebuild at 00:00 UTC, so a Hugo
+    # release that breaks the theme is found by CI first and there is a window to react.
+    - cron: "0 22 * * *"
+    # 03:00 UTC Mondays — the external link sweep.
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      run_link_sweep:
+        description: "Also run the external link sweep"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  latest-hugo:
+    name: Demo builds against latest Hugo
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: latest
+          extended: true
+
+      - name: Resolve the theme path
+        run: |
+          echo "THEMES_DIR=$(dirname "$GITHUB_WORKSPACE")" >> "$GITHUB_ENV"
+          echo "THEME_NAME=$(basename "$GITHUB_WORKSPACE")" >> "$GITHUB_ENV"
+          hugo version
+
+      - name: Build
+        run: |
+          hugo \
+            --source exampleSite \
+            --themesDir "$THEMES_DIR" \
+            --theme "$THEME_NAME" \
+            --destination "$RUNNER_TEMP/public" \
+            --cleanDestinationDir \
+            --gc --minify \
+            --panicOnWarning \
+            --printPathWarnings
+
+      - name: Gates
+        run: |
+          python3 scripts/check_reqcb1.py --work-dir "$RUNNER_TEMP/reqcb1"
+          python3 scripts/check_fixtures.py --check-generated
+          python3 scripts/check_jsonld.py "$RUNNER_TEMP/public"
+          python3 scripts/check_budgets.py "$RUNNER_TEMP/public"
+          python3 scripts/check_links.py "$RUNNER_TEMP/public"
+
+      - name: Open or update a tracking issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          TITLE="Scheduled build against latest Hugo is failing"
+          cat > "$RUNNER_TEMP/body.md" <<'BODY'
+          The nightly build against **latest Hugo** failed.
+
+          This one matters on a clock. The Hugo Themes showcase rebuilds every theme daily
+          at 00:00 UTC against latest Hugo, and a theme that stops building disappears from
+          the showcase without notice and without any action by the maintainer
+          (specs/009 §4). This job runs at 22:00 UTC precisely so there is a window to react
+          before that happens.
+
+          Check first whether the failure is a **deprecation warning promoted to an error by
+          `--panicOnWarning`**. docs/contracts.md §3 records the live hazard: Hugo v0.158.0
+          deprecated `languageCode`, `.Language.LanguageCode` and
+          `.Language.LanguageDirection`, and their replacements do not exist at the 0.146.0
+          floor declared in theme.toml and root hugo.toml. So the fix is an accessor that is
+          stable across the whole supported range, not simply adopting the new name — doing
+          that breaks the other end of the CI matrix.
+          BODY
+          printf '\nRun: %s\n' "$RUN_URL" >> "$RUNNER_TEMP/body.md"
+          EXISTING=$(gh issue list --state open --label ci-nightly \
+            --search "$TITLE in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh label create ci-nightly --description "Opened by the scheduled CI job" \
+              --color B60205 2>/dev/null || true
+            gh issue create --title "$TITLE" --label ci-nightly \
+              --body-file "$RUNNER_TEMP/body.md"
+          fi
+
+  external-links:
+    name: External link sweep (weekly)
+    # Only on the Monday cron, or when asked for by hand. The daily cron skips it.
+    if: github.event.schedule == '0 3 * * 1' || inputs.run_link_sweep
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: latest
+          extended: true
+
+      - name: Build
+        run: |
+          hugo \
+            --source exampleSite \
+            --themesDir "$(dirname "$GITHUB_WORKSPACE")" \
+            --theme "$(basename "$GITHUB_WORKSPACE")" \
+            --destination "$RUNNER_TEMP/public" \
+            --cleanDestinationDir --gc --minify
+
+      - name: Sweep
+        run: python3 scripts/check_links.py "$RUNNER_TEMP/public" --external
+
+      - name: Open or update a tracking issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          TITLE="Weekly external link sweep found dead links"
+          cat > "$RUNNER_TEMP/body.md" <<'BODY'
+          The weekly external link sweep failed.
+
+          **Fix the link. Do not add it to the exclusion list** unless it is genuinely a
+          false positive — specs/007 §3.5. The reference site's link check excluded every
+          absolute URL, so no outbound link had ever been verified and 12 dead ones
+          accumulated, including two pointing at repositories that no longer existed and one
+          pointing at a page that never had.
+
+          If it really is a false positive — a host that answers 403 or 418 to any automated
+          checker while working perfectly in a browser — add it to
+          `.github/link-exclusions.json` **with a reason**. The reason is structurally
+          mandatory and `scripts/check_links.py` fails on an entry without one, precisely so
+          the next person tidying that file cannot delete a real exclusion by accident.
+          BODY
+          printf '\nRun: %s\n' "$RUN_URL" >> "$RUNNER_TEMP/body.md"
+          EXISTING=$(gh issue list --state open --label ci-links \
+            --search "$TITLE in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh label create ci-links --description "Opened by the weekly link sweep" \
+              --color FBCA04 2>/dev/null || true
+            gh issue create --title "$TITLE" --label ci-links \
+              --body-file "$RUNNER_TEMP/body.md"
+          fi

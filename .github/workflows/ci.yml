@@ -1,0 +1,189 @@
+name: CI
+
+# Every gate that is cheap enough to run on a pull request. The expensive and
+# flake-prone ones (external link sweep, Lighthouse) live in scheduled.yml — specs/007
+# §3.5: gating a PR on a check that fails when someone else's docs site is down produces
+# a red X nobody can act on, which teaches people to ignore CI.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # Both ends of the supported range, because both can break independently.
+    #
+    #  * The MINIMUM is what theme.toml and [module.hugoVersion] promise. ADR-0 declares
+    #    0.146.0 and declares extended is not required, so the floor is built
+    #    non-extended — a theme that quietly needs extended has broken its own manifest.
+    #    It is also the version most likely to be tripped by a template feature that only
+    #    exists later.
+    #  * LATEST is what the Hugo Themes showcase builds with (specs/009 §4). A deprecation
+    #    that becomes an error, or a new warning, breaks the showcase build before it
+    #    breaks anything a maintainer would notice.
+    #
+    # docs/contracts.md §3 records the specific hazard here: Hugo v0.158.0 deprecated
+    # languageCode, .Language.LanguageCode and .Language.LanguageDirection, whose
+    # replacements do not exist at 0.146.0. Either side of that pair breaks one end of
+    # this matrix, and --panicOnWarning turns the deprecation into a failure rather than
+    # a line that scrolls past.
+    name: Build — Hugo ${{ matrix.label }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: "0.146.0 (declared minimum, non-extended)"
+            version: "0.146.0"
+            extended: false
+            primary: false
+          - label: "latest (what the showcase uses)"
+            version: "latest"
+            extended: true
+            primary: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: ${{ matrix.version }}
+          extended: ${{ matrix.extended }}
+
+      - name: Resolve the theme path
+        # exampleSite/hugo.toml says `theme = "hugo-theme-runbook"`, so Hugo looks for a
+        # directory of that name inside --themesDir.
+        #
+        # On a default GitHub checkout the workspace path already ends in the repository
+        # name, so `--themesDir ..` happens to work here and nowhere else: it breaks in a
+        # git worktree, in a renamed clone, and in a fork whose repo name differs. Pairing
+        # --themesDir <parent> with --theme <basename> works in all of those without a
+        # symlink and without editing exampleSite/hugo.toml, which is owned by another
+        # workstream (docs/contracts.md §1 C).
+        run: |
+          echo "THEMES_DIR=$(dirname "$GITHUB_WORKSPACE")" >> "$GITHUB_ENV"
+          echo "THEME_NAME=$(basename "$GITHUB_WORKSPACE")" >> "$GITHUB_ENV"
+          hugo version
+
+      - name: Build exampleSite
+        # --panicOnWarning is mandatory. Hugo logs genuinely broken things — a missing
+        # layout, a shortcode called with the wrong arguments, a deprecated function — at
+        # WARN and then exits 0, so without this a build that renders nothing useful is a
+        # green tick (specs/007 §3.5).
+        #
+        # --printPathWarnings catches two pages resolving to the same target path, where
+        # one silently overwrites the other.
+        # --printUnusedTemplates lists templates nothing rendered, which is how a layout
+        # that stopped being reachable gets noticed.
+        run: |
+          hugo \
+            --source exampleSite \
+            --themesDir "$THEMES_DIR" \
+            --theme "$THEME_NAME" \
+            --destination "$RUNNER_TEMP/public" \
+            --cleanDestinationDir \
+            --gc --minify \
+            --panicOnWarning \
+            --printPathWarnings \
+            --printUnusedTemplates
+
+      - name: REQ-CB-1 — line-number config must not leak from site config
+        # Builds twice and requires the trees to be byte-identical, the second time with
+        # the reference site's own hostile settings forced through the environment.
+        # Stricter than grepping for `lntable` and needs no pinned content, so it runs on
+        # every PR. See docs/contracts.md §3 and §4.
+        run: python3 scripts/check_reqcb1.py --work-dir "$RUNNER_TEMP/reqcb1"
+
+      - name: Survives hostile consumer configuration
+        # REQ-CB-1 proves output does not CHANGE under forced line numbers. This proves
+        # the theme still BUILDS under the other settings a consuming site might force,
+        # where output legitimately differs so an identity diff is the wrong test.
+        run: |
+          set -euo pipefail
+          run_hostile() {
+            echo "::group::$1"
+            shift
+            env "$@" hugo \
+              --source exampleSite \
+              --themesDir "$THEMES_DIR" \
+              --theme "$THEME_NAME" \
+              --destination "$RUNNER_TEMP/hostile" \
+              --cleanDestinationDir \
+              --panicOnWarning
+            echo "::endgroup::"
+          }
+          run_hostile "noClasses=true (consumer forces inline Chroma styles)" \
+            HUGO_MARKUP_HIGHLIGHT_NOCLASSES=true
+          run_hostile "guessSyntax=true (consumer guesses lexers for untagged fences)" \
+            HUGO_MARKUP_HIGHLIGHT_GUESSSYNTAX=true
+          run_hostile "unsafe=true (consumer allows raw HTML)" \
+            HUGO_MARKUP_GOLDMARK_RENDERER_UNSAFE=true
+          run_hostile "everything at once" \
+            HUGO_MARKUP_HIGHLIGHT_LINENOS=true \
+            HUGO_MARKUP_HIGHLIGHT_LINENUMBERSINTABLE=true \
+            HUGO_MARKUP_HIGHLIGHT_NOCLASSES=true \
+            HUGO_MARKUP_HIGHLIGHT_GUESSSYNTAX=true
+
+      - name: Fixture invariants
+        # A fixture whose defining property drifted still builds and guards nothing.
+        run: python3 scripts/check_fixtures.py --check-generated
+
+      - name: JSON-LD parses, and its VALUES are asserted
+        # TODO(m2): add --require-article once layouts/_partials/head/schema.html emits
+        # Article schema. Until then the build has only a WebSite node, the headline and
+        # datePublished assertions have nothing to fire on, and the script says so
+        # instead of passing silently.
+        run: python3 scripts/check_jsonld.py "$RUNNER_TEMP/public"
+
+      - name: Performance budgets
+        # Theme-shell budgets are hard ceilings and fail this job. Page-weight thresholds
+        # are placeholders and are reported only — specs/005 §3.1 requires them to be
+        # re-derived from a fresh baseline, and the numbers in specs/005 §3.2 were set
+        # against a baseline the reference site has since improved past.
+        run: python3 scripts/check_budgets.py "$RUNNER_TEMP/public" --json "$RUNNER_TEMP/budgets.json"
+
+      - name: Upload build and budget report
+        if: matrix.primary
+        uses: actions/upload-artifact@v4
+        with:
+          name: exampleSite-build
+          path: |
+            ${{ runner.temp }}/public
+            ${{ runner.temp }}/budgets.json
+          retention-days: 7
+
+  contrast:
+    # Owned by the design workstream (docs/contracts.md §1 A). Wired here so it starts
+    # gating the day the script and the palettes land, rather than being remembered later.
+    name: Contrast (WCAG 2.2 AA)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Every prose pair and every Chroma token, both themes
+        run: |
+          if [ ! -f scripts/check_contrast.py ]; then
+            echo "::notice title=Contrast gate::scripts/check_contrast.py does not exist yet"
+            echo "Owned by the design workstream — docs/contracts.md §1 A, specs/007 §3.1."
+            exit 0
+          fi
+          python3 scripts/check_contrast.py
+
+  showcase:
+    # Advisory until M5. images/screenshot.* and images/tn.* cannot exist before the
+    # theme renders, and README.md is owned by nobody (docs/contracts.md §1), so a
+    # blocking job here would be red for reasons no PR author can fix.
+    name: Showcase compliance (advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/check_showcase.py
