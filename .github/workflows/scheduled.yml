@@ -35,7 +35,7 @@ jobs:
     name: Demo builds against latest Hugo
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: peaceiris/actions-hugo@v3
         with:
@@ -111,7 +111,7 @@ jobs:
     if: github.event.schedule == '0 3 * * 1' || inputs.run_link_sweep
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: peaceiris/actions-hugo@v3
         with:
