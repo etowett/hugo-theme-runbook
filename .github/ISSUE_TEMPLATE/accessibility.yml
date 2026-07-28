@@ -1,0 +1,80 @@
+name: Accessibility barrier
+description: Something in the theme is unusable or hard to use with an assistive technology.
+labels: ["accessibility", "bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Accessibility reports are handled as **bugs, not feature requests**, on the same footing as
+        a build break.
+
+        Please skim [§3 of the accessibility
+        statement](https://github.com/etowett/hugo-theme-runbook/blob/main/docs/accessibility.md)
+        first — it lists what has **not** been tested, which is a long list including every screen
+        reader, iOS Safari, Windows High Contrast and 200% zoom. If your report is in that list it
+        is still very welcome; it just will not surprise anyone.
+
+        Conformance target is **WCAG 2.2 AA**. Automated scores are not conformance and are not
+        treated as such here.
+
+  - type: textarea
+    id: barrier
+    attributes:
+      label: What is the barrier
+      description: What you were trying to do, and what stopped you.
+    validations:
+      required: true
+
+  - type: input
+    id: page
+    attributes:
+      label: Where
+      description: The page or component — an article, the code block copy button, the TOC, the theme toggle.
+    validations:
+      required: true
+
+  - type: input
+    id: at
+    attributes:
+      label: Assistive technology and version
+      description: Screen reader, magnifier, voice control, switch access, or "none — keyboard only".
+      placeholder: VoiceOver on macOS 15.4 / Safari 18.4
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser, OS and settings
+      placeholder: Firefox 138, Windows 11, High Contrast on, 200% zoom
+
+  - type: dropdown
+    id: criterion
+    attributes:
+      label: Closest WCAG 2.2 criterion, if you know it
+      description: A guess is fine, and "not sure" is a perfectly good answer.
+      options:
+        - Not sure
+        - "1.1.1 Non-text Content"
+        - "1.3.1 Info and Relationships"
+        - "1.4.3 Contrast (Minimum)"
+        - "1.4.4 Resize Text"
+        - "1.4.10 Reflow"
+        - "1.4.11 Non-text Contrast"
+        - "2.1.1 Keyboard"
+        - "2.4.3 Focus Order"
+        - "2.4.7 Focus Visible"
+        - "2.4.11 Focus Not Obscured (Minimum)"
+        - "2.5.8 Target Size (Minimum)"
+        - "3.2.5 Change on Request"
+        - "4.1.2 Name, Role, Value"
+        - "Other"
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should happen instead
+      description: >-
+        If you know the fix, say so. A concrete report — what was announced versus what should have
+        been — is worth far more than a scanner dump, and a scanner finding without a reproduction
+        may be a false positive.

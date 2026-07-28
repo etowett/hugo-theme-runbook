@@ -1,0 +1,63 @@
+name: Hugo compatibility break
+description: The theme stopped building, or started warning, on a Hugo version.
+title: "Hugo compat: "
+labels: ["bug", "hugo-compat", "priority:P1"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **This is treated as a P1.** The Hugo Themes showcase rebuilds every theme daily at 00:00
+        UTC against the latest release, and a theme that stops building disappears from it with no
+        notice and no message. Triage within 72 hours, patch release as soon as a fix exists —
+        [policy](https://github.com/etowett/hugo-theme-runbook/blob/main/CHANGELOG.md#latest-hugo-breakage).
+
+        A scheduled CI job builds against latest Hugo at 22:00 UTC daily and opens an issue on
+        failure, so this form is mostly for breaks that job did not catch — a version this project
+        does not build, or the declared floor.
+
+  - type: input
+    id: hugo
+    attributes:
+      label: Hugo version that breaks
+      placeholder: hugo v0.170.0+extended linux/amd64
+    validations:
+      required: true
+
+  - type: input
+    id: hugo-ok
+    attributes:
+      label: Last Hugo version that worked
+      description: If you know it. "Worked on the previous release" narrows it enormously.
+
+  - type: dropdown
+    id: leg
+    attributes:
+      label: Which end of the supported range
+      options:
+        - Latest Hugo
+        - The declared floor (0.146.0, non-extended)
+        - Somewhere in between
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Build output
+      description: >-
+        The error or warning verbatim, with the template path. Build with `--panicOnWarning`
+        so a deprecation is a failure rather than a line that scrolls past.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: >-
+        A link to the Hugo release note or commit that caused it, if you found one. Note that
+        replacements for a deprecated API often do not exist at the 0.146.0 floor, so "just use
+        the new function" can break the other end of the matrix — see
+        `docs/contracts.md § Deprecations vs the version floor`.

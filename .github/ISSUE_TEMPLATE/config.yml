@@ -1,0 +1,23 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/etowett/hugo-theme-runbook/blob/main/SECURITY.md
+    about: >-
+      Do NOT open a public issue. Report privately — see SECURITY.md for the channel and
+      what a useful report contains.
+  - name: Configuration reference
+    url: https://github.com/etowett/hugo-theme-runbook/blob/main/docs/configuration.md
+    about: >-
+      Every params.runbook.* key with its type, default and effect, the front-matter schema,
+      per-page override precedence, and Content Security Policy. Check here before filing
+      "setting X does nothing" — a few known gaps are documented in place.
+  - name: Accessibility statement
+    url: https://github.com/etowett/hugo-theme-runbook/blob/main/docs/accessibility.md
+    about: >-
+      What has been tested, how, and — in §3 — the list of what has NOT been tested. Worth
+      reading before reporting an accessibility gap, though a report is still welcome.
+  - name: Why a decision was made
+    url: https://github.com/etowett/hugo-theme-runbook/tree/main/specs
+    about: >-
+      Every architectural decision is recorded with the measurement behind it. If you disagree
+      with one, the spec is the place to argue with.
