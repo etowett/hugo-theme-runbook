@@ -1,0 +1,52 @@
+{{- /*
+  utils/page-image.html — resolves a page's share image to an ABSOLUTE url, or "".
+
+  ADR-7: cover images are an optional capability, never a layout assumption. Nothing
+  in the theme reserves space for one; this partial exists purely so Open Graph,
+  Twitter cards and JSON-LD can use an image when a consumer happens to have one.
+  Zero of the reference archive's 497 posts carry a body image and exactly one
+  carries `image:` front matter, so this must cost nothing when unused.
+
+  Resolution order:
+    1. front matter `image` (the key hugo-theme-stack uses — migration compatibility)
+    2. front matter `cover`
+    3. a page resource named cover.* / feature.* / banner.*
+    4. params.runbook.seo.defaultImage
+    5. "" — and every caller must handle that
+
+  A front-matter value is looked up as a page resource, then as a global asset, then
+  taken at face value and made absolute. `absURL` leaves an already-absolute URL
+  alone, so an off-site CDN URL passes through untouched.
+
+  Returns a string via `return`.
+*/ -}}
+
+{{- $page := . -}}
+{{- $rb := partialCached "utils/settings.html" $page -}}
+{{- $url := "" -}}
+
+{{- $name := "" -}}
+{{- with $page.Params.image }}{{ $name = . }}{{ end -}}
+{{- if not $name }}{{ with $page.Params.cover }}{{ $name = . }}{{ end }}{{ end -}}
+
+{{- if $name -}}
+  {{- with $page.Resources.GetMatch $name -}}
+    {{- $url = .Permalink -}}
+  {{- else -}}
+    {{- with resources.Get $name -}}
+      {{- $url = .Permalink -}}
+    {{- else -}}
+      {{- $url = $name | absURL -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+
+{{- if not $url -}}
+  {{- with $page.Resources.GetMatch "{cover,feature,banner}.*" }}{{ $url = .Permalink }}{{ end -}}
+{{- end -}}
+
+{{- if not $url -}}
+  {{- with $rb.seo.defaultImage }}{{ $url = . | absURL }}{{ end -}}
+{{- end -}}
+
+{{- return $url -}}

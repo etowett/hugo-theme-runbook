@@ -1,16 +1,81 @@
 {{- /*
-  STUB — owned by the "Templates, SEO and taxonomy" workstream.
+  utils/term-title.html — REQ-TAX-1 (specs/004 §4a).
 
-  REQ-TAX-1 (specs/004 §4a). Hugo derives a term title by capitalising each
+  Returns the DISPLAY TITLE of any page, and does the taxonomy-specific work Hugo
+  does not: a term with no `_index.md` gets its title by capitalising each
   hyphen-separated segment, so kebab-case terms render as "Amazon-Eks", "Sql-Server",
-  "Ci-Cd". That string is both the <title> and the on-page heading.
+  "Ci-Cd", "Github-Actions" — as the <title>, as the <h1>, and in every breadcrumb
+  and tag chip that links to them.
 
-  Resolution order, once implemented:
-    1. the term's own _index.md `title` — always wins
-    2. params.runbook.taxonomyTitles[<term key>] — the acronym / spelling map
-    3. hyphens → spaces, title-cased
+  Resolution order, highest first:
 
-  The reference site accumulated 60 _index.md files that exist for no reason other than
-  step 2. No widely-used Hugo theme does this; it is a genuine differentiator.
+    1. the term's own `_index.md` front-matter `title` — always wins.
+       `.Params.title` is EMPTY on an auto-generated term page and populated only
+       from front matter, which makes it an exact test for "the author said so"
+       (verified on v0.164.0: an `_index.md` carrying no `title:` correctly falls
+       through to 2 and 3).
+    2. params.runbook.taxonomyTitles[<url segment>] — the acronym / spelling map,
+       for cases capitalisation cannot infer: EKS, SQL, GitHub, CI/CD, cert-manager.
+       Hugo lower-cases TOML keys and term URL segments are already lower-case, so
+       the lookup is exact.
+    3. hyphens and underscores → spaces, title-cased.
+
+  Step 3 uses Hugo's `title`, which honours the site's `titleCaseStyle`. That is
+  deliberate — it is the consumer's stated preference for how titles are cased, and
+  the AP default gets "infrastructure-as-code" → "Infrastructure as Code" right.
+  `strings.FirstUpper` on top guarantees a capitalised first letter even under
+  `titleCaseStyle = "none"`.
+
+  Returns a plain string via `return`, NOT rendered output: the value is fed to
+  `jsonify` in head/schema.html, and a partial that *prints* hands back HTML-escaped
+  text ("Q&amp;A"), which would poison the structured data.
+
+  Usage:  {{ partial "utils/term-title.html" . }}
+          {{ $t := partial "utils/term-title.html" $somePage }}
+
+  The reference site accumulated 60 `_index.md` files that exist for no reason other
+  than step 2. No widely-used Hugo theme does this.
 */ -}}
-{{- .Title -}}
+
+{{- $page := . -}}
+{{- $title := $page.Title -}}
+
+{{- if in (slice "term" "taxonomy") $page.Kind -}}
+
+  {{- /* 1 — an explicit front-matter title always wins. */ -}}
+  {{- $explicit := "" -}}
+  {{- with $page.Params.title }}{{ $explicit = . }}{{ end -}}
+
+  {{- if $explicit -}}
+    {{- $title = $explicit -}}
+  {{- else -}}
+
+    {{- /* 2 — the acronym / spelling map, keyed by URL segment. */ -}}
+    {{- $key := lower (path.Base $page.Path) -}}
+    {{- $map := dict -}}
+    {{- with site.Params.runbook -}}
+      {{- with .taxonomyTitles }}{{ $map = . }}{{ end -}}
+    {{- end -}}
+    {{- $mapped := "" -}}
+    {{- with index $map $key }}{{ $mapped = . }}{{ end -}}
+
+    {{- if $mapped -}}
+      {{- $title = $mapped -}}
+    {{- else if eq $page.Kind "term" -}}
+
+      {{- /* 3 — derive. `.Data.Term` keeps the author's own casing ("Meta" stays
+             "Meta"); it falls back to the URL segment defensively. */ -}}
+      {{- $raw := $key -}}
+      {{- with $page.Data.Term }}{{ $raw = . }}{{ end -}}
+      {{- $title = $raw
+            | replaceRE `[-_]+` " "
+            | replaceRE `\s{2,}` " "
+            | strings.TrimSpace
+            | title
+            | strings.FirstUpper -}}
+
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+
+{{- return $title -}}

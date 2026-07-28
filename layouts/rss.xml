@@ -1,0 +1,60 @@
+{{- /*
+  rss.xml — FULL-CONTENT feed (specs/003 §3.7).
+
+  Hugo's built-in RSS template emits `.Summary`, which for this corpus means a feed
+  reader shows the first 70 words of a procedure and then makes you open a browser to
+  read the command you came for. Full content is the point of a feed for a technical
+  blog.
+
+  `transform.XMLEscape` on `.Content` rather than a CDATA section: CDATA cannot
+  contain the sequence `]]>`, and this archive is 9,046 fenced code blocks of shell
+  and YAML. Escaping is the only form that cannot be broken by the content.
+
+  ▸ SIZE. Full content × a large archive is a large feed. The reference site's 497
+    posts would be several megabytes. `services.rss.limit` is honoured exactly as the
+    internal template honours it, so a consumer caps it in their own config:
+
+        [services.rss]
+          limit = 20
+
+  ▸ NO `languageCode`. It was deprecated in Hugo v0.158.0 and its replacement does not
+    exist at the v0.146.0 floor (contracts §3), so either spelling breaks a supported
+    version under `--panicOnWarning`. `site.Language.Lang` is stable across the range.
+
+  Dates are guarded: `.Date.IsZero` produces no `<pubDate>` rather than a 1970
+  timestamp that sorts a dateless post to the beginning of every feed reader.
+*/ -}}
+{{- $pages := .RegularPages -}}
+{{- if .IsHome }}{{ $pages = site.RegularPages }}{{ end -}}
+{{- $limit := site.Config.Services.RSS.Limit -}}
+{{- if ge $limit 1 }}{{ $pages = $pages | first $limit }}{{ end -}}
+{{- printf "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?>" | safeHTML }}
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>{{ if .IsHome }}{{ site.Title }}{{ else }}{{ partial "utils/term-title.html" . }} on {{ site.Title }}{{ end }}</title>
+    <link>{{ .Permalink }}</link>
+    <description>{{ with .Description | default site.Params.description }}{{ . | plainify }}{{ end }}</description>
+    <generator>Hugo</generator>
+    <language>{{ site.Language.Lang }}</language>
+    {{- with $pages }}{{ with index . 0 }}{{ if not .Date.IsZero }}
+    <lastBuildDate>{{ .Date.Format "Mon, 02 Jan 2006 15:04:05 -0700" | safeHTML }}</lastBuildDate>
+    {{- end }}{{ end }}{{ end }}
+    {{- with .OutputFormats.Get "rss" }}
+    {{ printf "<atom:link href=%q rel=\"self\" type=%q />" .Permalink .MediaType.Type | safeHTML }}
+    {{- end }}
+    {{- range $pages }}
+    <item>
+      <title>{{ .Title }}</title>
+      <link>{{ .Permalink }}</link>
+      {{- if not .Date.IsZero }}
+      <pubDate>{{ .Date.Format "Mon, 02 Jan 2006 15:04:05 -0700" | safeHTML }}</pubDate>
+      {{- end }}
+      <guid isPermaLink="true">{{ .Permalink }}</guid>
+      {{- range partial "utils/terms.html" (dict "page" . "taxonomy" "categories") }}
+      <category>{{ partial "utils/term-title.html" . }}</category>
+      {{- end }}
+      <description>{{ .Content | transform.XMLEscape | safeHTML }}</description>
+    </item>
+    {{- end }}
+  </channel>
+</rss>

@@ -1,0 +1,64 @@
+{{ define "main" }}
+{{- /*
+  archive.html — every post, grouped by year (specs/003 §3.4).
+
+  ▸ HOW TO USE IT. Hugo does not have an "archive" page kind, so this template is
+    selected by front matter. Create the page and point it here:
+
+        # content/archive/_index.md
+        ---
+        title: "Archive"
+        layout: "archive"
+        ---
+
+    That is the whole setup, and it is documented in docs/configuration.md. Nothing
+    in the theme assumes the page exists.
+
+  Deliberately NOT paginated and deliberately not using list/post-item.html: the
+  point of an archive is that everything is on one page and findable with the
+  browser's own find-in-page, which pagination destroys. That means the row has to
+  be cheap — a date and a link, no summary, no byline — because at the reference
+  archive's 497 posts a full list item per row would be a page-weight problem.
+
+  `mainSections`, never a hard-coded "post".
+*/ -}}
+{{- $main := site.Params.mainSections | default slice -}}
+{{- $pages := where site.RegularPages "Section" "in" $main -}}
+
+<div class="rb-archive">
+  <header class="rb-list-header">
+    <h1 class="rb-list-title">{{ .Title }}</h1>
+    {{- with $pages }}
+    <p class="rb-list-count">{{ i18n "postCount" (dict "Count" (len .)) }}</p>
+    {{- end }}
+  </header>
+
+  {{- with .Content }}
+  <div class="rb-prose">{{ . }}</div>
+  {{- end }}
+
+  {{- with $pages }}
+  {{- range .GroupByDate "2006" }}
+  {{- /* A page with no date groups under year "0001", which is Go's zero time and
+         not something to print at a reader. Those posts are still LISTED — silently
+         dropping content from an archive is worse than an honest heading. */ -}}
+  {{- $label := cond (eq .Key "0001") (i18n "undated") .Key }}
+  <section class="rb-archive-year" aria-labelledby="rb-archive-{{ .Key }}">
+    <h2 class="rb-archive-year-heading" id="rb-archive-{{ .Key }}">{{ $label }}</h2>
+    <ul class="rb-archive-list">
+      {{- range .Pages }}
+      <li class="rb-archive-item">
+        {{- if not .Date.IsZero }}
+        <time class="rb-archive-date" datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "Jan 2" }}</time>
+        {{- end }}
+        <a href="{{ .RelPermalink }}">{{ .LinkTitle }}</a>
+      </li>
+      {{- end }}
+    </ul>
+  </section>
+  {{- end }}
+  {{- else }}
+  <p class="rb-empty">{{ i18n "noPosts" }}</p>
+  {{- end }}
+</div>
+{{ end }}

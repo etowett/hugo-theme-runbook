@@ -82,8 +82,12 @@ jobs:
         #
         # --printPathWarnings catches two pages resolving to the same target path, where
         # one silently overwrites the other.
-        # --printUnusedTemplates lists templates nothing rendered, which is how a layout
-        # that stopped being reachable gets noticed.
+        #
+        # --printUnusedTemplates is deliberately NOT here. It warns once per unreached
+        # template, so under --panicOnWarning the only way to go green is to delete every
+        # fallback the demo site does not exercise — which, for a theme published for
+        # general use, means deleting the code that exists for consumers unlike the demo.
+        # It runs as its own step below, still failing, but against a reasoned allowlist.
         run: |
           hugo \
             --source exampleSite \
@@ -93,8 +97,23 @@ jobs:
             --cleanDestinationDir \
             --gc --minify \
             --panicOnWarning \
-            --printPathWarnings \
-            --printUnusedTemplates
+            --printPathWarnings
+
+      - name: Unused templates — every shipped template needs a fixture or a reason
+        # Keeps the forcing function that caught render-image.html, admonition.html,
+        # details.html and archive.html shipping with nothing reaching them, while
+        # allowing a fallback that carries a written reason. A waiver that goes stale
+        # fails too, so a template going dead later cannot hide behind one.
+        run: |
+          hugo \
+            --source exampleSite \
+            --themesDir "$THEMES_DIR" \
+            --theme "$THEME_NAME" \
+            --destination "$RUNNER_TEMP/public-unused" \
+            --cleanDestinationDir \
+            --printUnusedTemplates 2>&1 | tee "$RUNNER_TEMP/unused.log"
+          python3 scripts/check_unused_templates.py \
+            "$RUNNER_TEMP/unused.log" .github/unused-templates-allowed.txt
 
       - name: REQ-CB-1 — line-number config must not leak from site config
         # Builds twice and requires the trees to be byte-identical, the second time with
@@ -138,11 +157,17 @@ jobs:
         run: python3 scripts/check_fixtures.py --check-generated
 
       - name: JSON-LD parses, and its VALUES are asserted
-        # TODO(m2): add --require-article once layouts/_partials/head/schema.html emits
-        # Article schema. Until then the build has only a WebSite node, the headline and
-        # datePublished assertions have nothing to fire on, and the script says so
-        # instead of passing silently.
-        run: python3 scripts/check_jsonld.py "$RUNNER_TEMP/public"
+        # --require-article is on now that head/schema.html emits Article schema. Before
+        # that the build carried only a WebSite node, so the two assertions that matter
+        # had nothing to fire on and the flag would have made the job pass on an empty
+        # set — which is the failure mode this check exists to prevent.
+        #
+        # Those two assertions are the whole point: `headline` must not begin with a
+        # quote character and `datePublished` must match ^\d{4}-\d{2}-\d{2}T. The
+        # reference site shipped double-encoded JSON-LD on 493 of 493 article pages for
+        # months. It PARSES, so nothing short of a value-level assertion catches it
+        # (specs/004 §2a).
+        run: python3 scripts/check_jsonld.py "$RUNNER_TEMP/public" --require-article
 
       - name: Performance budgets
         # Theme-shell budgets are hard ceilings and fail this job. Page-weight thresholds

@@ -1,0 +1,28 @@
+{{- /*
+  details — collapsible long output. Native <details>, ZERO JavaScript.
+
+  Sized for what this corpus actually contains: `journalctl` dumps and 200-line
+  `terraform plan` output that a reader needs to be able to skip past but that must
+  stay in the DOM, in the page source, and in find-in-page. A JS accordion breaks all
+  three; <details> breaks none of them and is keyboard-operable for free.
+
+  Usage:
+      {{< details summary="Full systemctl output" >}}
+      ```text
+      ● redis.service - Redis persistent key-value database
+      ```
+      {{< /details >}}
+
+  Parameters:
+      summary   the closed-state label; falls back to the translated "Details"
+      open      true → rendered expanded
+
+  `.Inner` goes through `RenderString` in block display, so fenced code inside a
+  details block still reaches the code-block render hook and keeps its copy button.
+*/ -}}
+{{- $summary := or (.Get "summary") (.Get 0) (i18n "detailsSummary") -}}
+{{- $open := eq (lower (printf "%v" (.Get "open"))) "true" -}}
+<details class="rb-details"{{ if $open }} open{{ end }}>
+  <summary class="rb-details-summary">{{ $summary }}</summary>
+  <div class="rb-details-body">{{ .Inner | .Page.RenderString (dict "display" "block") }}</div>
+</details>

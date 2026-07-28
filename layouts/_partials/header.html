@@ -1,16 +1,41 @@
-{{- /* STUB — owned by the "Templates, SEO and taxonomy" workstream. */ -}}
+{{- /*
+  header.html — brand, primary navigation, theme toggle.
+
+  Menu URLs are resolved from `.Page` when the entry uses `pageRef`, which is the
+  form the exampleSite uses and the form that survives a `baseURL` with a
+  subdirectory. `.URL` alone is the right answer only for external entries.
+
+  Active state is `aria-current="page"` for the exact page and
+  `aria-current="true"` for an ancestor section, so a reader inside /posts/redis/
+  can still see that "Posts" is where they are. `.HasMenuCurrent` is the ancestor
+  test; `.IsMenuCurrent` is the exact one.
+
+  The theme toggle ships `hidden` and js/modules/theme.js unhides it — a control that
+  does nothing without JavaScript must not be presented (ADR-5). It cycles three
+  states, so it carries no `aria-pressed`, which is a binary.
+*/ -}}
+{{- $rb := partialCached "utils/settings.html" . -}}
 <header class="rb-header">
   <nav class="rb-nav" aria-label="{{ i18n "primaryNavigation" }}">
     <a class="rb-brand" href="{{ site.Home.RelPermalink }}">{{ site.Title }}</a>
 
+    {{- with site.Menus.main }}
     <ul class="rb-nav-list">
-      {{- range site.Menus.main }}
-      <li><a href="{{ .URL }}"{{ if $.IsMenuCurrent "main" . }} aria-current="page"{{ end }}>{{ .Name }}</a></li>
+      {{- range . }}
+      {{- $url := .URL -}}
+      {{- with .Page }}{{ $url = .RelPermalink }}{{ end -}}
+      <li><a href="{{ $url }}"
+        {{- if $.IsMenuCurrent "main" . }} aria-current="page"
+        {{- else if $.HasMenuCurrent "main" . }} aria-current="true"{{ end }}>{{ .Name }}</a></li>
       {{- end }}
     </ul>
+    {{- end }}
 
-    {{- if site.Params.runbook.showThemeToggle }}
-    {{- /* aria-pressed is not used: this cycles three states, it is not a binary. */ -}}
+    {{- if $rb.search.enable }}
+    <a class="rb-search-link" href="{{ "search/" | relURL }}">{{ i18n "search" }}</a>
+    {{- end }}
+
+    {{- if $rb.showThemeToggle }}
     <button type="button" class="rb-theme-toggle" data-rb-theme-toggle hidden>
       <span class="rb-theme-toggle-label">{{ i18n "toggleTheme" }}</span>
     </button>

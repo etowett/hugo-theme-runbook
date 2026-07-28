@@ -1,5 +1,5 @@
 {{- /*
-  STUB — owned by the "Templates, SEO and taxonomy" workstream.
+  head/schema.html — JSON-LD.
 
   ══ REQ-SEO-1 — READ specs/004-hugo-mechanics.md §2a BEFORE TOUCHING THIS FILE ══
 
@@ -12,19 +12,169 @@
   longer a valid ISO 8601 date. It still PARSES, which is why it survived review on
   493 of 493 article pages of the reference site for months.
 
-  The rule: build ONE map, jsonify ONCE, mark it safeJS. Never interpolate a field.
-  Also: no `articleBody` (specs/003 §3.7 item 2), and map page kinds to schema types
-  explicitly rather than emitting Article for every .IsPage (item 4).
+  THE RULE, and the only rule that matters here:
 
-  CI asserts on parsed values — see specs/007 §3.5.
+      build ONE map with `dict`, `jsonify` it ONCE, mark the result `safeJS`.
+      Never interpolate a field.
+
+  Per-field `| jsonify | safeJS` also produces correct output — the whole-object form
+  is mandated anyway because it makes recurrence STRUCTURALLY impossible rather than
+  depending on someone remembering a filter at each of eleven call sites, which is
+  exactly how the reference site regressed. There is exactly one `jsonify` per
+  <script> below, and adding a second inside one is the bug.
+
+  Three more rules from specs/003 §3.7:
+
+  * **No `articleBody`.** Duplicating the article as structured data cost the
+    reference site ~432 B gzip per page — more than every line-number table on the
+    page combined — for no verified SEO benefit (item 2).
+  * **Page kinds map to schema types explicitly** (item 4). `Article` is not emitted
+    for every `.IsPage`: an About page is a `WebPage`, a term page is a
+    `CollectionPage`, and the 404 gets nothing at all.
+  * **Dates are guarded.** No `Invalid date`, and an absent `lastmod` simply means no
+    `dateModified` key rather than a broken one (item 5).
+
+  Term names come from utils/term-title.html, which `return`s a raw string. A partial
+  that *printed* its result would hand back HTML-escaped text and put `&amp;` inside
+  the structured data.
+
+  CI asserts on the PARSED values, not on the presence of the block — see specs/007.
 */ -}}
-{{- if site.Params.runbook.seo.jsonLd -}}
-  {{- $schema := dict
-      "@context" "https://schema.org"
-      "@type" "WebSite"
-      "name" site.Title
-      "url" site.Home.Permalink
-  -}}
-  <script type="application/ld+json">{{ $schema | jsonify | safeJS }}</script>
+
+{{- $rb := partialCached "utils/settings.html" . -}}
+
+{{- if $rb.seo.jsonLd -}}
+{{- $main := site.Params.mainSections | default slice -}}
+
+{{- /* ── kind → type. Anything not listed emits no primary entity. ─────────── */ -}}
+{{- $type := "" -}}
+{{- if .IsHome -}}
+  {{- $type = "WebSite" -}}
+{{- else if eq .Kind "page" -}}
+  {{- $type = cond (in $main .Section) "BlogPosting" "WebPage" -}}
+{{- else if in (slice "section" "taxonomy" "term") .Kind -}}
+  {{- $type = "CollectionPage" -}}
 {{- end -}}
+
+{{- if $type -}}
+  {{- $title := partial "utils/term-title.html" . -}}
+  {{- $image := partial "utils/page-image.html" . -}}
+
+  {{- $desc := "" -}}
+  {{- with .Description -}}
+    {{- $desc = . -}}
+  {{- else -}}
+    {{- if .IsPage }}{{ with .Summary }}{{ $desc = . }}{{ end }}
+    {{- else }}{{ with site.Params.description }}{{ $desc = . }}{{ end }}{{ end -}}
+  {{- end -}}
+  {{- $desc = $desc | plainify | htmlUnescape | replaceRE `\s+` " " | strings.TrimSpace | truncate 300 "…" -}}
+
+  {{- $d := dict
+        "@context" "https://schema.org"
+        "@type" $type
+        "url" .Permalink
+        "inLanguage" site.Language.Lang -}}
+
+  {{- with $desc }}{{ $d = merge $d (dict "description" .) }}{{ end -}}
+  {{- with $image }}{{ $d = merge $d (dict "image" .) }}{{ end -}}
+
+  {{- if eq $type "WebSite" -}}
+    {{- $d = merge $d (dict "name" site.Title) -}}
+    {{- if $rb.search.enable -}}
+      {{- $d = merge $d (dict "potentialAction" (dict
+            "@type" "SearchAction"
+            "target" (dict
+              "@type" "EntryPoint"
+              "urlTemplate" (printf "%ssearch/?q={search_term_string}" site.Home.Permalink))
+            "query-input" "required name=search_term_string")) -}}
+    {{- end -}}
+
+  {{- else if eq $type "BlogPosting" -}}
+    {{- $d = merge $d (dict
+          "headline" $title
+          "mainEntityOfPage" (dict "@type" "WebPage" "@id" .Permalink)) -}}
+
+    {{- /* Dates. `.IsZero` is the guard; a page with no date gets no date key. */ -}}
+    {{- if not .Date.IsZero -}}
+      {{- $d = merge $d (dict "datePublished" (.Date.Format "2006-01-02T15:04:05Z07:00")) -}}
+    {{- end -}}
+    {{- if and (not .Lastmod.IsZero) (.Lastmod.After .Date) -}}
+      {{- $d = merge $d (dict "dateModified" (.Lastmod.Format "2006-01-02T15:04:05Z07:00")) -}}
+    {{- end -}}
+
+    {{- /* Author. Front matter wins, then params.runbook.author, then a bare
+           site-level `author` string, then the site title. */ -}}
+    {{- $authorName := "" -}}
+    {{- with .Params.author -}}
+      {{- if reflect.IsSlice . }}{{ $authorName = printf "%v" (index . 0) }}{{ else }}{{ $authorName = printf "%v" . }}{{ end -}}
+    {{- end -}}
+    {{- if not $authorName }}{{ $authorName = $rb.seo.authorName }}{{ end -}}
+    {{- if not $authorName -}}
+      {{- with site.Params.author }}{{ if not (or (reflect.IsSlice .) (reflect.IsMap .)) }}{{ $authorName = printf "%v" . }}{{ end }}{{ end -}}
+    {{- end -}}
+    {{- if not $authorName }}{{ $authorName = site.Title }}{{ end -}}
+    {{- $author := dict "@type" "Person" "name" $authorName -}}
+    {{- with $rb.seo.authorURL }}{{ $author = merge $author (dict "url" .) }}{{ end -}}
+    {{- $d = merge $d (dict "author" $author) -}}
+
+    {{- /* Publisher. No logo key at all rather than an empty one. */ -}}
+    {{- $publisher := dict "@type" "Organization" "name" site.Title "url" site.Home.Permalink -}}
+    {{- with $rb.logo -}}
+      {{- $publisher = merge $publisher (dict "logo" (dict "@type" "ImageObject" "url" (. | absURL))) -}}
+    {{- end -}}
+    {{- $d = merge $d (dict "publisher" $publisher) -}}
+
+    {{- $tags := partial "utils/terms.html" (dict "page" . "taxonomy" "tags") -}}
+    {{- with $tags -}}
+      {{- $names := slice -}}
+      {{- range . }}{{ $names = $names | append (partial "utils/term-title.html" .) }}{{ end -}}
+      {{- $d = merge $d (dict "keywords" $names) -}}
+    {{- end -}}
+
+    {{- $cats := partial "utils/terms.html" (dict "page" . "taxonomy" "categories") -}}
+    {{- with $cats -}}
+      {{- $d = merge $d (dict "articleSection" (partial "utils/term-title.html" (index . 0))) -}}
+    {{- end -}}
+
+    {{- /* NO articleBody. See the header comment; this is not an oversight. */ -}}
+
+  {{- else -}}
+    {{- $d = merge $d (dict "name" $title) -}}
+    {{- if in (slice "section" "term") .Kind -}}
+      {{- $d = merge $d (dict "numberOfItems" (len .Pages)) -}}
+    {{- end -}}
+  {{- end -}}
+
+  <script type="application/ld+json">{{ $d | jsonify | safeJS }}</script>
+{{- end -}}
+
+{{- /* ── BreadcrumbList — every page except the home page. ───────────────────
+       Built from `.Ancestors`, so it is correct for nested sections and for term
+       pages without anyone maintaining a parallel structure. Term names go through
+       utils/term-title.html here too, otherwise the crumb reads "Amazon-Eks". */ -}}
+{{- if and (ne .Kind "404") (not .IsHome) -}}
+  {{- $items := slice -}}
+  {{- $pos := 1 -}}
+  {{- range .Ancestors.Reverse -}}
+    {{- $items = $items | append (dict
+          "@type" "ListItem"
+          "position" $pos
+          "name" (partial "utils/term-title.html" .)
+          "item" .Permalink) -}}
+    {{- $pos = add $pos 1 -}}
+  {{- end -}}
+  {{- $items = $items | append (dict
+        "@type" "ListItem"
+        "position" $pos
+        "name" (partial "utils/term-title.html" .)
+        "item" .Permalink) -}}
+  {{- $crumbs := dict
+        "@context" "https://schema.org"
+        "@type" "BreadcrumbList"
+        "itemListElement" $items -}}
+  <script type="application/ld+json">{{ $crumbs | jsonify | safeJS }}</script>
+{{- end -}}
+
+{{- end -}}
+{{- /* ADR-8: consumer-supplied structured data, last. REQ-SEO-1 applies there too. */ -}}
 {{- partial "hooks/custom-schema.html" . -}}

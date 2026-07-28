@@ -1,0 +1,48 @@
+{{- /*
+  article/related.html — Hugo-native related posts. Zero JavaScript, zero requests.
+
+  ▸ HONEST FRAMING (specs/003 §3.4). The original justification — "at 0.6 internal
+    links per post this is the primary discovery path" — is VOID. The archive now
+    averages 4.39 internal links per post and cross-references itself well. Related
+    posts are useful; they are not a design driver, and nothing else in the theme is
+    shaped around them.
+
+  Relevance comes from the consumer's own `[related]` configuration, not from
+  anything hard-coded here. The exampleSite mirrors the reference site's weighting
+  (tags 100, categories 200, threshold 60) precisely so the output can be judged
+  against a real corpus.
+
+  EMPTY-RESULT FALLBACK, which the spec requires and most themes skip: Hugo's related
+  index returns nothing at all for a post whose terms are unique — and 159 of this
+  archive's tags are used exactly once, so that is not a rare case. Rather than emit
+  an empty block, fall back to the most recent posts in the same section under a
+  heading that says so. Set `params.runbook.related.fallback = false` to render
+  nothing instead.
+*/ -}}
+{{- $rb := partialCached "utils/settings.html" . -}}
+{{- if $rb.related.enable -}}
+  {{- $limit := $rb.related.limit -}}
+  {{- $posts := first $limit (where (site.RegularPages.Related .) "Permalink" "!=" .Permalink) -}}
+  {{- $heading := i18n "relatedPosts" -}}
+
+  {{- if and (not $posts) $rb.related.fallback -}}
+    {{- $heading = i18n "recentPosts" -}}
+    {{- $posts = first $limit (where (where site.RegularPages "Section" "eq" .Section) "Permalink" "!=" .Permalink) -}}
+  {{- end -}}
+
+  {{- with $posts }}
+<section class="rb-related" aria-labelledby="rb-related-heading">
+  <h2 class="rb-related-heading" id="rb-related-heading">{{ $heading }}</h2>
+  <ul class="rb-related-list">
+    {{- range . }}
+    <li class="rb-related-item">
+      <a href="{{ .RelPermalink }}">{{ .LinkTitle }}</a>
+      {{- if not .Date.IsZero }}
+      <time class="rb-related-date" datetime="{{ .Date.Format "2006-01-02" }}">{{ time.Format $rb.dateFormat .Date }}</time>
+      {{- end }}
+    </li>
+    {{- end }}
+  </ul>
+</section>
+  {{- end }}
+{{- end -}}

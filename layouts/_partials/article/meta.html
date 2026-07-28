@@ -1,16 +1,44 @@
 {{- /*
-  STUB — owned by the "Templates, SEO and taxonomy" workstream.
+  article/meta.html — the one-line byline: date · updated · reading time · category.
 
-  specs/003 §3.7 item 5: degrade cleanly when a date is absent. NEVER print
-  "Invalid date" — that is what an unguarded .Lastmod.Format produces.
+  Used by both the article header and every list item, so it has to be correct for a
+  page that has no date at all (a term `_index.md`, an About page, a draft).
+
+  specs/003 §3.7 item 5: degrade cleanly when a date is absent — NEVER print
+  "Invalid date", which is exactly what an unguarded `.Lastmod.Format` produces on a
+  dateless page. Every date below sits behind `.IsZero`.
+
+  "Updated" only appears when `.Lastmod` is genuinely LATER than `.Date`. Hugo
+  defaults `.Lastmod` to `.Date` when no lastmod is configured, so an `.IsZero`-only
+  guard would stamp "Updated" on every post in the archive.
+
+  Separators are real elements (`aria-hidden`) rather than CSS `::before` content so
+  that the byline still reads correctly with the stylesheet missing.
 */ -}}
+{{- $rb := partialCached "utils/settings.html" . -}}
+{{- $n := 0 -}}
 <p class="rb-meta">
-  {{- with .Date }}{{ if not .IsZero }}
-  <time datetime="{{ .Format "2006-01-02T15:04:05Z07:00" }}">{{ $.Date | time.Format (site.Params.runbook.dateFormat | default ":date_long") }}</time>
-  {{- end }}{{ end }}
+  {{- if not .Date.IsZero -}}
+  {{- $n = add $n 1 }}
+  <time class="rb-meta-date" datetime="{{ .Date.Format "2006-01-02T15:04:05Z07:00" }}">{{ time.Format $rb.dateFormat .Date }}</time>
+  {{- end }}
 
-  {{- if and site.Params.runbook.showReadingTime .ReadingTime }}
-  <span class="rb-meta-sep" aria-hidden="true">·</span>
-  <span>{{ i18n "readingTime" (dict "Count" .ReadingTime) }}</span>
+  {{- if and $rb.showLastmod (not .Lastmod.IsZero) (.Lastmod.After .Date) }}
+  {{- if $n }}<span class="rb-meta-sep" aria-hidden="true">·</span>{{ end }}{{ $n = add $n 1 }}
+  <span class="rb-meta-updated">{{ i18n "lastUpdatedOn" }}
+    <time datetime="{{ .Lastmod.Format "2006-01-02T15:04:05Z07:00" }}">{{ time.Format $rb.dateFormat .Lastmod }}</time>
+  </span>
+  {{- end }}
+
+  {{- if and $rb.showReadingTime .ReadingTime }}
+  {{- if $n }}<span class="rb-meta-sep" aria-hidden="true">·</span>{{ end }}{{ $n = add $n 1 }}
+  <span class="rb-meta-reading-time">{{ i18n "readingTime" (dict "Count" .ReadingTime) }}</span>
+  {{- end }}
+
+  {{- with partial "utils/terms.html" (dict "page" . "taxonomy" "categories") }}
+  {{- if $n }}<span class="rb-meta-sep" aria-hidden="true">·</span>{{ end }}{{ $n = add $n 1 }}
+  <span class="rb-meta-categories">
+    {{- range $i, $t := . }}{{ if $i }}, {{ end }}<a href="{{ $t.RelPermalink }}">{{ partial "utils/term-title.html" $t }}</a>{{ end -}}
+  </span>
   {{- end }}
 </p>

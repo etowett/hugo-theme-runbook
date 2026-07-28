@@ -1,0 +1,93 @@
+{{ define "main" }}
+{{- /*
+  taxonomy.html — the browse page: /tags/, /categories/.
+
+  ▸ NOT A TAG CLOUD (specs/003 §3.4). Half the reference archive's tags are used
+    exactly once, so sizing by frequency renders a wall of near-identical text in
+    which the useful terms are indistinguishable from the noise. What a reader
+    actually needs is to find a known term fast, which means: GROUPED, COUNTED,
+    ALPHABETISED.
+
+  ▸ Alphabetised BY DISPLAY TITLE, not by term key. Once REQ-TAX-1 is doing its job,
+    `amazon-eks` renders as "Amazon EKS" and `ci-cd` as "CI/CD" — sorting by the key
+    would put entries under letters they are not filed under on screen. The sort key
+    has to be the string the reader can see.
+
+  ▸ Open decision #4 — 159 single-use tags. Answered with one knob rather than a
+    policy baked into the template: terms with at most
+    `params.runbook.taxonomy.rareThreshold` posts move into a collapsed <details>
+    below the main list. DEFAULT 0, i.e. off, because a small site's terms are all
+    "rare" and folding them away would be absurd. The reference site sets 1. Native
+    <details>, zero JavaScript, and every term stays in the DOM and in the crawl.
+
+  Empty state: a registered-but-unused taxonomy is a completely normal state — the
+  exampleSite's own `series` taxonomy is exactly that.
+*/ -}}
+{{- $rb := partialCached "utils/settings.html" . -}}
+{{- $threshold := $rb.taxonomy.rareThreshold -}}
+
+{{- /* Resolve every display title ONCE, then sort on it. */ -}}
+{{- $rows := slice -}}
+{{- range .Pages -}}
+  {{- $t := partial "utils/term-title.html" . -}}
+  {{- $rows = $rows | append (dict
+      "title" $t
+      "sort"  (lower $t)
+      "url"   .RelPermalink
+      "count" (len .Pages)) -}}
+{{- end -}}
+{{- $rows = sort $rows "sort" -}}
+{{- $common := where $rows "count" ">" $threshold -}}
+{{- $rare := where $rows "count" "<=" $threshold -}}
+
+<div class="rb-list rb-taxonomy">
+  <header class="rb-list-header">
+    <h1 class="rb-list-title">{{ partial "utils/term-title.html" . }}</h1>
+    {{- with $rows }}
+    <p class="rb-list-count">{{ i18n "termCount" (dict "Count" (len .)) }}</p>
+    {{- end }}
+  </header>
+
+  {{- with .Content }}
+  <div class="rb-prose">{{ . }}</div>
+  {{- end }}
+
+  {{- if $rows }}
+    {{- with $common }}
+      {{- /* One <section> per initial letter. Built by collecting the initials
+             first so the markup stays balanced — a running "close the previous
+             <ul> if the letter changed" loop produces tags that no template
+             checker can follow. */ -}}
+      {{- $initials := slice -}}
+      {{- range . }}{{ $initials = $initials | append (upper (substr .title 0 1)) }}{{ end -}}
+      {{- $initials = $initials | uniq -}}
+      {{- $terms := . }}
+  <div class="rb-term-groups">
+      {{- range $letter := $initials }}
+    <section class="rb-term-group" aria-labelledby="rb-term-group-{{ $letter | urlize }}">
+      <h2 class="rb-term-group-heading" id="rb-term-group-{{ $letter | urlize }}">{{ $letter }}</h2>
+      <ul class="rb-term-list">
+        {{- range $terms }}{{ if eq (upper (substr .title 0 1)) $letter }}
+        <li><a class="rb-term" href="{{ .url }}">{{ .title }}</a>{{ if $rb.taxonomy.showCounts }} <span class="rb-term-count">{{ .count }}</span>{{ end }}</li>
+        {{- end }}{{ end }}
+      </ul>
+    </section>
+      {{- end }}
+  </div>
+    {{- end }}
+
+    {{- with $rare }}
+  <details class="rb-term-rare">
+    <summary>{{ i18n "rareTerms" }} ({{ len . }})</summary>
+    <ul class="rb-term-list">
+      {{- range . }}
+      <li><a class="rb-term" href="{{ .url }}">{{ .title }}</a>{{ if $rb.taxonomy.showCounts }} <span class="rb-term-count">{{ .count }}</span>{{ end }}</li>
+      {{- end }}
+    </ul>
+  </details>
+    {{- end }}
+  {{- else }}
+  <p class="rb-empty">{{ i18n "noTerms" }}</p>
+  {{- end }}
+</div>
+{{ end }}

@@ -1,0 +1,48 @@
+{{ define "main" }}
+{{- /*
+  term.html — /tags/amazon-eks/, /categories/linux/.
+
+  ▸ REQ-TAX-1. The <h1> is `utils/term-title.html`, not `.Title`. Hugo derives a term
+    title by capitalising each hyphen-separated segment, so this heading — the first
+    thing a reader sees — would otherwise read "Amazon-Eks", "Sql-Server", "Ci-Cd",
+    "Github-Actions". The reference site carries 60 `_index.md` files whose entire
+    purpose is to fix that one string. On Runbook they are a few lines of
+    `params.runbook.taxonomyTitles`, and a site with ZERO `_index.md` files still
+    renders correctly.
+
+  ▸ REQ-TAX-2. A term `_index.md` keeps its page BUILDING even when no post carries
+    the term — verified the hard way on the reference site, where removing a tag from
+    every post left an orphaned page listing nothing instead of the intended
+    redirect. So the zero-post branch below is not defensive padding: it is a state
+    every consumer who merges duplicate terms will reach. Retiring a term means
+    deleting its `_index.md`; the redirect belongs on the SURVIVING term as an
+    `aliases` entry. This is documented in docs/configuration.md.
+*/ -}}
+<div class="rb-list rb-term">
+  <header class="rb-list-header">
+    {{- with .Parent }}
+    <p class="rb-term-taxonomy"><a href="{{ .RelPermalink }}">{{ partial "utils/term-title.html" . }}</a></p>
+    {{- end }}
+    <h1 class="rb-list-title">{{ partial "utils/term-title.html" . }}</h1>
+    {{- with .Pages }}
+    <p class="rb-list-count">{{ i18n "postCount" (dict "Count" (len .)) }}</p>
+    {{- end }}
+  </header>
+
+  {{- with .Content }}
+  <div class="rb-prose">{{ . }}</div>
+  {{- end }}
+
+  {{- with .Pages }}
+  {{- $paginator := $.Paginate . }}
+  <ul class="rb-post-list">
+    {{- range $paginator.Pages }}
+    {{ partial "list/post-item.html" . }}
+    {{- end }}
+  </ul>
+  {{ partial "list/pagination.html" $paginator }}
+  {{- else }}
+  <p class="rb-empty">{{ i18n "emptyTerm" }}</p>
+  {{- end }}
+</div>
+{{ end }}

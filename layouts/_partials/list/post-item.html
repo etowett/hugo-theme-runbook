@@ -1,0 +1,36 @@
+{{- /*
+  list/post-item.html — one row of a list view.
+
+  ▸ TEXT-FIRST (ADR-7). No image slot, and no reserved aspect-ratio box. Zero of the
+    reference archive's 497 posts carry a body image and exactly one carries `image:`
+    front matter, so a card grid would be 496 empty rectangles. Cover images remain
+    supported for consumers who have them — Open Graph uses them — they simply do not
+    dictate the list layout.
+
+  Accepts either a page, or a dict so the caller can set the heading level:
+
+    {{ partial "list/post-item.html" $page }}
+    {{ partial "list/post-item.html" (dict "page" $page "level" 3) }}
+
+  The level matters: the home page nests its list under an <h2> section heading, so
+  its items must be <h3> or the document outline is wrong (specs/003 §3.6).
+*/ -}}
+{{- $page := . -}}
+{{- $level := 2 -}}
+{{- if reflect.IsMap . -}}
+  {{- $page = .page -}}
+  {{- with .level }}{{ $level = . }}{{ end -}}
+{{- end -}}
+{{- $summary := "" -}}
+{{- with $page.Description -}}
+  {{- $summary = . -}}
+{{- else -}}
+  {{- with $page.Summary }}{{ $summary = . | plainify | htmlUnescape | replaceRE `\s+` " " | strings.TrimSpace | truncate 200 "…" }}{{ end -}}
+{{- end -}}
+<li class="rb-post-list-item">
+  <h{{ $level }} class="rb-post-list-title"><a href="{{ $page.RelPermalink }}">{{ $page.LinkTitle }}</a></h{{ $level }}>
+  {{ partial "article/meta.html" $page }}
+  {{- with $summary }}
+  <p class="rb-post-list-summary">{{ . }}</p>
+  {{- end }}
+</li>

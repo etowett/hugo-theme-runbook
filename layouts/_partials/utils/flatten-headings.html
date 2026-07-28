@@ -1,0 +1,24 @@
+{{- /*
+  utils/flatten-headings.html — the headings inside a level range, in document
+  order, as a flat slice.
+
+  Exists so article/toc.html can answer "is there enough here to be worth a table of
+  contents?" before it renders one. `.Fragments.Headings` is a TREE whose root is a
+  synthetic level-0 node, so `len` on it is 1 for every page and tells you nothing.
+
+  Usage:
+    {{ $h := partial "utils/flatten-headings.html" (dict
+         "headings" .Fragments.Headings "min" 2 "max" 3) }}
+*/ -}}
+{{- $min := .min -}}
+{{- $max := .max -}}
+{{- $out := slice -}}
+{{- range .headings -}}
+  {{- if and (ge .Level $min) (le .Level $max) }}{{ $out = $out | append . }}{{ end -}}
+  {{- with .Headings -}}
+    {{- with partial "utils/flatten-headings.html" (dict "headings" . "min" $min "max" $max) -}}
+      {{- $out = $out | append . -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- return $out -}}
