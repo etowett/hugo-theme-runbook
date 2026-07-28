@@ -1,0 +1,116 @@
+{{- /* ═══════════════════════════════════════════════════════════════════════════════
+  search.json — the search index, emitted at /search/index.json.
+
+  ▸ IT IS METADATA ONLY, AND THAT IS THE FEATURE. specs/001 §2 puts full-text search
+    out of scope: the index size makes it untenable without an npm post-build step and
+    ADR-1 rejects a required Node toolchain for a drop-in theme. The incumbent theme
+    on the reference site indexes `.Plain` and ships **4,551,252 B raw / 1,256,759 B
+    gzipped** at 490 posts — 18x the raw budget and 21x the gzipped one. That is the
+    number this template exists to not produce.
+
+  ▸ CODE IS NEVER INDEXED. Not fenced blocks, not inline spans, not the language label
+    or filename chrome the code hook renders around them. The strip below runs before
+    plainify for exactly that reason, and it is why the fallback path reads `.Content`
+    rather than `.Summary` — Hugo's automatic summary is the first ~70 words of
+    RENDERED content, so a post that opens with a fence puts shell into it.
+
+  ── The schema. Keys are one character on purpose. ─────────────────────────────────
+
+      { "v": 1, "docs": [ { "t": …, "u": …, "d": …, "s": …, "g": [ … ] } ] }
+
+      v   index format version. The chunk refuses an index it does not understand,
+          so a stale cached one from an older theme cannot render garbage.
+      t   title            u   RelPermalink        d   date, YYYY-MM-DD
+      s   summary, capped  g   taxonomy term display titles, flattened
+
+    Long keys ("title", "summary", …) cost ~20 KB raw across the reference archive —
+    8% of the budget — and almost nothing gzipped, because gzip crushes the repetition
+    the raw figure is made of. The raw ceiling is the binding one, so the keys are
+    short and documented in docs/search.md instead.
+
+  ── Exclusions are explicit, not inherited from the build flags. ───────────────────
+
+    `site.RegularPages` already drops drafts and future-dated posts — but only while
+    nobody passes -D/-F. A preview build with --buildDrafts would otherwise publish
+    draft titles into a world-readable JSON file. The guards below hold either way.
+
+  ── Cache policy ──────────────────────────────────────────────────────────────────
+
+    This file is served under whatever the host sets for /search/index.json. The
+    chunk requests it with a `?v=` stamped from site.Lastmod (see search/ui.html), so
+    a long max-age is safe: publishing any content change moves the query string and
+    the next visitor misses the old entry. Documented in docs/search.md.
+═══════════════════════════════════════════════════════════════════════════════ */ -}}
+{{- $cfg := partialCached "search/settings.html" . -}}
+{{- $docs := slice -}}
+
+{{- if $cfg.enable -}}
+  {{- $main := site.Params.mainSections | default slice -}}
+  {{- range where site.RegularPages "Section" "in" $main -}}
+    {{- $p := . -}}
+
+    {{- /* Draft, future-dated, or opted out with `searchExclude: true`. */ -}}
+    {{- if and (not $p.Draft) (le $p.Date.Unix now.Unix) (ne $p.Params.searchExclude true) -}}
+
+      {{- /* Terms, flattened. utils/terms.html tolerates a taxonomy the site never
+             registered; utils/term-title.html gives "Amazon EKS", not "Amazon-Eks",
+             so the index reads the same as every other surface (REQ-TAX-1). */ -}}
+      {{- $terms := slice -}}
+      {{- range $cfg.taxonomies -}}
+        {{- range partial "utils/terms.html" (dict "page" $p "taxonomy" .) -}}
+          {{- $terms = $terms | append (partial "utils/term-title.html" .) -}}
+        {{- end -}}
+      {{- end -}}
+      {{- /* `uniq` is not tidiness. A post tagged `kubernetes` and filed under
+             `Kubernetes` emits the term twice once both taxonomies are flattened.
+             Measured on the reference archive: 2,309 term entries become 2,134, and
+             the index drops from 179,577 to 177,615 raw bytes — but the reason to do
+             it is the scorer, which would otherwise count one term twice. */ -}}
+      {{- $terms = $terms | uniq -}}
+
+      {{- /* Summary. Front-matter `description` wins and costs nothing to produce.
+             Only when it is absent do we pay for the code strip below, which is why
+             the reference archive (100% description coverage) never runs it. */ -}}
+      {{- $s := "" -}}
+      {{- if $cfg.summaryLength -}}
+        {{- with $p.Description -}}
+          {{- $s = . -}}
+        {{- else -}}
+          {{- $s = $p.Content
+                | replaceRE `(?s)<div class="rb-code-head">.*?</div>` " "
+                | replaceRE `(?s)<div class="rb-code-ui">.*?</div>` " "
+                | replaceRE `(?s)<pre[\s>].*?</pre>` " "
+                | replaceRE `(?s)<code[\s>].*?</code>` " " -}}
+        {{- end -}}
+        {{- /* `safeHTML` here is about `truncate`, not about output safety. VERIFIED
+               on v0.164.0: `truncate` runs html.EscapeString over any argument that
+               is not already template.HTML, so without this the index ships
+               `&#34;` and `&amp;` as literal text and the results list — which
+               renders through textContent, correctly — prints the entities on the
+               page. `plainify` returns template.HTML but `htmlUnescape` and
+               `replaceRE` hand back plain strings, which is where the marker is
+               lost. The value goes to jsonify and then to textContent; it is never
+               interpolated into markup, here or in the chunk. */ -}}
+        {{- $s = $s
+              | plainify | htmlUnescape
+              | replaceRE `\s+` " " | strings.TrimSpace
+              | safeHTML | truncate $cfg.summaryLength "…" -}}
+      {{- end -}}
+
+      {{- $doc := dict "t" $p.LinkTitle "u" $p.RelPermalink -}}
+      {{- if not $p.Date.IsZero -}}
+        {{- $doc = merge $doc (dict "d" ($p.Date.Format "2006-01-02")) -}}
+      {{- end -}}
+      {{- with $s }}{{ $doc = merge $doc (dict "s" (printf "%s" .)) }}{{ end -}}
+      {{- with $terms }}{{ $doc = merge $doc (dict "g" .) }}{{ end -}}
+
+      {{- $docs = $docs | append $doc -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+
+{{- /* One jsonify over one map — never a field interpolated into hand-written JSON.
+       Same rule as head/schema.html, same reason (specs/004 §2a). An empty `docs` is
+       a valid index and the page and the chunk both handle it; search disabled emits
+       exactly that, so the build never depends on there being anything to find. */ -}}
+{{- dict "v" 1 "docs" $docs | jsonify -}}

@@ -1,5 +1,5 @@
 /* search.css — the /search/ page UI.
-   OWNED BY: the search workstream. Placeholder; head/css.html skips it while empty.
+   OWNED BY: the search workstream.
 
    Loaded late, after the Chroma palettes, so a result snippet containing code can be
    toned down without fighting token colours.
@@ -10,6 +10,12 @@
      that needs it. At the size this should be, one bundle wins — but if it grows past
      a few hundred bytes gzipped, split it and say so in docs/search.md.
 
+     MEASURED, so the next person re-checks rather than re-derives: this file takes
+     the minified bundle from 16,669 -> 19,042 raw and 4,036 -> 4,371 gzipped, so it
+     costs 335 B gz on every page. That is inside the "few hundred bytes" threshold
+     above, and the whole CSS budget is 8,000 B gz with 3,629 B still spare, so it
+     stays in the bundle. docs/search.md carries the same numbers.
+
      The JAVASCRIPT is different and is NOT negotiable: it is a separate lazy chunk on
      its own 3,000 B budget, loaded only on /search/, and it must never enter
      assets/js/runbook.js (specs/005 §3.1, ADR-5).
@@ -17,4 +23,144 @@
    ▸ ZERO-JS STATE IS PART OF THIS FILE'S JOB. With scripting off the page must show a
      clear unavailable message or an HTML browse alternative — never an input that
      silently does nothing. Style that state; do not leave it to the JS to hide.
+
+     Which is what the first rule below does, and it is the load-bearing line in this
+     file: THE FORM IS DISPLAY:NONE BY DEFAULT. The search chunk sets `data-rb-ready`
+     on the root once it has wired the input up, and only then does the input exist as
+     far as rendering is concerned. Nothing about that depends on the chunk running —
+     if it never arrives, the default holds, and the reader gets the <noscript>
+     explanation plus the server-rendered browse list underneath.
+
+     `display: none` rather than visibility or opacity on purpose: it takes the input
+     out of the tab order and out of the accessibility tree together, so a keyboard or
+     screen-reader user never lands on a control that does nothing either.
 */
+
+/* ── The zero-JS default ─────────────────────────────────────────────────────── */
+
+.rb-search-form,
+.rb-search-status,
+.rb-search-results {
+  display: none;
+}
+
+.rb-search[data-rb-ready] .rb-search-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rb-space-2);
+  align-items: baseline;
+}
+.rb-search[data-rb-ready] .rb-search-status { display: block; }
+.rb-search[data-rb-ready] .rb-search-results { display: block; }
+
+/* The <noscript> explanation, and the same treatment for the "search is off" state
+   the template renders when params.runbook.search.enable is false. Muted rather than
+   alarming: nothing is broken, the reader just has a different route. */
+.rb-search-nojs {
+  margin: 0 0 var(--rb-space-4);
+  color: var(--rb-color-text-muted);
+  font-size: var(--rb-text-sm);
+}
+
+/* ── The input ───────────────────────────────────────────────────────────────── */
+
+.rb-search-label {
+  flex: 0 0 100%;
+  font-size: var(--rb-text-sm);
+  font-weight: var(--rb-weight-medium);
+  color: var(--rb-color-text-muted);
+}
+
+.rb-search-input {
+  flex: 1 1 20rem;
+  min-height: var(--rb-target-min);
+  padding: var(--rb-space-2) var(--rb-space-3);
+  font: inherit;
+  font-size: var(--rb-text-base);
+  color: var(--rb-color-text);
+  background: var(--rb-color-surface);
+  /* An interactive control's own boundary, so the 3:1 tier (WCAG 1.4.11) — the same
+     distinction .rb-theme-toggle makes in layout.css. */
+  border: 1px solid var(--rb-color-border-strong);
+  border-radius: var(--rb-radius-sm);
+}
+.rb-search-input::placeholder { color: var(--rb-color-text-subtle); opacity: 1; }
+.rb-search-input:focus-visible {
+  outline: var(--rb-focus-width) solid var(--rb-color-focus);
+  outline-offset: var(--rb-focus-offset);
+}
+
+/* ── Results ─────────────────────────────────────────────────────────────────── */
+
+.rb-search-status {
+  margin: var(--rb-space-4) 0 0;
+  color: var(--rb-color-text-muted);
+  font-size: var(--rb-text-sm);
+}
+
+.rb-search-results {
+  list-style: none;
+  margin: var(--rb-space-4) 0 0;
+  padding: 0;
+}
+
+.rb-search-result {
+  padding-block: var(--rb-space-4);
+  border-top: 1px solid var(--rb-color-border);
+}
+
+.rb-search-result-title {
+  font-size: var(--rb-text-lg);
+  line-height: var(--rb-leading-tight);
+  margin: 0 0 var(--rb-space-1);
+}
+.rb-search-result-title a { color: var(--rb-color-text); text-decoration: none; }
+.rb-search-result-title a:hover { color: var(--rb-color-accent); text-decoration: underline; }
+
+.rb-search-result-meta,
+.rb-search-result-summary {
+  margin: 0;
+  color: var(--rb-color-text-muted);
+}
+.rb-search-result-meta { font-size: var(--rb-text-xs); }
+.rb-search-result-summary { font-size: var(--rb-text-sm); margin-top: var(--rb-space-1); }
+
+/* Matched terms. The UA default <mark> is a saturated yellow that fails contrast in
+   dark mode and shouts in light mode; a tinted background with inherited colour keeps
+   the ratio the surrounding text already passes at. --rb-code-hl-bg is the token that
+   already exists for "this bit is emphasised", and it is defined in both palettes. */
+.rb-search-result mark {
+  background: var(--rb-code-hl-bg);
+  color: inherit;
+  border-radius: 2px;
+  padding-inline: 1px;
+}
+
+/* ── Browse alternative — always visible, JS or no JS ─────────────────────────── */
+
+.rb-search-browse {
+  margin-top: var(--rb-space-6);
+  padding-top: var(--rb-space-4);
+  border-top: 1px solid var(--rb-color-border);
+}
+.rb-search-browse-title {
+  font-size: var(--rb-text-sm);
+  font-weight: var(--rb-weight-medium);
+  color: var(--rb-color-text-muted);
+  margin: 0 0 var(--rb-space-2);
+}
+.rb-search-browse-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rb-space-2) var(--rb-space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Printing a results page is a reasonable thing to do; printing the input is not.
+   print.css owns the page frame, this owns its own controls. */
+@media print {
+  .rb-search-form,
+  .rb-search-status { display: none !important; }
+}

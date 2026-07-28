@@ -1,0 +1,36 @@
+{{- /*
+  search/browse.html — the HTML browse alternative.
+
+  ADR-5 spells out the degradation contract for this feature as "a clear unavailable
+  state OR an HTML browse alternative". This partial is the second half, and it is
+  rendered UNCONDITIONALLY — with JavaScript on, with it off, with search disabled,
+  and when the chunk fails to load. A message that says "sorry" is a worse answer
+  than a list of links that works, and on a search page the links are useful even
+  when everything is working.
+
+  Built from the site's own configuration rather than a hard-coded list, so it is
+  correct for a consumer whose sections are not `posts` and whose taxonomy is not
+  `tags`. Term titles go through utils/term-title.html for the same reason every
+  other surface does (REQ-TAX-1) — otherwise this reads "Amazon-Eks".
+*/ -}}
+{{- $links := slice -}}
+{{- range site.Params.mainSections -}}
+  {{- with site.GetPage . }}{{ $links = $links | append . }}{{ end -}}
+{{- end -}}
+{{- range where site.Pages "Layout" "archive" -}}
+  {{- $links = $links | append . -}}
+{{- end -}}
+{{- range $name, $terms := site.Taxonomies -}}
+  {{- with site.GetPage $name }}{{ $links = $links | append . }}{{ end -}}
+{{- end -}}
+
+{{- with $links }}
+<nav class="rb-search-browse" aria-labelledby="rb-search-browse-title">
+  <h2 class="rb-search-browse-title" id="rb-search-browse-title">{{ i18n "searchBrowse" }}</h2>
+  <ul class="rb-search-browse-list">
+    {{- range . }}
+    <li><a href="{{ .RelPermalink }}">{{ partial "utils/term-title.html" . }}</a></li>
+    {{- end }}
+  </ul>
+</nav>
+{{- end -}}
