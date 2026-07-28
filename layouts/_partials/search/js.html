@@ -1,0 +1,40 @@
+{{- /*
+  search/js.html — the second js.Build call, and the only place the search chunk is
+  emitted.
+
+  ▸ WHY THIS IS NOT IN _partials/js.html. `assets/js/runbook.js` is frozen at three
+    modules (contracts §2.3) and everything reachable from it shares ONE 3,000 B
+    gzipped budget. Search has its own entry, its own js.Build, and its own 3,000 B
+    (ADR-5, specs/005 §3.1). Importing it there would spend the article budget on
+    code that 99% of page views never execute.
+
+  ▸ WHY IT IS EMITTED HERE AND NOT IN baseof. This partial is called only from
+    layouts/search.html, so the <script> tag exists on exactly one page. That is what
+    "zero effect on every other page" means concretely: no bytes, no request, no tag.
+    Verify it, do not assume it — and match the TAG, not the path, or a post that
+    happens to write about this file counts as a hit:
+
+        grep -rlE '<script[^>]+js/search' public/ | grep -v '^public/search/'
+
+  ▸ SCRIPT-TAG COUNT. /search/ carries three executable scripts — the inline theme
+    guard, runbook.js and this — against the "<= 2 per article" budget in specs/005
+    §3.1. That budget is stated per ARTICLE and enforced by scripts/check_budgets.py
+    over the shell fixture and every built article page; /search/ is neither. The
+    alternative is dropping runbook.js from this page, which would leave the theme
+    toggle dead on it. Recorded in docs/search.md rather than left to be rediscovered.
+
+  Fingerprinted in production, which is also what puts the built file at
+  js/search/index.<hash>.js — the path scripts/check_budgets.py globs for its
+  "Search chunk (lazy)" row.
+*/ -}}
+{{- $cfg := partialCached "search/settings.html" . -}}
+{{- if $cfg.enable -}}
+  {{- with resources.Get "js/search/index.js" -}}
+    {{- $opts := dict "target" "es2018" "format" "iife" "minify" hugo.IsProduction -}}
+    {{- $js := . | js.Build $opts -}}
+    {{- if hugo.IsProduction -}}
+      {{- $js = $js | fingerprint -}}
+    {{- end -}}
+    <script defer src="{{ $js.RelPermalink }}"{{ with $js.Data.Integrity }} integrity="{{ . }}"{{ end }}></script>
+  {{- end -}}
+{{- end -}}

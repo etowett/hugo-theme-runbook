@@ -95,8 +95,24 @@ goToPage: "Page {{ .Number }}"
 # ── Search ────────────────────────────────────────────────────────────────────
 search: "Search"
 searchPlaceholder: "Search posts…"
+# Rendered inside <noscript>, so a reader only ever sees it when it is true.
 searchUnavailable: "Search needs JavaScript. Browse by tag or category instead."
+# params.runbook.search.enable is false, or the /search/ page has no JSON output.
+searchDisabled: "Search is not enabled on this site. Browse by tag or category instead."
 searchNoResults: "No results."
+# Heading over the browse links, which are rendered unconditionally — with JavaScript,
+# without it, and when search is off. ADR-5 calls this the HTML browse alternative.
+searchBrowse: "Browse instead"
+# Accessible name of the results list.
+searchResultsLabel: "Search results"
+# {n} = how many matched, {m} = how many are shown. THE BRACES ARE PLACEHOLDERS that
+# the search chunk substitutes in the browser, not Hugo template syntax — a
+# translation that drops {n} loses the number. Hugo's `.Count` pluralisation is not
+# used here because the count is only known client-side.
+searchResultsOne: "1 result"
+searchResultsOther: "{n} results"
+searchResultsCapped: "{n} results, showing the first {m}"
+searchError: "Search could not load. Browse by tag or category instead."
 
 # ── Errors ────────────────────────────────────────────────────────────────────
 notFoundTitle: "Page not found"

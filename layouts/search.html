@@ -1,0 +1,46 @@
+{{ define "main" }}
+{{- /*
+  search.html — the /search/ page (specs/003 §3.4, ADR-5).
+
+  ▸ HOW TO USE IT. Hugo has no "search" page kind, so this template is selected by
+    front matter, the same way archive.html is. Two keys, and the second one is not
+    optional — it is what emits the index this page queries:
+
+        # content/search.md
+        ---
+        title: "Search"
+        layout: "search"
+        outputs: ["html", "json"]
+        ---
+
+    Plus `params.runbook.search.enable = true`, which is FALSE BY DEFAULT: a theme
+    that ships a search page nobody asked for has added a URL to every consumer's
+    site. Full setup in docs/search.md.
+
+  ▸ /search/ IS A FIXED PATH, not a preference. specs/010 §2 lists it among the URLs
+    the citizix migration must not move, and the parity diff fails if it does. The
+    JSON index lands beside it at /search/index.json — the same URL the reference
+    site serves today, so that migration is a no-op for anything already pointing at
+    it. What changes is the payload: 4.55 MB of full text becomes ~180 KB of metadata.
+
+  ▸ ORDER ON THE PAGE. Input, then results, then the page's own prose, then the
+    browse list. The prose sits below the results because on a search page it is
+    reference material ("try these topics"), and a reader who has just typed
+    something wants what they typed to be answered first.
+*/ -}}
+<div class="rb-search-page">
+  <header class="rb-list-header">
+    <h1 class="rb-list-title">{{ .Title }}</h1>
+  </header>
+
+  {{ partial "search/ui.html" . }}
+
+  {{- with .Content }}
+  <div class="rb-prose">{{ . }}</div>
+  {{- end }}
+
+  {{ partial "search/browse.html" . }}
+</div>
+
+{{ partial "search/js.html" . }}
+{{ end }}

@@ -1,0 +1,49 @@
+{{- /*
+  search/settings.html — the search feature's own resolved configuration.
+
+  `utils/settings.html` is the theme-wide reader and it is owned by another
+  workstream, so it carries only `search.enable`. The four keys below are read here
+  instead, under the same rules that file states:
+
+    * everything is namespaced under `params.runbook.search` (contracts §2.4);
+    * `| default` is a bug for any value whose meaningful setting is falsy, so
+      `summaryLength = 0` (the documented "index no summaries" switch) is probed with
+      `isset` rather than defaulted. Hugo lower-cases param keys and `isset` is
+      case-sensitive, which is why the probe is lower-case.
+
+  Call it cached — the answer cannot vary per page:
+
+      {{- $cfg := partialCached "search/settings.html" . -}}
+
+  Keys, defaults and the reasoning behind each are in docs/search.md.
+*/ -}}
+{{- $rb := partialCached "utils/settings.html" . -}}
+
+{{- $s := dict -}}
+{{- with site.Params.runbook }}{{ with .search }}{{ $s = . }}{{ end }}{{ end -}}
+
+{{- /* Which taxonomies contribute terms to the index. A theme cannot register a
+       taxonomy (specs/003 §3.4), so a consumer using `topics` instead of `tags` has
+       to be able to say so. Terms are flattened into ONE array in the index: which
+       taxonomy a term came from does not change how a query matches it, and a second
+       key per document costs ~5 KB raw across the reference archive for nothing. */ -}}
+{{- $tax := slice "tags" "categories" -}}
+{{- with $s.taxonomies }}{{ $tax = . }}{{ end -}}
+
+{{- /* Summary cap, in characters. THIS IS THE BUDGET LEVER, not a cosmetic one: the
+       reference archive's uncapped Hugo `.Summary` fallback measures 321 KB raw /
+       77 KB gz against a 250 KB / 60 KB budget, and the same index capped at 160
+       measures 184 KB / 40 KB. Setting it to 0 drops summaries entirely, which is
+       what an archive past ~700 posts has to do. See docs/search.md. */ -}}
+{{- $sumLen := 160 -}}
+{{- if isset $s "summarylength" }}{{ $sumLen = int $s.summaryLength }}{{ end -}}
+
+{{- $max := 30 -}}
+{{- with $s.maxResults }}{{ $max = int . }}{{ end -}}
+
+{{- return dict
+      "enable"        $rb.search.enable
+      "taxonomies"    $tax
+      "summaryLength" $sumLen
+      "maxResults"    $max
+-}}

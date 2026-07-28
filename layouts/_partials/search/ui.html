@@ -1,0 +1,63 @@
+{{- /*
+  search/ui.html — the interactive part of /search/.
+
+  ▸ THE FORM IS HIDDEN UNTIL JAVASCRIPT SAYS OTHERWISE, and search.css is what hides
+    it (`.rb-search-form { display: none }`, undone by `[data-rb-ready]`). That
+    direction matters: a reader with scripting off is never shown an input that
+    silently does nothing, and there is no flash of a "search is unavailable" banner
+    on the way in for everyone else, because the explanation lives in <noscript> and
+    <noscript> renders only when it is true. The browse alternative in
+    search/browse.html is server-rendered and always visible, so the page is useful
+    in every one of those states including "the chunk 404s".
+
+  ▸ THE INDEX URL CARRIES A CACHE STAMP. `?v=<site.Lastmod epoch>` changes on any
+    content change and on nothing else, so /search/index.json can be served with a
+    long max-age. Documented as the cache policy in docs/search.md.
+
+  ▸ STRINGS GO OUT AS DATA ATTRIBUTES, not as literals in the chunk (contracts §2.5).
+    `{n}` and `{m}` are placeholders the chunk substitutes; they are documented in
+    i18n/en.yaml so a translator knows not to drop them.
+*/ -}}
+{{- $cfg := partialCached "search/settings.html" . -}}
+{{- $json := "" -}}
+{{- with .OutputFormats.Get "json" }}{{ $json = .RelPermalink }}{{ end -}}
+
+{{- if and $cfg.enable $json -}}
+<div class="rb-search" data-rb-search
+     data-rb-index="{{ printf "%s?v=%d" $json site.Lastmod.Unix }}"
+     data-rb-max="{{ $cfg.maxResults }}"
+     data-rb-none="{{ i18n "searchNoResults" }}"
+     data-rb-one="{{ i18n "searchResultsOne" }}"
+     data-rb-many="{{ i18n "searchResultsOther" }}"
+     data-rb-capped="{{ i18n "searchResultsCapped" }}"
+     data-rb-error="{{ i18n "searchError" }}">
+
+  <form class="rb-search-form" role="search" method="get"
+        action="{{ .RelPermalink }}" data-rb-search-form>
+    <label class="rb-search-label" for="rb-search-q">{{ i18n "search" }}</label>
+    <input class="rb-search-input" id="rb-search-q" name="q" type="search"
+           placeholder="{{ i18n "searchPlaceholder" }}"
+           autocomplete="off" autocapitalize="none" autocorrect="off"
+           spellcheck="false" enterkeyhint="search" data-rb-search-input>
+  </form>
+
+  <noscript>
+    <p class="rb-search-nojs">{{ i18n "searchUnavailable" }}</p>
+  </noscript>
+
+  <p class="rb-search-status" role="status" aria-live="polite" data-rb-search-status></p>
+
+  <ol class="rb-search-results" aria-label="{{ i18n "searchResultsLabel" }}"
+      data-rb-search-results></ol>
+</div>
+{{- else -}}
+  {{- if and $cfg.enable (not $json) -}}
+  {{- /* Nothing a reader can act on, so it is not a reader-facing string — but the
+         person who turned search on and got a browse list needs to be told exactly
+         what is missing, and an HTML comment reaches them without a build warning
+         that --panicOnWarning would turn into a failed build. */ -}}
+  <!-- Runbook: this page has no JSON output format, so there is no search index to
+       query. Add  outputs = ["html", "json"]  to its front matter — docs/search.md. -->
+  {{- end }}
+  <p class="rb-search-nojs">{{ i18n "searchDisabled" }}</p>
+{{- end -}}

@@ -38,6 +38,30 @@ theme = "hugo-theme-runbook"
       jsonLd = true
       # Never <meta name="keywords"> — specs/003 §3.7 item 3.
 
+    # M4b — client-side search over a metadata-only index (specs/005 §4, ADR-5).
+    #
+    # `enable` is FALSE in the theme's own defaults, deliberately: a theme that ships
+    # a search page nobody asked for has added a URL to every consumer's site. The
+    # demo turns it on because content/search.md is the fixture that reaches
+    # layouts/search.html and layouts/search.json, and CI builds with
+    # --printUnusedTemplates against a reasoned allowlist — a template with no
+    # fixture fails the build.
+    #
+    # Turning it on takes two things, not one: this flag AND
+    # `outputs = ["html", "json"]` on the search page itself, which is what emits
+    # /search/index.json. See exampleSite/content/search.md and docs/search.md.
+    [params.runbook.search]
+      enable = true
+      # Characters of summary per document. THIS IS THE BUDGET LEVER: the reference
+      # archive's index measures 184 KB raw / 40 KB gz at 160, and 321 KB / 77 KB
+      # uncapped, against a 250 KB / 60 KB budget. 0 drops summaries entirely, which
+      # is what an archive past ~700 posts has to do. docs/search.md has the table.
+      summaryLength = 160
+      # Which taxonomies contribute terms. A theme cannot register a taxonomy, so a
+      # site whose terms live under `topics` has to be able to say so.
+      taxonomies = ["tags", "categories"]
+      maxResults = 30
+
     # REQ-TAX-1 — the whole point of the feature: `amazon-eks` renders as "Amazon
     # EKS" and `ci-cd` as "CI/CD" WITHOUT a single taxonomy `_index.md` file. The
     # reference site carries 60 such files that do nothing else. Keys are the term's
