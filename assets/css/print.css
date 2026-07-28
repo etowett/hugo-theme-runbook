@@ -1,4 +1,4 @@
-/* print.css — OWNED BY: the design-system workstream. Minimal placeholder.
+/* print.css — OWNED BY: the design-system workstream.
 
    specs/005 §4 flags print as a budget the original spec omitted entirely. Technical
    procedures get printed and saved as PDF, and three things need deliberate handling:
@@ -7,23 +7,60 @@
    and page breaks (never split a heading from the block that follows it). */
 
 @media print {
+  /* Force the light palette regardless of the reader's theme. A dark theme prints as
+     either a solid black page or, once the browser drops the backgrounds, near-white
+     text on white — both are unreadable, and the second silently loses the code. */
+  :root, :root[data-theme="dark"], :root[data-theme="auto"] {
+    color-scheme: light;
+    --rb-color-bg: #fff;
+    --rb-color-text: #000;
+    --rb-color-text-muted: #333;
+    --rb-code-bg: #fff;
+    --rb-code-text: #000;
+    --rb-code-border: #999;
+    --rb-color-border: #ccc;
+    --rb-code-hl-bg: #eee;
+  }
+
   .rb-skip-link,
   .rb-header,
   .rb-footer,
   .rb-theme-toggle,
+  .rb-toc,
   [data-rb-copy],
   [data-rb-wrap] { display: none !important; }
 
+  body { background: #fff; color: #000; font-size: 11pt; }
+  .rb-main, .rb-prose { max-width: none; }
+
   /* Horizontal scroll cannot exist on paper; wrapping is the only way to keep the
-     command intact. This is the deliberate exception to REQ-CB-5. */
+     command intact. This is the deliberate exception to REQ-CB-5 — and note that it
+     is safe here for exactly the reason wrapping is NOT safe on screen: on paper
+     there is no copy button, so a wrapped `kubeadm join` cannot be copied as a
+     mangled command, it can only be misread. Two visible cues make that unlikely. */
   pre, pre > code {
     white-space: pre-wrap;
     word-break: break-word;
-    border: 1px solid #ccc;
+    border: 1px solid #999;
+    /* A wrapped continuation is indented and marked, so a fold is never mistaken for
+       a newline in the command itself. */
+    padding-inline-start: 1.6em;
+    text-indent: -1.2em;
   }
+  pre { overflow: visible; }
+
+  /* Syntax colour is spent ink that survives greyscale printing badly. Structure —
+     weight for keywords, italics for comments — carries it instead. */
+  .chroma :not(pre) { color: #000 !important; background: none !important; }
+  .chroma .c, .chroma .c1, .chroma .cm, .chroma .ch, .chroma .cp,
+  .chroma .cs, .chroma .gp { font-style: italic; color: #444 !important; }
 
   h1, h2, h3, h4 { break-after: avoid; }
-  pre, blockquote, table { break-inside: avoid; }
+  pre, blockquote, table, figure { break-inside: avoid; }
+  h1, h2, h3, h4, p, li { orphans: 3; widows: 3; }
 
-  a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 0.85em; }
+  /* URLs are printed because a link is dead on paper otherwise, but only for
+     absolute ones — expanding in-page `#anchor` links is pure noise. */
+  a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 0.85em; word-break: break-all; }
+  a { text-decoration: underline; color: #000; }
 }

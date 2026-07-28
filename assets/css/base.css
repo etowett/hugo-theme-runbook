@@ -1,8 +1,51 @@
-/* base.css — element defaults and prose typography.
-   OWNED BY: the design-system workstream. Everything below is a working placeholder.
+/* base.css — element defaults, prose typography, and the bundled face.
+   OWNED BY: the design-system workstream.
 
    Consumes tokens.css only. Must not contain layout (that is layout.css) or anything
    about the code block (that is code.css). */
+
+/* ── The bundled code face (REQ-FONT-1, ADR-6) ────────────────────────────────
+   ONE variable file, weight 100–800, so real bold is available inside a code block
+   without a second request and without the browser synthesising an oblique.
+
+   The `src` is deliberately RELATIVE. The concatenated stylesheet is published at
+   <baseURL>/css/runbook.<hash>.css, so `../fonts/` resolves to <baseURL>/fonts/ —
+   which is where a theme's static/ lands. That keeps it correct for a consumer
+   serving the site from a subpath, which an absolute /fonts/… would break.
+
+   NO <link rel="preload">, and that is a decision rather than an omission. The face
+   is discovered from a stylesheet that is already render-blocking and already in
+   flight, `swap` guarantees text is never invisible while it arrives, and a preload
+   would spend 25 KB on every page that has no code block on it at all.
+
+   Layout shift from `swap` is ~0 here by construction, which is what makes shipping
+   it on by default defensible against the CLS = 0 gate in specs/007 §3.3: code line
+   height is set as a unitless multiple of font-size rather than inherited from font
+   metrics, and <pre> does not wrap, so a metric change moves the scroll extent of
+   the block rather than its height. Nothing below the block moves.
+
+   Provenance, exact subsetting command, glyph coverage and licence:
+   docs/design-tokens.md §4. Licence: OFL-1.1, static/fonts/OFL.txt. */
+@font-face {
+  font-family: "JetBrains Mono";
+  /* format("woff2"), not format("woff2-variations"). The latter is from an abandoned
+     CSS Fonts 4 draft and a browser that does not recognise the string is entitled to
+     skip the source entirely — which would silently drop the face on exactly the
+     older engines the fallback stack exists for. A variable WOFF2 is served correctly
+     as plain woff2; the `font-weight: 100 800` range below is what advertises the axis. */
+  src: url("../fonts/jetbrains-mono-subset.woff2") format("woff2");
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Ligatures off (specs/003 §3.1). Belt and braces: the shipped subset carries no
+   `calt`/`liga` lookups at all, so on the bundled face this cannot be defeated —
+   but the rule still matters for consumers on the system stack or their own font,
+   where the browser would otherwise draw `>=` `!=` `->` as glyphs that are simply
+   not what the shell is doing. head/theme-guard.html lifts it if the consumer sets
+   params.runbook.codeFontLigatures. */
+pre, code, kbd, samp { font-variant-ligatures: none; }
 
 *, *::before, *::after { box-sizing: border-box; }
 
@@ -27,6 +70,8 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: var(--rb-weight-bold);
   margin: var(--rb-space-6) 0 var(--rb-space-3);
   text-wrap: balance;
+  /* Anchor links from the TOC must not land the heading underneath the header. */
+  scroll-margin-block-start: var(--rb-space-6);
 }
 h1 { font-size: var(--rb-text-3xl); margin-top: 0; }
 h2 { font-size: var(--rb-text-2xl); }
@@ -77,6 +122,18 @@ blockquote {
 }
 
 hr { border: 0; border-top: 1px solid var(--rb-color-border); margin: var(--rb-space-6) 0; }
+
+/* Reuses the code highlight band so a <mark> in prose and a highlighted code line
+   read as the same idea. Both are contrast-gated (specs/007 §3.1). */
+mark {
+  background: var(--rb-code-hl-bg);
+  color: var(--rb-color-text);
+  padding: 0.05em 0.2em;
+  border-radius: var(--rb-radius-sm);
+}
+
+/* The `details` shortcode is native <details>, zero JS (specs/003 §3.5). */
+summary { cursor: pointer; }
 
 /* ── Motion ───────────────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
