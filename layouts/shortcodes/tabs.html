@@ -1,0 +1,108 @@
+{{- /*
+  tabs — one procedure, one panel per variant (apt / dnf / zypper).
+
+  ▸ USAGE REALITY CHECK (specs/003 §3.5). The reference archive uses this shortcode
+    ZERO times. The "install X on Y" family it exists for is 46 posts, 9.3% of the
+    archive — written as one post per distro, not as tabs inside one post. This is an
+    authoring affordance for future content, not a retrofit, and it must cost the
+    theme nothing on the pages that do not use it.
+
+  ▸ THE MECHANISM IS STACKED PANELS WITH REAL HEADINGS, PLUS A JUMP STRIP.
+    There is no hidden panel here and nothing switches. ADR-5 states the requirement
+    as "tabs expose ALL panels without JS", and assets/js/runbook.js is frozen at
+    three modules — tabs is not one of them. So the only ways to get a *switching*
+    strip are CSS-only: the radio/checkbox pattern, :target, or :has(). All three
+    were considered and rejected, and not on aesthetics:
+
+      1. FIND-IN-PAGE DIES. A non-selected panel is display:none, so Ctrl+F for
+         `zypper` finds nothing on the page that documents zypper. For a reference
+         whose entire job is "the reader finds the command", that is a correctness
+         bug, not a degraded experience.
+      2. PRINT AND PDF LOSE THE OTHER PANELS. assets/css/print.css exists because
+         these procedures get printed (specs/005 §4); a CSS-switched strip puts one
+         panel on paper and silently drops the rest.
+      3. THE SEARCH INDEX PROMISES WHAT THE PAGE DOES NOT SHOW. layouts/index.json
+         indexes the page's text, so a hit can land a reader on a page where the
+         matching text is invisible until they guess which control reveals it.
+      4. THE ARIA WOULD BE A LIE. role="tab" belongs on something focusable that the
+         browser exposes as a tab. A <label> is not focusable; putting the role on
+         the <input type="radio"> instead is a role conflict ARIA-in-HTML forbids.
+         What is left announces as a radio group, and the panel swap is never
+         announced at all, because announcing it needs the script we do not have.
+
+    Stacked panels have none of those failure modes and need no JavaScript, no ARIA
+    state and no roving tabindex: every panel is in the DOM, in view source, in
+    find-in-page, in print, in the search index and in the AT heading list. The jump
+    strip is plain same-page links — natively keyboard-operable, and they announce
+    exactly what they are, so nothing has to be claimed that is not true. Following a
+    link also moves the browser's sequential-focus starting point into the panel, so
+    the next Tab continues from the content the reader jumped to.
+
+    If a future Hugo/browser baseline offers a switching mechanism that keeps all four
+    properties above, it can be swapped in behind these class names without touching
+    a single page of content. That is the other reason this is a shortcode.
+
+  Usage:
+
+      {{< tabs title="Install nginx" >}}
+      {{< tab name="apt" >}}
+      ```sh
+      sudo apt install nginx
+      ```
+      {{< /tab >}}
+      {{< tab name="dnf" >}}
+      ```sh
+      sudo dnf install nginx
+      ```
+      {{< /tab >}}
+      {{< /tabs >}}
+
+  Parameters:
+      title   optional label for the group; also names the jump strip
+      level   heading level for the panel titles, 2–6. Default 3. A shortcode cannot
+              see what heading it is nested under, so the author sets this when the
+              default would skip a level (specs/003 §3.6 — correct heading order).
+      id      anchor prefix. Defaults to the slugified title, then to the shortcode's
+              ordinal on the page. Set it explicitly if you intend to link to a panel
+              from elsewhere, because the ordinal moves when the page is edited.
+
+  Each panel's body goes through RenderString in block display, so fenced code inside
+  a panel still reaches layouts/_markup/render-codeblock.html and keeps its copy
+  button, its language tag and its wrap toggle — same contract as details.html.
+*/ -}}
+
+{{- /* Referencing .Inner is what forces the nested `tab` shortcodes to run and fill
+       the store below. Their own output is empty on purpose. */ -}}
+{{- $_ := .Inner -}}
+{{- $panels := .Store.Get "panels" -}}
+
+{{- with $panels -}}
+  {{- $title := $.Get "title" -}}
+  {{- $level := int ($.Get "level" | default 3) -}}
+  {{- if or (lt $level 2) (gt $level 6) }}{{ $level = 3 }}{{ end -}}
+  {{- /* The open and close tags are assembled with printf and marked safe because a
+         template action cannot sit in tag-name position — html/template escapes
+         `<{{ $tag }}>` into visible text. The panel NAME is still interpolated
+         normally, so it is still escaped. */ -}}
+  {{- $tag := printf "h%d" $level -}}
+  {{- $id := or ($.Get "id") (and $title (anchorize $title)) (printf "tabs-%d" $.Ordinal) -}}
+  {{- $id = printf "rb-%s" $id -}}
+<div class="rb-tabs">
+  {{- with $title }}
+  <p class="rb-tabs-title" id="{{ $id }}-label">{{ . }}</p>
+  {{- end }}
+  {{- if gt (len $panels) 1 }}
+  <ul class="rb-tabs-strip" {{ with $title }}aria-labelledby="{{ $id }}-label"{{ else }}aria-label="{{ i18n "tabsVariants" }}"{{ end }}>
+    {{- range $panels }}
+    <li><a href="#{{ $id }}-{{ .slug }}">{{ .name }}</a></li>
+    {{- end }}
+  </ul>
+  {{- end }}
+  {{- range $panels }}
+  <div class="rb-tabs-panel" id="{{ $id }}-{{ .slug }}">
+    {{ printf `<%s class="rb-tabs-panel-title">` $tag | safeHTML }}{{ .name }}{{ printf "</%s>" $tag | safeHTML }}
+    {{ .body }}
+  </div>
+  {{- end }}
+</div>
+{{- end -}}

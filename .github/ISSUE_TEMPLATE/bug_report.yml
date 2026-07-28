@@ -1,0 +1,80 @@
+name: Bug report
+description: Something in the theme renders, behaves or builds incorrectly.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. The single most useful thing you can include is a **minimal
+        reproduction**: the smallest `content/` file plus `hugo.toml` fragment that shows it.
+
+        If it is a **security** problem, stop and read
+        [SECURITY.md](https://github.com/etowett/hugo-theme-runbook/blob/main/SECURITY.md) instead.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happens
+      description: What you see, and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: >-
+        Content and configuration, small enough to paste. If the problem is in a code block,
+        include the fence exactly as written — the attributes matter.
+      render: markdown
+    validations:
+      required: true
+
+  - type: input
+    id: hugo
+    attributes:
+      label: Hugo version
+      description: The full `hugo version` line, including `+extended` if present.
+      placeholder: hugo v0.164.0+extended darwin/arm64
+    validations:
+      required: true
+
+  - type: input
+    id: theme-version
+    attributes:
+      label: Runbook version or commit
+      description: A tag, or the commit SHA if you are tracking `main`.
+    validations:
+      required: true
+
+  - type: input
+    id: install
+    attributes:
+      label: How is the theme installed
+      placeholder: git submodule / release archive / Hugo Module
+    validations:
+      required: true
+
+  - type: textarea
+    id: env
+    attributes:
+      label: Where it shows up
+      description: >-
+        Browser and version if it is a rendering or interaction problem; OS if it is a build
+        problem. "Both themes" or "dark only" is useful. So is "with JavaScript disabled".
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you file
+      options:
+        - label: >-
+            My site sets `markup.highlight.noClasses = false`. (This is the one required setting;
+            `true` breaks dual-theme highlighting and is not a theme bug.)
+        - label: >-
+            I checked the [configuration
+            reference](https://github.com/etowett/hugo-theme-runbook/blob/main/docs/configuration.md)
+            — including the known gaps noted there.
+        - label: >-
+            I built with `--panicOnWarning` and pasted any warning above, rather than letting Hugo
+            exit 0 on a real problem.

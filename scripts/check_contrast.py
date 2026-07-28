@@ -299,18 +299,30 @@ def main():
             if verbose or not ok:
                 print(f"  {'ok ' if ok else 'FAIL'} {dist:5.0f}deg from accent  .{role}")
 
-    # <meta name="theme-color"> is a literal in a template, because a meta tag cannot
-    # read a custom property. That makes it the one value in the design system that
-    # can silently drift out of step with the palette, so it is asserted rather than
-    # trusted. specs/003 §3.2.
-    guard = (ROOT / "layouts" / "_partials" / "head" / "theme-guard.html").read_text()
-    declared = re.findall(r'<meta name="theme-color" content="(#[0-9a-fA-F]{3,6})"', guard)
+    # <meta name="theme-color"> cannot read a CSS custom property, so the palette
+    # background has to be repeated as a literal somewhere. That makes it the one value
+    # in the design system that can silently drift out of step, so it is asserted rather
+    # than trusted. specs/003 §3.2.
+    #
+    # The literals moved: they are now the DEFAULTS in utils/settings.html rather than
+    # hard-coded in the meta tags, so that params.runbook.themeColor can actually
+    # override them — it previously could not, because head/theme-guard.html emitted
+    # hard-coded values and won by being first in <head>. What is asserted is unchanged:
+    # the theme's own defaults must still equal --rb-color-bg in both palettes. A
+    # consumer who overrides them owns the result, exactly as with any other override.
+    settings = (ROOT / "layouts" / "_partials" / "utils" / "settings.html").read_text()
+    declared = re.findall(
+        r'"themeColor(?:Light|Dark)"\s*\([^)]*default\s+"(#[0-9a-fA-F]{3,6})"', settings)
+    if not declared:
+        failures.append(
+            "utils/settings.html: could not find themeColorLight/themeColorDark defaults — "
+            "the theme-color assertion is not running, which is worse than it failing")
     for theme in ("light", "dark"):
         want = resolve("--rb-color-bg", pals[theme])
         checks += 1
         if not any(rgb(d) == want for d in declared):
             failures.append(
-                f"{theme}: theme-guard.html declares theme-color {declared}, none of which is "
+                f"{theme}: settings.html defaults theme-color to {declared}, none of which is "
                 f"--rb-color-bg {hexof(want)} — the meta has drifted from tokens.css")
 
     print(f"\n{checks} assertions over 2 themes")

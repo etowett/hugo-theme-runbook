@@ -49,7 +49,19 @@ title = "Runbook"
     # Appearance
     themeMode = "auto"           # "auto" | "light" | "dark" — the pre-JavaScript default
     showThemeToggle = true
-    accent = ""                  # empty = the theme's own accent; else any CSS colour
+    # NOTE: there is deliberately no `accent` setting, and the one that used to be
+    # declared here was read by no template — it was config that did nothing.
+    #
+    # The accent is load-bearing, not decorative. It is the one hue that clears 4.5:1
+    # as text on BOTH palette backgrounds without shifting between themes, and the
+    # contrast gate additionally asserts that no saturated Chroma token sits within
+    # 25° of it — which is what lets blue on the reading surface mean "interactive"
+    # and nothing else. An arbitrary colour from site config would silently void both
+    # guarantees, and scripts/check_contrast.py runs against tokens.css at build time
+    # so it could never catch it.
+    #
+    # Consumers who want a different accent override the custom properties directly
+    # and own the contrast result. See docs/configuration.md.
 
     # Fonts (REQ-FONT-2 — the bundled font is a capability, never a requirement)
     bundledCodeFont = true       # false falls back to the zero-byte system mono stack
