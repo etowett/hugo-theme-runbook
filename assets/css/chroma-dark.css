@@ -1,15 +1,55 @@
 /* ═══════════════════════════════════════════════════════════════════════════════
-   chroma-dark.css — syntax token palette, dark theme.
-   OWNED BY: the design-system workstream. EMPTY PLACEHOLDER.
+   chroma-dark.css — the syntax palette: semantic values, dark.
+   OWNED BY: the design-system workstream.
 
-   See chroma-light.css for the full contract. Scoping here is:
-
-       :root[data-theme="dark"] .chroma .<token> { … }
-       :root[data-theme="auto"] .chroma .<token> { … }   (inside prefers-color-scheme: dark)
+   The class map lives in chroma-light.css and is written once, unscoped — see the
+   header there for why. This file is values only, and it is the whole dark palette:
+   eleven declarations, twice, for the same reason tokens.css repeats its dark block.
 
    Both palettes are contrast-checked INDEPENDENTLY. A token that passes on the light
    background says nothing about the dark one, and the dark background is
-   --rb-code-bg #161b22, not the page background.
+   --rb-code-bg #161b22, not the page background #0d1117 — #161b22 is the lighter of
+   the two and therefore the harder one for light-on-dark text.
 
-       hugo gen chromastyles --style=github-dark
+   These are not the light values lightened. Perceived saturation collapses on a dark
+   background, so holding the same hue at the same nominal chroma reads as washed-out
+   grey; each hue is re-tuned at its own saturation to land on the same contrast
+   target it hits in the light theme. The hue angles, however, ARE identical in both
+   themes — a reader switching themes should not have to relearn which colour means
+   "string".
+
+   One asymmetry is deliberate. --rb-syn-variable sits at 8.2:1 here against 6.6:1 in
+   the light theme, and --rb-syn-keyword at 5.9:1 against 7.6:1. That inverts the
+   light theme's lightness ordering of the amber/rose pair on purpose: it is the pair
+   a deuteranope compresses hardest, and on a dark background the amber is the one
+   that needs to pull away. scripts/check_contrast.py asserts the resulting
+   separation after simulating deuteranopia and protanopia, in both themes.
    ═══════════════════════════════════════════════════════════════════════════════ */
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"] {
+    --rb-syn-comment:  #8f9cad;
+    --rb-syn-punct:    #9facbc;
+    --rb-syn-literal:  #49d2c8;
+    --rb-syn-builtin:  #c296f9;
+    --rb-syn-variable: #f48a0a;
+    --rb-syn-keyword:  #fba6c4;
+    --rb-syn-name:     #35b546;
+    --rb-syn-error:    #f88d83;
+    --rb-syn-del-bg:   #5c1d22;
+    --rb-syn-ins-bg:   #183a1e;
+  }
+}
+
+:root[data-theme="dark"] {
+  --rb-syn-comment:  #8f9cad;
+  --rb-syn-punct:    #9facbc;
+  --rb-syn-literal:  #49d2c8;
+  --rb-syn-builtin:  #c296f9;
+  --rb-syn-variable: #f48a0a;
+  --rb-syn-keyword:  #fba6c4;
+  --rb-syn-name:     #35b546;
+  --rb-syn-error:    #f88d83;
+  --rb-syn-del-bg:   #5c1d22;
+  --rb-syn-ins-bg:   #183a1e;
+}

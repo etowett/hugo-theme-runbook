@@ -1,34 +1,135 @@
 /* ═══════════════════════════════════════════════════════════════════════════════
-   chroma-light.css — syntax token palette, light theme.
-   OWNED BY: the design-system workstream. EMPTY PLACEHOLDER — code renders in
-   --rb-code-text until this lands, which is legible but uncoloured.
+   chroma-light.css — the syntax palette: semantic values (light) + the class map.
+   OWNED BY: the design-system workstream.
 
    ADR-2 — class-based Chroma (`noClasses: false`), both palettes in the ONE
    fingerprinted stylesheet, scoped by [data-theme] rather than shipped as two files.
    Inline Chroma styles make dual-theme highlighting impossible without emitting every
    block twice.
 
-   SCOPING CONTRACT — every rule in this file must sit under:
+   ── HOW THIS IS SCOPED, AND WHY IT IS NOT ONE PREFIX PER RULE ─────────────────
+   The stub proposed repeating `:root[data-theme="…"] .chroma .<token>` for every
+   token in every theme. That works, but it means maintaining ~60 selectors twice and
+   it is the shape that produces the classic bug where one theme's colours bleed into
+   the other, because the bleed is a missing prefix on one line out of a hundred and
+   nothing catches it.
 
-       :root[data-theme="light"] .chroma .<token> { … }
-       :root[data-theme="auto"]  .chroma .<token> { … }   (inside prefers-color-scheme: light)
+   Instead the file is split along the axis that actually varies:
 
-   Mirrored in chroma-dark.css. Getting this wrong shows up as one theme's token
-   colours bleeding into the other.
+       * the CLASS MAP — which Chroma token belongs to which semantic role — is
+         written ONCE, unscoped, at the bottom of this file. It never varies by theme.
+       * the VALUES are ~11 custom properties, scoped by [data-theme] exactly the way
+         tokens.css scopes its own (light here, dark in chroma-dark.css).
 
-   ── TUNE FOR SHELL FIRST ──────────────────────────────────────────────────────
-   79% of the corpus is shell (7,143 of 9,046 blocks). Chroma's Bash lexer emits a
-   narrow token set that carries roughly 80% of all coloured output here — get these
-   six right before anything else:
+   The scoping contract is therefore still `[data-theme]`, and ADR-2 is satisfied —
+   but a theme can no longer bleed, because there is only one place a colour comes
+   from. It is also smaller against the 8 KB budget, and it hands consumers an
+   11-property retheming surface instead of a 60-selector fork (docs/design-tokens.md §6).
 
-       .nb   builtin        .s .s1 .s2   strings
-       .c1   comment        .nv          variable
-       .o    operator
+   Light is the unprefixed `:root` case, matching tokens.css: `[data-theme="light"]`
+   and `[data-theme="auto"]` under a light OS both fall through to it, and the two
+   dark rules in chroma-dark.css are (0,2,0) selectors that override it when they match.
 
-   Comments are the token most themes fail on. Every token is contrast-checked against
-   --rb-code-bg in CI (specs/007 §3.1), including the highlighted-line background.
-   Do not use red/green as the sole distinguishing signal.
+   ── TUNED FOR SHELL FIRST ─────────────────────────────────────────────────────
+   79% of the corpus is shell (7,143 of 9,046 blocks). Rendering the reference
+   material through Chroma's Bash lexer gives the real frequency order, and it is not
+   the order a general-purpose theme optimises for:
 
-   A starting point can be generated and then re-scoped and re-tuned:
-       hugo gen chromastyles --style=github
+       .s2 ×14   double-quoted string      .o  ×7   operator
+       .nv ×9    variable                  .si ×4   ${ } interpolation
+       .nb ×9    builtin                   .m  ×4   number
+       .k  ×8    keyword                   .c1 ×2   comment
+
+   The single most load-bearing measurement, though, is what is NOT in that list.
+   `sudo`, `dnf`, `systemctl`, `grep`, `curl`, `mv` — the actual commands a runbook is
+   made of — emit no token at all. They render in --rb-code-text. So the most-read
+   text in a shell block is the uncoloured default, and the palette's job is to sit
+   quietly around it rather than to light every line up. That is why `.n`/`.nx` (bare
+   identifiers) are deliberately left uncoloured here too.
+
+   Comments are the token most themes fail on, and the reason is that they reach for
+   low CONTRAST to make comments recede. This palette uses low CHROMA instead: the
+   comment grey is near-neutral but still clears 6.4:1, so it recedes visually without
+   dropping under AA.
+
+   Every value is asserted by scripts/check_contrast.py against --rb-code-bg AND
+   --rb-code-hl-bg AND the diff backgrounds, in both themes, plus a dichromacy
+   separation check on the shell-critical set. Run it after touching anything here.
    ═══════════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Hues: literal 176°, name 128°, builtin 267°, keyword 339°, variable 30°,
+     error 5°. None within 25° of the 212° accent — see tokens.css. The two greys
+     are near-neutral (HSL S ≈ 0.11–0.16) and carry no hue signal. */
+  --rb-syn-comment:  #515a64;
+  --rb-syn-punct:    #465160;
+  --rb-syn-literal:  #014743;
+  --rb-syn-builtin:  #5d22a6;
+  --rb-syn-variable: #7f4001;
+  --rb-syn-keyword:  #760f33;
+  --rb-syn-name:     #056011;
+  --rb-syn-error:    #8e1a10;
+  --rb-syn-del-bg:   #efcdd0;
+  --rb-syn-ins-bg:   #b4e0bd;
+}
+
+/* ── The class map. Theme-independent: roles, not colours. ─────────────────────
+
+   Grouping rationale, where it is not obvious:
+
+     .sd  LiteralStringDoc  — a Python docstring reads as commentary, not as data.
+     .si  StringInterpol    — the `${` and `}` of `"${REDIS_CONF}"`. It WRAPS .nv, so
+                              putting it with the literals and the variable inside it
+                              in its own colour is what makes that construct legible.
+     .cp  CommentPreproc    — this is the shebang. Frequent in this corpus and almost
+                              always mis-styled as a loud preprocessor colour.
+     .m*  numbers           — grouped with strings because Chroma's own hierarchy puts
+                              both under Literal, and in shell a bare `6379` is data in
+                              exactly the way `"6379"` is.
+     .gp  GenericPrompt     — the `$ ` of a console block. Recedes like a comment: it
+                              is not content, and 64% of the archive has one.
+     .n .nx .go             — deliberately absent. Bare identifiers and command output
+                              inherit --rb-code-text, which is the point above.
+*/
+.chroma .c, .chroma .ch, .chroma .cm, .chroma .c1, .chroma .cs,
+.chroma .cp, .chroma .cpf, .chroma .sd, .chroma .gp { color: var(--rb-syn-comment); }
+
+.chroma .s, .chroma .sa, .chroma .sb, .chroma .sc, .chroma .dl, .chroma .s2,
+.chroma .se, .chroma .sh, .chroma .si, .chroma .sx, .chroma .sr, .chroma .s1,
+.chroma .ss, .chroma .l, .chroma .m, .chroma .mb, .chroma .mf, .chroma .mh,
+.chroma .mi, .chroma .il, .chroma .mo { color: var(--rb-syn-literal); }
+
+/* Weight is a second, non-colour signal separating keywords from variables — the
+   one pair in the shell set that sits on the red/yellow axis dichromats compress. */
+.chroma .k, .chroma .kc, .chroma .kd, .chroma .kn, .chroma .kp, .chroma .kr,
+.chroma .kt, .chroma .ow, .chroma .or, .chroma .gd { color: var(--rb-syn-keyword); }
+.chroma .k, .chroma .kd, .chroma .kn, .chroma .kr { font-weight: var(--rb-weight-medium); }
+
+.chroma .nb, .chroma .bp, .chroma .nf, .chroma .fm,
+.chroma .nc, .chroma .nn { color: var(--rb-syn-builtin); }
+
+.chroma .nv, .chroma .vc, .chroma .vg, .chroma .vi,
+.chroma .vm { color: var(--rb-syn-variable); }
+
+.chroma .na, .chroma .nt, .chroma .nl, .chroma .no, .chroma .ni,
+.chroma .nd, .chroma .gi { color: var(--rb-syn-name); }
+
+.chroma .o, .chroma .p { color: var(--rb-syn-punct); }
+
+/* REQ: never colour alone. A diff line already carries its `+`/`-` in the token text
+   and now also carries a background band, so red/green is the third signal, not the
+   only one (specs/003 §3.2, deuteranopia). */
+.chroma .gd { background: var(--rb-syn-del-bg); }
+.chroma .gi { background: var(--rb-syn-ins-bg); }
+
+.chroma .gh, .chroma .gu, .chroma .gs { font-weight: var(--rb-weight-bold); }
+.chroma .ge { font-style: italic; }
+.chroma .gl { text-decoration: underline; }
+
+/* Same rule for errors: colour plus a wavy underline, because "this is wrong" must
+   survive being read in greyscale or by someone who cannot see the red. */
+.chroma .err, .chroma .gr, .chroma .gt {
+  color: var(--rb-syn-error);
+  text-decoration: underline wavy;
+  text-underline-offset: 0.2em;
+}
