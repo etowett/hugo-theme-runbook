@@ -1,0 +1,56 @@
+# specs/003 §3.8 — EVERY UI chrome string lives here from day one. A string hard-coded
+# into a template cannot be translated, and retrofitting i18n means touching every
+# layout. This is a showcase-adoption requirement.
+#
+# Workstreams add keys to their own area of this file. Keep the section grouping.
+
+# ── Navigation and shell ──────────────────────────────────────────────────────
+skipToContent: "Skip to content"
+primaryNavigation: "Primary"
+toggleTheme: "Toggle colour theme"
+themeLight: "Light"
+themeDark: "Dark"
+themeAuto: "System"
+backHome: "Back to home"
+
+# ── Article ───────────────────────────────────────────────────────────────────
+readingTime:
+  one: "{{ .Count }} min read"
+  other: "{{ .Count }} min read"
+publishedOn: "Published"
+lastUpdatedOn: "Updated"
+tableOfContents: "On this page"
+relatedPosts: "Related"
+
+# ── Code blocks ───────────────────────────────────────────────────────────────
+copy: "Copy"
+copyAriaLabel: "Copy code to clipboard"
+copied: "Copied"
+copyFailed: "Copy failed"
+wrapLines: "Wrap long lines"
+outputLabel: "Output"
+
+# ── Lists and taxonomies ──────────────────────────────────────────────────────
+noPosts: "Nothing here yet."
+allPosts: "All posts"
+tags: "Tags"
+categories: "Categories"
+archive: "Archive"
+postCount:
+  one: "{{ .Count }} post"
+  other: "{{ .Count }} posts"
+newer: "Newer"
+older: "Older"
+
+# ── Search ────────────────────────────────────────────────────────────────────
+search: "Search"
+searchPlaceholder: "Search posts…"
+searchUnavailable: "Search needs JavaScript. Browse by tag or category instead."
+searchNoResults: "No results."
+
+# ── Errors ────────────────────────────────────────────────────────────────────
+notFoundTitle: "Page not found"
+notFoundBody: "That page does not exist, or it moved."
+
+# ── Footer ────────────────────────────────────────────────────────────────────
+copyright: "© {{ .Year }} {{ .Title }}"

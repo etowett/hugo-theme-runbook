@@ -1,0 +1,22 @@
+{{- /*
+  head/head.html — assembles <head>. Ordering matters:
+    1. charset + viewport
+    2. the theme guard (blocking, before first paint — ADR-4)
+    3. stylesheet
+    4. metadata / SEO
+    5. the consumer's own head markup, LAST, so it can override anything above
+*/ -}}
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+{{- partial "head/theme-guard.html" . }}
+{{ partial "head/css.html" . }}
+{{ partial "head/seo.html" . }}
+{{ partial "head/schema.html" . }}
+
+{{- with .OutputFormats.Get "rss" }}
+<link rel="alternate" type="{{ .MediaType.Type }}" href="{{ .Permalink }}" title="{{ site.Title }}">
+{{- end }}
+
+{{- /* ADR-8 extension point: analytics, verification tags, custom fonts, extra CSS. */ -}}
+{{ partial "hooks/custom-head.html" . }}

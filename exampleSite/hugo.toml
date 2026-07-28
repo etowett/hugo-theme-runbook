@@ -1,0 +1,62 @@
+# exampleSite — the Hugo Themes showcase demo AND the synthetic fixture host
+# (specs/009 §3, specs/007 §2 Layer 1).
+#
+# Build it from the repo root with:
+#     hugo server --source exampleSite --themesDir ../.. --disableFastRender
+#
+# ▸ specs/009 §2: NO third-party tracking with live credentials may appear anywhere in
+#   this directory. The showcase rejects it, and it is also why the demo is this site
+#   and not citizix.com, which carries AdSense, GTM and GA4.
+
+baseURL = "https://example.com/"
+title = "Runbook"
+defaultContentLanguage = "en"
+theme = "hugo-theme-runbook"
+
+# specs/003 §3.4 — main sections are configurable, never a hard-coded "post".
+[params]
+  mainSections = ["posts"]
+  description = "A minimal, code-first Hugo theme for technical blogs."
+
+  [params.runbook]
+    themeMode = "auto"
+    showThemeToggle = true
+
+[markup]
+  [markup.highlight]
+    noClasses = false        # ADR-2 — required by any consuming site
+    lineNos = false
+    lineNumbersInTable = false
+    guessSyntax = false
+  [markup.goldmark.renderer]
+    unsafe = false
+
+[menus]
+  [[menus.main]]
+    name = "Posts"
+    pageRef = "/posts"
+    weight = 10
+  [[menus.main]]
+    name = "Tags"
+    pageRef = "/tags"
+    weight = 20
+
+[taxonomies]
+  tag = "tags"
+  category = "categories"
+  # Series is a taxonomy the CONSUMER must register — a theme cannot register one.
+  # specs/003 §3.4: this ships with documentation or it does not work.
+  series = "series"
+
+# Related-posts weighting mirrors the reference site so relevance can be judged against
+# a real corpus rather than a synthetic one (specs/003 §3.4).
+[related]
+  includeNewer = true
+  threshold = 60
+  toLower = true
+  [[related.indices]]
+    name = "tags"
+    weight = 100
+  [[related.indices]]
+    name = "categories"
+    weight = 200

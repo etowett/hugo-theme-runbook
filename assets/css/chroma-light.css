@@ -1,0 +1,34 @@
+/* ═══════════════════════════════════════════════════════════════════════════════
+   chroma-light.css — syntax token palette, light theme.
+   OWNED BY: the design-system workstream. EMPTY PLACEHOLDER — code renders in
+   --rb-code-text until this lands, which is legible but uncoloured.
+
+   ADR-2 — class-based Chroma (`noClasses: false`), both palettes in the ONE
+   fingerprinted stylesheet, scoped by [data-theme] rather than shipped as two files.
+   Inline Chroma styles make dual-theme highlighting impossible without emitting every
+   block twice.
+
+   SCOPING CONTRACT — every rule in this file must sit under:
+
+       :root[data-theme="light"] .chroma .<token> { … }
+       :root[data-theme="auto"]  .chroma .<token> { … }   (inside prefers-color-scheme: light)
+
+   Mirrored in chroma-dark.css. Getting this wrong shows up as one theme's token
+   colours bleeding into the other.
+
+   ── TUNE FOR SHELL FIRST ──────────────────────────────────────────────────────
+   79% of the corpus is shell (7,143 of 9,046 blocks). Chroma's Bash lexer emits a
+   narrow token set that carries roughly 80% of all coloured output here — get these
+   six right before anything else:
+
+       .nb   builtin        .s .s1 .s2   strings
+       .c1   comment        .nv          variable
+       .o    operator
+
+   Comments are the token most themes fail on. Every token is contrast-checked against
+   --rb-code-bg in CI (specs/007 §3.1), including the highlighted-line background.
+   Do not use red/green as the sole distinguishing signal.
+
+   A starting point can be generated and then re-scoped and re-tuned:
+       hugo gen chromastyles --style=github
+   ═══════════════════════════════════════════════════════════════════════════════ */

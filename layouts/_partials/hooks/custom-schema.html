@@ -1,0 +1,11 @@
+{{- /*
+  ADR-8 EXTENSION POINT — intentionally empty.
+
+  Rendered inside <head> after the theme's own JSON-LD, for additional structured data
+  (Organization, FAQPage, HowTo …).
+
+  REQ-SEO-1 APPLIES HERE TOO. Build a map, `jsonify` it ONCE, mark it `safeJS`. Never
+  interpolate individual fields into a hand-written JSON literal inside <script> —
+  Go's html/template will double-encode them and the result still parses, so nothing
+  will tell you. See specs/004-hugo-mechanics.md §2a.
+*/ -}}

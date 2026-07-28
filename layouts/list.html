@@ -1,0 +1,27 @@
+{{- /*
+  STUB — owned by the "Templates, SEO and taxonomy" workstream.
+
+  Serves section, taxonomy and term pages until each gets its own template. Term titles
+  must render through utils/term-title.html (REQ-TAX-1), never through the raw .Title —
+  Hugo capitalises each hyphen segment, so `amazon-eks` arrives here as "Amazon-Eks".
+*/ -}}
+{{ define "main" }}
+<div class="rb-list">
+  <h1 class="rb-list-title">{{ partial "utils/term-title.html" . }}</h1>
+  {{- with .Content }}<div class="rb-prose">{{ . }}</div>{{ end }}
+
+  {{- with .Pages }}
+  <ul class="rb-post-list">
+    {{- range . }}
+    <li class="rb-post-list-item">
+      <h2 class="rb-post-list-title"><a href="{{ .RelPermalink }}">{{ .LinkTitle }}</a></h2>
+      {{ partial "article/meta.html" . }}
+    </li>
+    {{- end }}
+  </ul>
+  {{- else }}
+  {{- /* Empty state — required for every list view (M4a). */ -}}
+  <p class="rb-empty">{{ i18n "noPosts" }}</p>
+  {{- end }}
+</div>
+{{ end }}

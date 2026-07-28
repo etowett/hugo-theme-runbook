@@ -1,0 +1,15 @@
+/* ═══════════════════════════════════════════════════════════════════════════════
+   chroma-dark.css — syntax token palette, dark theme.
+   OWNED BY: the design-system workstream. EMPTY PLACEHOLDER.
+
+   See chroma-light.css for the full contract. Scoping here is:
+
+       :root[data-theme="dark"] .chroma .<token> { … }
+       :root[data-theme="auto"] .chroma .<token> { … }   (inside prefers-color-scheme: dark)
+
+   Both palettes are contrast-checked INDEPENDENTLY. A token that passes on the light
+   background says nothing about the dark one, and the dark background is
+   --rb-code-bg #161b22, not the page background.
+
+       hugo gen chromastyles --style=github-dark
+   ═══════════════════════════════════════════════════════════════════════════════ */

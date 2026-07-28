@@ -1,0 +1,93 @@
+/* layout.css — page shell: header, footer, main column, list views.
+   OWNED BY: the design-system workstream. Working placeholder.
+
+   ADR-7 — list views are TEXT-FIRST. No image slot, no reserved aspect-ratio box, no
+   placeholder. Zero Markdown images across 497 posts and one cover image in the whole
+   reference archive; reserving space for a picture 99.8% of posts do not have is the
+   single most visible thing the incumbent theme gets wrong for this content. */
+
+.rb-skip-link {
+  position: absolute;
+  inset-inline-start: var(--rb-space-3);
+  inset-block-start: calc(var(--rb-space-3) * -10);
+  z-index: var(--rb-z-skip);
+  background: var(--rb-color-accent);
+  color: var(--rb-color-accent-contrast);
+  padding: var(--rb-space-2) var(--rb-space-4);
+  border-radius: var(--rb-radius-sm);
+  text-decoration: none;
+}
+.rb-skip-link:focus { inset-block-start: var(--rb-space-3); }
+
+.rb-header,
+.rb-main,
+.rb-footer {
+  max-width: var(--rb-page-width);
+  margin-inline: auto;
+  padding-inline: var(--rb-gutter);
+}
+
+.rb-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--rb-space-4);
+  padding-block: var(--rb-space-4);
+  border-bottom: 1px solid var(--rb-color-border);
+}
+.rb-brand {
+  font-weight: var(--rb-weight-bold);
+  color: var(--rb-color-text);
+  text-decoration: none;
+}
+.rb-nav-list {
+  display: flex;
+  gap: var(--rb-space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  margin-inline-end: auto;
+}
+.rb-theme-toggle {
+  min-width: var(--rb-target-min);
+  min-height: var(--rb-target-min);
+  background: none;
+  border: 1px solid var(--rb-color-border);
+  border-radius: var(--rb-radius-sm);
+  color: var(--rb-color-text-muted);
+  cursor: pointer;
+  padding: var(--rb-space-1) var(--rb-space-2);
+  font: inherit;
+  font-size: var(--rb-text-sm);
+}
+
+.rb-main { padding-block: var(--rb-space-6) var(--rb-space-8); }
+
+.rb-prose,
+.rb-article-title,
+.rb-meta { max-width: var(--rb-measure); }
+
+.rb-meta {
+  color: var(--rb-color-text-muted);
+  font-size: var(--rb-text-sm);
+  margin-block: 0 var(--rb-space-5);
+}
+.rb-meta-sep { margin-inline: var(--rb-space-2); }
+
+.rb-post-list { list-style: none; margin: 0; padding: 0; }
+.rb-post-list-item {
+  padding-block: var(--rb-space-4);
+  border-bottom: 1px solid var(--rb-color-border);
+}
+.rb-post-list-title { font-size: var(--rb-text-lg); margin: 0 0 var(--rb-space-1); }
+.rb-post-list-title a { color: var(--rb-color-text); text-decoration: none; }
+.rb-post-list-title a:hover { color: var(--rb-color-accent); text-decoration: underline; }
+.rb-post-list-summary { color: var(--rb-color-text-muted); margin: 0; }
+
+.rb-empty { color: var(--rb-color-text-muted); }
+
+.rb-footer {
+  border-top: 1px solid var(--rb-color-border);
+  padding-block: var(--rb-space-5);
+  color: var(--rb-color-text-muted);
+  font-size: var(--rb-text-sm);
+}

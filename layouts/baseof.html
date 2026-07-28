@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+{{- /*
+  specs/003 §3.6 / §3.8 — `lang` AND `dir` are both emitted. citizix's current baseof
+  emits `dir` and Runbook must not regress it.
+
+  Both values are read through accessors that are stable across the whole supported
+  Hugo range. `site.Language.LanguageCode` and `.LanguageDirection` were deprecated in
+  v0.158.0 in favour of `.Locale` and `.Direction`, but those replacements do not exist
+  at the v0.146.0 floor ADR-0 declares — so using either one breaks a supported version.
+  `site.Language.Lang` and a language param work everywhere and warn nowhere, which
+  matters because CI builds with --panicOnWarning (specs/007 §3.5).
+
+  RTL: set it per language, e.g.  [languages.ar.params]  direction = "rtl"
+*/ -}}
+<html lang="{{ site.Language.Lang }}" dir="{{ or site.Language.Params.direction `ltr` }}" data-theme="{{ site.Params.runbook.themeMode | default `auto` }}">
+<head>
+  {{- partial "head/head.html" . -}}
+</head>
+<body>
+  {{- /* ADR-8 extension point: injected before anything the theme renders. */ -}}
+  {{- partial "hooks/custom-body-start.html" . -}}
+
+  <a class="rb-skip-link" href="#rb-main">{{ i18n "skipToContent" }}</a>
+
+  {{- partial "header.html" . -}}
+
+  <main id="rb-main" class="rb-main">
+    {{- block "main" . }}{{ end -}}
+  </main>
+
+  {{- partial "footer.html" . -}}
+
+  {{- partial "js.html" . -}}
+
+  {{- /* ADR-8 extension point: last thing before </body>. */ -}}
+  {{- partial "hooks/custom-body-end.html" . -}}
+</body>
+</html>

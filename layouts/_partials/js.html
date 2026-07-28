@@ -1,0 +1,17 @@
+{{- /*
+  ADR-5 — ONE deferred script tag for the whole article page. Together with the inline
+  guard in head/theme-guard.html that is the 2-script-tag budget from specs/005 §3.1.
+
+  js.Build is esbuild, built into Hugo. ES module imports are bundled at build time;
+  no Node toolchain is involved.
+
+  Budget: <= 3,000 B gzipped for everything reachable from js/runbook.js.
+*/ -}}
+{{- with resources.Get "js/runbook.js" -}}
+  {{- $opts := dict "target" "es2018" "format" "iife" "minify" hugo.IsProduction -}}
+  {{- $js := . | js.Build $opts -}}
+  {{- if hugo.IsProduction -}}
+    {{- $js = $js | fingerprint -}}
+  {{- end -}}
+  <script defer src="{{ $js.RelPermalink }}"{{ with $js.Data.Integrity }} integrity="{{ . }}"{{ end }}></script>
+{{- end -}}

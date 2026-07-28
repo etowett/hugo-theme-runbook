@@ -1,0 +1,30 @@
+{{- /*
+  STUB — owned by the "Templates, SEO and taxonomy" workstream.
+
+  ══ REQ-SEO-1 — READ specs/004-hugo-mechanics.md §2a BEFORE TOUCHING THIS FILE ══
+
+  Go's html/template contextually autoescapes the body of a <script> block as
+  JavaScript, and re-escapes JSON that is already valid. Interpolating per-field —
+
+      "headline": {{ .Title | jsonify }}
+
+  — emits  "headline":"\"How to Install Redis\""  and a datePublished that is no
+  longer a valid ISO 8601 date. It still PARSES, which is why it survived review on
+  493 of 493 article pages of the reference site for months.
+
+  The rule: build ONE map, jsonify ONCE, mark it safeJS. Never interpolate a field.
+  Also: no `articleBody` (specs/003 §3.7 item 2), and map page kinds to schema types
+  explicitly rather than emitting Article for every .IsPage (item 4).
+
+  CI asserts on parsed values — see specs/007 §3.5.
+*/ -}}
+{{- if site.Params.runbook.seo.jsonLd -}}
+  {{- $schema := dict
+      "@context" "https://schema.org"
+      "@type" "WebSite"
+      "name" site.Title
+      "url" site.Home.Permalink
+  -}}
+  <script type="application/ld+json">{{ $schema | jsonify | safeJS }}</script>
+{{- end -}}
+{{- partial "hooks/custom-schema.html" . -}}

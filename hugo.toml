@@ -1,0 +1,90 @@
+# Root module manifest. Required by the Hugo Themes showcase (specs/009 §2) and by
+# consumers installing Runbook as a Hugo Module (ADR-9).
+#
+# This file configures the THEME REPOSITORY, not a consuming site. Site defaults that
+# ship with the theme live in the `[params]` block below and are merged *underneath*
+# a consumer's own configuration by Hugo.
+
+baseURL = "https://example.com/"
+title = "Runbook"
+
+[module]
+  [module.hugoVersion]
+    extended = false
+    min = "0.146.0"
+
+# ── Markup ────────────────────────────────────────────────────────────────────
+#
+# NOTE (REQ-CB-1): these are defaults only, and a consuming site overrides them.
+# The render hook MUST NOT trust them. `layouts/_markup/render-codeblock.html`
+# builds its own option set and forces line numbers off unless the individual block
+# opted in. See specs/004-hugo-mechanics.md §2.
+[markup]
+  [markup.highlight]
+    noClasses = false        # ADR-2: class-based Chroma so both palettes can be scoped
+    lineNos = false
+    lineNumbersInTable = false
+    guessSyntax = false
+    tabWidth = 4
+  [markup.goldmark.renderer]
+    unsafe = false
+  [markup.tableOfContents]
+    startLevel = 2
+    endLevel = 3
+    ordered = false
+
+# ── Theme parameters ──────────────────────────────────────────────────────────
+#
+# CONFIG API CONTRACT — resolves open decision Q6 (specs/006 §"Decisions still open").
+# Every Runbook setting lives under the `runbook` namespace. Nothing is read from a
+# bare top-level param, so the theme can never collide with a consumer's own keys or
+# with another theme's.
+#
+# This supersedes the informal `params.taxonomyTitles` spelling used in
+# specs/004-hugo-mechanics.md §4a; the key is `params.runbook.taxonomyTitles`.
+#
+# Full annotated reference: docs/configuration.md
+[params]
+  [params.runbook]
+    # Appearance
+    themeMode = "auto"           # "auto" | "light" | "dark" — the pre-JavaScript default
+    showThemeToggle = true
+    accent = ""                  # empty = the theme's own accent; else any CSS colour
+
+    # Fonts (REQ-FONT-2 — the bundled font is a capability, never a requirement)
+    bundledCodeFont = true       # false falls back to the zero-byte system mono stack
+    codeFontLigatures = false    # off by default: ligatures misdraw shell operators
+    bundledProseFont = false     # off by default: the system sans stack costs nothing
+
+    # Content
+    dateFormat = ":date_long"
+    showReadingTime = true
+    showLastmod = true
+
+    [params.runbook.code]
+      copyButton = true
+      wrapToggle = true
+
+    [params.runbook.toc]
+      enable = true
+      minLevel = 2
+      maxLevel = 3
+      scrollSpy = true           # enhancement only; anchors work without it
+
+    [params.runbook.related]
+      enable = true
+      limit = 5
+
+    [params.runbook.search]
+      enable = false             # opt-in; ships its own lazy chunk on /search/ only
+
+    [params.runbook.seo]
+      jsonLd = true
+      twitterSite = ""
+      # Never emit <meta name="keywords"> — specs/003 §3.7 item 3.
+
+    # REQ-TAX-1 — display titles for terms whose capitalisation cannot be inferred.
+    # Keys are the term's URL segment; values are the rendered title.
+    [params.runbook.taxonomyTitles]
+      # "amazon-eks" = "Amazon EKS"
+      # "ci-cd"      = "CI/CD"
