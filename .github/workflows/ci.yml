@@ -157,11 +157,17 @@ jobs:
         run: python3 scripts/check_fixtures.py --check-generated
 
       - name: JSON-LD parses, and its VALUES are asserted
-        # TODO(m2): add --require-article once layouts/_partials/head/schema.html emits
-        # Article schema. Until then the build has only a WebSite node, the headline and
-        # datePublished assertions have nothing to fire on, and the script says so
-        # instead of passing silently.
-        run: python3 scripts/check_jsonld.py "$RUNNER_TEMP/public"
+        # --require-article is on now that head/schema.html emits Article schema. Before
+        # that the build carried only a WebSite node, so the two assertions that matter
+        # had nothing to fire on and the flag would have made the job pass on an empty
+        # set — which is the failure mode this check exists to prevent.
+        #
+        # Those two assertions are the whole point: `headline` must not begin with a
+        # quote character and `datePublished` must match ^\d{4}-\d{2}-\d{2}T. The
+        # reference site shipped double-encoded JSON-LD on 493 of 493 article pages for
+        # months. It PARSES, so nothing short of a value-level assertion catches it
+        # (specs/004 §2a).
+        run: python3 scripts/check_jsonld.py "$RUNNER_TEMP/public" --require-article
 
       - name: Performance budgets
         # Theme-shell budgets are hard ceilings and fail this job. Page-weight thresholds

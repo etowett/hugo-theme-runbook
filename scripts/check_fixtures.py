@@ -186,8 +186,22 @@ CHECKS = [
                                   d.text, re.MULTILINE)) >= 5),
         ("a plain blockquote alerts must not swallow",
          lambda d: re.search(r"^> [^\[]", d.text, re.MULTILINE) is not None),
-        ("no shortcode call — layouts/shortcodes/ is empty and a call is a hard failure",
-         lambda d: "{{<" not in d.text.replace("{{</*", "")),
+        # This invariant was the exact inverse until the shortcodes landed: it asserted
+        # NO shortcode call, because layouts/shortcodes/ was empty and calling a
+        # shortcode that does not exist is a hard build failure. Correct then, wrong the
+        # moment admonition.html and details.html shipped — and the guard caught the
+        # flip rather than letting the fixture quietly stop covering anything.
+        #
+        # The alert-blockquote assertions above stay. They are not redundant: alerts are
+        # what a third-party author actually writes, having copied them from GitHub, and
+        # they must keep degrading to a readable blockquote.
+        ("shortcodes: admonition invoked, both named and positional",
+         lambda d: len(re.findall(r"\{\{<\s*admonition\b", d.text)) >= 2),
+        ("shortcodes: details invoked, with a fenced block inside it",
+         lambda d: re.search(r"\{\{<\s*details\b[\s\S]*?```[\s\S]*?\{\{<\s*/\s*details\s*>\}\}",
+                             d.text) is not None),
+        ("an unknown admonition type, which must degrade to note rather than to nothing",
+         lambda d: re.search(r'\{\{<\s*admonition\s+type="nonsense"', d.text) is not None),
     ]),
     ("prose-only-no-code.md", [
         ("the no-code case: zero fenced blocks",
