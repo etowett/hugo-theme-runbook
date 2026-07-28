@@ -128,6 +128,7 @@ rot silently.
 | Key | Type | Default | Effect |
 |---|---|---|---|
 | `bundledCodeFont` | bool | `true` | `false` falls back to the zero-byte system mono stack (REQ-FONT-2) |
+| `bundledDisplayFont` | bool | `true` | `false` falls back to the system display stack instead of loading the self-hosted Caprasimo face |
 | `codeFontLigatures` | bool | `false` | Off by default: ligatures misdraw `>=`, `!=`, `->` in shell |
 | `bundledProseFont` | bool | `false` | Off by default: the system sans stack costs nothing |
 
@@ -199,7 +200,7 @@ specified prohibitions ([003 §3.7](../specs/003-design-spec.md) items 2 and 3),
 
 ## Content Security Policy
 
-Runbook emits **one inline `<script>`** and, only when you opt out of a font default, **up to two
+Runbook emits **one inline `<script>`** and, only when you opt out of a font default, **up to three
 inline `<style>` elements**. Everything else is an external, fingerprinted, SRI-tagged asset from
 your own origin. There are no third-party hosts.
 
@@ -214,7 +215,7 @@ first paint. It is the only blocking script on the page and it does exactly that
   cspNonce = "..."   # per-response value from your server or edge function
 ```
 
-The value is emitted as `nonce="…"` on the guard and on both font-override `<style>` elements.
+The value is emitted as `nonce="…"` on the guard and on all font-override `<style>` elements.
 
 ```
 Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-...'; style-src 'self' 'nonce-...'
@@ -239,10 +240,11 @@ Current values for the theme as it stands:
 | Theme guard | `hugo` (no `--minify`) | `'sha256-GytWXkQmO8lO9yfkf/nGk5uKoncvdhsJM4S8wnPhTUQ='` |
 | Theme guard | `hugo --minify`, Hugo 0.164.0 | `'sha256-066EEot1y+rU3UxWvORvUu09DDzZWH14UI7lqCCoGn8='` |
 | `bundledCodeFont = false` style | `hugo` (no `--minify`) | `'sha256-v3bE38rd91/dWA2UYH0JTHtk4uL9KcbWxpLu0YR9vdU='` |
+| `bundledDisplayFont = false` style | Generate from your own build | See command below |
 | `codeFontLigatures = true` style | `hugo` (no `--minify`) | `'sha256-/qQRSriaXpVVW/ltzkpq9C4PAFeRGJA8xC+Jozkoa68='` |
 
-The two `<style>` hashes are needed **only if you changed those font defaults**; on the defaults
-neither element is emitted at all.
+The three `<style>` hashes are needed **only if you changed those font defaults**; on the defaults
+no font-override `<style>` element is emitted at all.
 
 > **The hash is not a property of the theme alone — it is a property of your build.** `hugo --minify`
 > runs the HTML minifier over the inline script and rewrites it: on Hugo 0.164.0 the guard comes out
@@ -285,7 +287,7 @@ ever *changes* the answer.
 
 | Directive | Why |
 |---|---|
-| `font-src 'self'` | Only if `bundledCodeFont` is on; the WOFF2 is served from your origin |
+| `font-src 'self'` | When either bundled font is on; every WOFF2 is served from your origin |
 | `img-src 'self' data:` | The copy/copied/wrap icons are `data:image/svg+xml` **mask** URLs inside `assets/css/code.css`. A resource fetched by a CSS property is still an image fetch, so `data:` is required — without it the buttons paint as plain squares. There is no setting that turns these off |
 | `connect-src 'self'` | Only if `search.enable` is on — the search chunk fetches its index from your origin |
 

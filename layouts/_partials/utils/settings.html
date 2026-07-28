@@ -74,12 +74,15 @@
        Both must be real booleans, since head/theme-guard.html tests `eq … false`. */ -}}
 {{- $bundledCodeFont := true -}}
 {{- if isset $rb "bundledcodefont" }}{{ $bundledCodeFont = $rb.bundledCodeFont }}{{ end -}}
+{{- $bundledDisplayFont := true -}}
+{{- if isset $rb "bundleddisplayfont" }}{{ $bundledDisplayFont = $rb.bundledDisplayFont }}{{ end -}}
 {{- $codeFontLigatures := false -}}
 {{- if isset $rb "codefontligatures" }}{{ $codeFontLigatures = $rb.codeFontLigatures }}{{ end -}}
 
 {{- return dict
       "themeMode"           $mode
       "cspNonce"            ($rb.cspNonce | default "")
+      "bundledDisplayFont"  $bundledDisplayFont
       "bundledCodeFont"     $bundledCodeFont
       "codeFontLigatures"   $codeFontLigatures
       "dateFormat"          ($rb.dateFormat | default ":date_long")

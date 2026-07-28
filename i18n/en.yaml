@@ -73,6 +73,9 @@ allPosts: "All posts"
 browseAll:
   one: "Browse the post"
   other: "Browse all {{ .Count }} posts"
+featured: "Featured"
+readPost: "Read"
+featuredSeries: "Featured series"
 # Archive heading for posts with no date. Go's zero time groups them under "0001",
 # which must never reach a reader.
 undated: "Undated"

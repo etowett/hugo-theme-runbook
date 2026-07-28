@@ -80,6 +80,7 @@
    scrolls sideways (the design's own mobile behaviour) and the row wraps if even that
    is not enough. */
 .rb-nav {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -102,11 +103,17 @@
    with accent-700 and not the base terracotta for the reason in tokens.css: the
    lighter fill fails 4.5:1 against anything set on it. */
 .rb-brand::before {
-  content: "";
+  content: "$";
+  display: grid;
+  place-items: center;
   inline-size: 1.5rem;
   block-size: 1.5rem;
   border-radius: var(--rb-radius-pill);
   background: var(--rb-color-accent);
+  color: var(--rb-color-accent-contrast);
+  font-family: var(--rb-font-mono);
+  font-size: var(--rb-text-sm);
+  font-weight: var(--rb-weight-bold);
 }
 .rb-nav-list {
   display: flex;
@@ -119,6 +126,16 @@
   scrollbar-width: none;
 }
 .rb-nav-list > li { flex: 0 0 auto; }
+.rb-nav-mobile { display: none; }
+.rb-control-icon {
+  inline-size: 1em;
+  block-size: 1em;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
 .rb-nav-list a,
 .rb-search-link {
   display: inline-block;
@@ -153,6 +170,48 @@
 }
 .rb-theme-toggle:hover { color: var(--rb-color-text); background: var(--rb-color-bg-subtle); }
 
+@media (max-width: 56.24rem) {
+  .rb-nav { flex-wrap: nowrap; padding-block: var(--rb-space-3); }
+  .rb-brand { margin-inline-end: auto; }
+  .rb-nav-list--desktop { display: none; }
+  .rb-nav-mobile { display: block; }
+  .rb-nav-mobile > summary {
+    display: grid;
+    place-items: center;
+    min-inline-size: var(--rb-target-touch);
+    min-block-size: var(--rb-target-touch);
+    border: 1px solid var(--rb-color-border-strong);
+    border-radius: var(--rb-radius-pill);
+    color: var(--rb-color-text);
+    cursor: pointer;
+    list-style: none;
+  }
+  .rb-nav-mobile > summary .rb-control-icon { inline-size: 1.25rem; block-size: 1.25rem; }
+  .rb-nav-mobile > summary::-webkit-details-marker { display: none; }
+  .rb-nav-list--mobile {
+    position: absolute;
+    inset-block-start: calc(100% + var(--rb-space-2));
+    inset-inline-end: 0;
+    z-index: var(--rb-z-header);
+    display: grid;
+    gap: var(--rb-space-1);
+    min-inline-size: 12rem;
+    padding: var(--rb-space-2);
+    overflow: visible;
+    background: var(--rb-color-surface);
+    border: 1px solid var(--rb-color-border);
+    border-radius: var(--rb-radius-md);
+    box-shadow: var(--rb-shadow-md);
+  }
+  .rb-nav-list--mobile a { display: block; }
+  .rb-search-link { padding-inline: var(--rb-space-2); }
+  .rb-search-label { font-size: 0; }
+  .rb-search-link .rb-control-icon { font-size: var(--rb-text-lg); }
+  .rb-theme-toggle { display: grid; place-items: center; min-width: var(--rb-target-touch); min-height: var(--rb-target-touch); padding: var(--rb-space-2); }
+  .rb-theme-toggle .rb-control-icon { inline-size: 1.25rem; block-size: 1.25rem; }
+  .rb-theme-toggle-label { font-size: 0; }
+}
+
 .rb-main { padding-block: var(--rb-space-6) var(--rb-space-8); }
 
 .rb-prose,
@@ -177,6 +236,7 @@
 
 /* ── The home hero ──────────────────────────────────────────────────────────── */
 .rb-home-header { margin-block-end: var(--rb-space-7); }
+.rb-home-hero { display: grid; gap: var(--rb-space-6); align-items: end; }
 .rb-home-title { font-size: var(--rb-text-5xl); }
 
 /* The eyebrow. Mono, tracked out, terracotta — the one place the interaction colour is
@@ -227,6 +287,24 @@
   color: var(--rb-color-text);
 }
 .rb-btn-ghost:hover { background: var(--rb-color-bg-subtle); color: var(--rb-color-text); }
+.rb-home-series {
+  padding: var(--rb-space-5);
+  background: var(--rb-color-bg-subtle);
+  border: 1px solid var(--rb-color-border);
+  border-radius: var(--rb-radius-lg);
+}
+.rb-home-series-label {
+  margin: 0 0 var(--rb-space-2);
+  color: var(--rb-color-accent-2);
+  font-family: var(--rb-font-mono);
+  font-size: var(--rb-text-xs);
+  letter-spacing: 0.08em;
+}
+.rb-home-series-title { margin: 0; font-size: var(--rb-text-lg); }
+.rb-home-series-count { margin: var(--rb-space-3) 0 0; color: var(--rb-color-text-muted); font-size: var(--rb-text-sm); }
+@media (min-width: 56.25rem) {
+  .rb-home-hero { grid-template-columns: minmax(0, 1.35fr) minmax(16rem, .65fr); }
+}
 .rb-home-intro { margin-block-end: var(--rb-space-6); }
 .rb-section-heading,
 .rb-list-title { font-size: var(--rb-text-2xl); }
@@ -275,6 +353,18 @@
    a keyboard did not — the same information, delivered to one input device. */
 .rb-post-list-item:hover,
 .rb-post-list-item:focus-within { box-shadow: var(--rb-shadow-md); }
+.rb-card-meta { display: flex; align-items: center; flex-wrap: wrap; gap: var(--rb-space-2); }
+.rb-card-meta .rb-meta { margin: 0; }
+.rb-card-featured {
+  padding: var(--rb-space-1) var(--rb-space-3);
+  border-radius: var(--rb-radius-pill);
+  background: var(--rb-color-bg-subtle);
+  color: var(--rb-color-accent);
+  font-family: var(--rb-font-mono);
+  font-size: var(--rb-text-xs);
+  font-weight: var(--rb-weight-bold);
+  letter-spacing: 0.04em;
+}
 .rb-post-list-title {
   font-size: var(--rb-text-xl);
   line-height: var(--rb-leading-tight);
@@ -293,7 +383,12 @@
    for a card that has a plate, .rb-card-media below takes the slack first (flex-grow
    is resolved before auto margins), and a card with no media at all does not stretch
    in the first place. It is what a browser without `:has()` falls back to. */
-.rb-post-list-item .rb-meta:last-child { margin-block-start: auto; }
+.rb-card-footer { display: flex; align-items: center; gap: var(--rb-space-3); margin-block-start: auto; }
+.rb-card-tags { display: flex; flex-wrap: wrap; gap: var(--rb-space-2); list-style: none; margin: 0; padding: 0; }
+.rb-card-tag { color: var(--rb-color-accent); font-family: var(--rb-font-mono); font-size: var(--rb-text-xs); text-decoration: none; }
+.rb-card-tag::before { content: "#"; }
+.rb-card-read { margin-inline-start: auto; color: var(--rb-color-text); font-size: var(--rb-text-sm); font-weight: var(--rb-weight-medium); text-decoration: none; }
+.rb-card-read:hover { color: var(--rb-color-accent); text-decoration: underline; }
 
 /* A card with NO plate and NO cover has nothing that can absorb the row's slack —
    text does not grow — so it stops at its own content height instead of stretching and
@@ -472,6 +567,11 @@
     inset-block-start: var(--rb-space-5);
     max-block-size: calc(100vh - var(--rb-space-8));
     overflow-y: auto;
+    padding: var(--rb-space-5);
+    background: var(--rb-color-surface);
+    border: 1px solid var(--rb-color-border);
+    border-radius: var(--rb-radius-lg);
+    box-shadow: var(--rb-shadow-sm);
   }
 }
 .rb-toc-heading {
@@ -497,7 +597,7 @@
 /* Scroll-spy sets aria-current; the dot is the visual half of the same fact. Drawn
    in the accent at 3:1 against the page (--rb-toc-marker), on the inline-start edge
    so it reads as a position marker on the rail rather than a bullet. */
-.rb-toc-link[aria-current] { color: var(--rb-toc-fg-active); }
+.rb-toc-link[aria-current] { background: var(--rb-color-bg-subtle); color: var(--rb-toc-fg-active); }
 /* Inside the link's own padding, not in the margin outside it: the rail is
    `overflow-y: auto` for long tables of contents, and overflow-y also clips
    overflow-x — a marker hung to the inline-start of the box was invisible. */

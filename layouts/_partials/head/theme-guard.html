@@ -89,6 +89,9 @@
 {{- if eq $rb.bundledCodeFont false }}
 <style{{ with $nonce }} nonce="{{ . }}"{{ end }}>:root:root{--rb-font-mono:var(--rb-font-mono-system)}</style>
 {{- end -}}
+{{- if eq $rb.bundledDisplayFont false }}
+<style{{ with $nonce }} nonce="{{ . }}"{{ end }}>:root:root{--rb-font-display:var(--rb-font-sans-system)}</style>
+{{- end -}}
 {{- if $rb.codeFontLigatures }}
 <style{{ with $nonce }} nonce="{{ . }}"{{ end }}>pre,code,kbd,samp{font-variant-ligatures:normal}</style>
 {{- end -}}

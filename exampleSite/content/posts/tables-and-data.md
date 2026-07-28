@@ -4,6 +4,8 @@ date: 2026-07-21
 description: "The layout fixture: wide tables, nested lists, definition-style prose and footnotes, with almost no code."
 tags: ["fixtures", "layout"]
 categories: ["Meta"]
+series: ["Theme foundations"]
+weight: 3
 ---
 
 32 posts in the reference archive carry a table, and every one of them is a *reference* table —

@@ -64,6 +64,7 @@ title = "Runbook"
     # and own the contrast result. See docs/configuration.md.
 
     # Fonts (REQ-FONT-2 — the bundled font is a capability, never a requirement)
+    bundledDisplayFont = true # false falls back to the zero-byte system display stack
     bundledCodeFont = true       # false falls back to the zero-byte system mono stack
     codeFontLigatures = false    # off by default: ligatures misdraw shell operators
     bundledProseFont = false     # off by default: the system sans stack costs nothing
