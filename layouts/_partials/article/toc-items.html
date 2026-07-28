@@ -1,0 +1,28 @@
+{{- /*
+  article/toc-items.html — recursive. Emits <li> elements only; the caller owns the
+  wrapping <ol>.
+
+  Headings ABOVE the range are descended into rather than skipped (that is how the
+  synthetic level-0 root node is traversed); headings BELOW it are dropped along with
+  their children.
+
+  Levels come from params.runbook.toc, not from `markup.tableOfContents`, and the
+  markup is built here rather than taken from `.TableOfContents`. Same reasoning as
+  REQ-CB-1: the consumer's `startLevel`/`endLevel` is site configuration, and a theme
+  that reads it inherits whatever the consumer happens to have. This way H2–H3 is
+  what Runbook renders, on any site, and H4 is a Runbook setting away.
+*/ -}}
+{{- $min := .min -}}
+{{- $max := .max -}}
+{{- range .headings -}}
+  {{- if and (ge .Level $min) (le .Level $max) -}}
+    <li class="rb-toc-item rb-toc-item--h{{ .Level }}"><a class="rb-toc-link" href="#{{ .ID }}">{{ .Title | plainify }}</a>
+    {{- with .Headings -}}
+      {{- $sub := partial "article/toc-items.html" (dict "headings" . "min" $min "max" $max) -}}
+      {{- if $sub }}<ol class="rb-toc-list rb-toc-list--nested">{{ $sub }}</ol>{{ end -}}
+    {{- end -}}
+    </li>
+  {{- else if lt .Level $min -}}
+    {{- with .Headings }}{{ partial "article/toc-items.html" (dict "headings" . "min" $min "max" $max) }}{{ end -}}
+  {{- end -}}
+{{- end -}}

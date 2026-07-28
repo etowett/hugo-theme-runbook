@@ -1,4 +1,36 @@
-{{- /* STUB — owned by the "Templates, SEO and taxonomy" workstream. */ -}}
+{{- /*
+  footer.html — copyright, optional footer menu, feed link.
+
+  The feed link is `.OutputFormats.Get "rss"` rather than a hard-coded `/index.xml`,
+  so it stays correct when a consumer renames or relocates the output format, and it
+  disappears entirely when they turn RSS off.
+
+  The "Built with Hugo" line is opt-out (`params.runbook.poweredBy = false`) rather
+  than unconditional. A theme that cannot be de-branded does not get adopted by the
+  people most likely to file good bug reports.
+*/ -}}
+{{- $rb := partialCached "utils/settings.html" . -}}
 <footer class="rb-footer">
-  <p>{{ i18n "copyright" (dict "Year" now.Year "Title" site.Title) }}</p>
+  {{- with site.Menus.footer }}
+  <nav class="rb-footer-nav" aria-label="{{ i18n "footerNavigation" }}">
+    <ul class="rb-footer-nav-list">
+      {{- range . }}
+      {{- $url := .URL -}}
+      {{- with .Page }}{{ $url = .RelPermalink }}{{ end -}}
+      <li><a href="{{ $url }}">{{ .Name }}</a></li>
+      {{- end }}
+    </ul>
+  </nav>
+  {{- end }}
+
+  <p class="rb-footer-copyright">{{ i18n "copyright" (dict "Year" now.Year "Title" site.Title) }}</p>
+
+  <p class="rb-footer-meta">
+    {{- with site.Home.OutputFormats.Get "rss" -}}
+    <a class="rb-footer-feed" href="{{ .RelPermalink }}">RSS</a>
+    {{- end }}
+    {{- if $rb.poweredBy }}
+    <span class="rb-footer-powered">{{ i18n "poweredBy" }}</span>
+    {{- end }}
+  </p>
 </footer>

@@ -1,0 +1,55 @@
+{{- /*
+  article/series.html — series navigation (specs/003 §3.4).
+
+  ▸ A THEME CANNOT REGISTER A TAXONOMY. `[taxonomies]` in a theme's own config is
+    replaced wholesale the moment a consumer declares any taxonomy of their own, so a
+    series taxonomy cannot be shipped. This feature EXISTS WITH DOCUMENTATION OR NOT
+    AT ALL — docs/configuration.md tells the consumer to add:
+
+        [taxonomies]
+          series = "series"
+
+    Until they do, `utils/terms.html` returns nothing and this renders nothing. No
+    error, no warning, no half-working navigation.
+
+  ▸ ORDER IS CHRONOLOGICAL ASCENDING unless the author says otherwise. Hugo's default
+    page order is date-DESCENDING, which is right for an archive and backwards for a
+    series: part 1 is the oldest post. An author who wants an explicit order sets
+    `weight` in front matter and it is honoured — the test below is "does any post in
+    this series carry a weight", so a partially weighted series still behaves
+    predictably instead of silently reverting.
+
+  The taxonomy name is configurable via `params.runbook.seriesTaxonomy`.
+*/ -}}
+{{- $rb := partialCached "utils/settings.html" . -}}
+{{- $page := . -}}
+{{- range partial "utils/terms.html" (dict "page" . "taxonomy" $rb.seriesTaxonomy) -}}
+  {{- $term := . -}}
+  {{- $siblings := .Pages.ByDate -}}
+  {{- if where .Pages "Weight" ">" 0 }}{{ $siblings = .Pages.ByWeight }}{{ end -}}
+  {{- $total := len $siblings -}}
+  {{- if gt $total 1 -}}
+    {{- $index := 0 -}}
+    {{- range $i, $p := $siblings }}{{ if eq $p.Permalink $page.Permalink }}{{ $index = add $i 1 }}{{ end }}{{ end -}}
+    {{- $id := printf "rb-series-%s" (path.Base $term.Path) -}}
+<nav class="rb-series" aria-labelledby="{{ $id }}">
+  <h2 class="rb-series-heading" id="{{ $id }}">
+    {{ i18n "seriesNavigation" }}: <a href="{{ $term.RelPermalink }}">{{ partial "utils/term-title.html" $term }}</a>
+  </h2>
+  {{- with $index }}
+  <p class="rb-series-progress">{{ i18n "seriesPart" (dict "Index" . "Total" $total) }}</p>
+  {{- end }}
+  <ol class="rb-series-list">
+    {{- range $siblings }}
+    <li class="rb-series-item">
+      {{- if eq .Permalink $page.Permalink -}}
+      <span class="rb-series-current" aria-current="true">{{ .LinkTitle }}</span>
+      {{- else -}}
+      <a href="{{ .RelPermalink }}">{{ .LinkTitle }}</a>
+      {{- end -}}
+    </li>
+    {{- end }}
+  </ol>
+</nav>
+  {{- end -}}
+{{- end -}}

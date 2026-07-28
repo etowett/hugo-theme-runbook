@@ -7,11 +7,14 @@
 # ── Navigation and shell ──────────────────────────────────────────────────────
 skipToContent: "Skip to content"
 primaryNavigation: "Primary"
+footerNavigation: "Footer"
 toggleTheme: "Toggle colour theme"
 themeLight: "Light"
 themeDark: "Dark"
 themeAuto: "System"
 backHome: "Back to home"
+# Sits between the page title and the site title in <title>.
+titleSeparator: "·"
 
 # ── Article ───────────────────────────────────────────────────────────────────
 readingTime:
@@ -21,6 +24,21 @@ publishedOn: "Published"
 lastUpdatedOn: "Updated"
 tableOfContents: "On this page"
 relatedPosts: "Related"
+# Used instead of relatedPosts when Hugo's related index returns nothing and the
+# theme falls back to the most recent posts in the same section.
+recentPosts: "Recent posts"
+articleNavigation: "Post navigation"
+previousPost: "Previous"
+nextPost: "Next"
+# render-heading.html — accessible name of the anchor beside every heading.
+headingAnchor: "Link to this section"
+# render-link.html — appended to an external link's accessible name, but only when
+# params.runbook.externalLinksNewTab actually opens it in a new tab.
+externalLinkNewTab: "(opens in a new tab)"
+seriesNavigation: "In this series"
+seriesPart: "Part {{ .Index }} of {{ .Total }}"
+taggedWith: "Tagged"
+filedUnder: "Filed under"
 
 # ── Code blocks ───────────────────────────────────────────────────────────────
 copy: "Copy"
@@ -30,17 +48,43 @@ copyFailed: "Copy failed"
 wrapLines: "Wrap long lines"
 outputLabel: "Output"
 
+# ── Shortcodes ────────────────────────────────────────────────────────────────
+admonitionNote: "Note"
+admonitionTip: "Tip"
+admonitionImportant: "Important"
+admonitionWarning: "Warning"
+admonitionCaution: "Caution"
+admonitionDanger: "Danger"
+detailsSummary: "Details"
+
 # ── Lists and taxonomies ──────────────────────────────────────────────────────
 noPosts: "Nothing here yet."
+noTerms: "No terms yet."
+# REQ-TAX-2: a term's _index.md keeps its page building even at zero posts, so this
+# state is reachable in any real site and needs real copy.
+emptyTerm: "No posts currently carry this term."
 allPosts: "All posts"
+# Archive heading for posts with no date. Go's zero time groups them under "0001",
+# which must never reach a reader.
+undated: "Undated"
 tags: "Tags"
 categories: "Categories"
 archive: "Archive"
 postCount:
   one: "{{ .Count }} post"
   other: "{{ .Count }} posts"
+termCount:
+  one: "{{ .Count }} term"
+  other: "{{ .Count }} terms"
+# Collapsed group for terms at or below params.runbook.taxonomy.rareThreshold.
+# Half the reference archive's tags are used exactly once; a flat list of them is
+# noise and a tag cloud is worse (specs/003 §3.4, open decision #4).
+rareTerms: "Rarely used"
 newer: "Newer"
 older: "Older"
+pagination: "Pagination"
+pageOf: "Page {{ .Current }} of {{ .Total }}"
+goToPage: "Page {{ .Number }}"
 
 # ── Search ────────────────────────────────────────────────────────────────────
 search: "Search"
@@ -54,3 +98,4 @@ notFoundBody: "That page does not exist, or it moved."
 
 # ── Footer ────────────────────────────────────────────────────────────────────
 copyright: "© {{ .Year }} {{ .Title }}"
+poweredBy: "Built with Hugo"

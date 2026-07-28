@@ -4,6 +4,10 @@
 # Build it from the repo root with:
 #     hugo server --source exampleSite --themesDir ../.. --disableFastRender
 #
+# That command requires the checkout directory to be named `hugo-theme-runbook`, which
+# is true of a normal clone and NOT true of a git worktree. From a worktree, point
+# --themesDir at a directory containing a symlink of that name.
+#
 # ▸ specs/009 §2: NO third-party tracking with live credentials may appear anywhere in
 #   this directory. The showcase rejects it, and it is also why the demo is this site
 #   and not citizix.com, which carries AdSense, GTM and GA4.
@@ -13,6 +17,11 @@ title = "Runbook"
 defaultContentLanguage = "en"
 theme = "hugo-theme-runbook"
 
+# The home page paginates, which is what regenerates the `/page/{n}/` URL space the
+# reference site depends on (specs/010 §2).
+[pagination]
+  pagerSize = 10
+
 # specs/003 §3.4 — main sections are configurable, never a hard-coded "post".
 [params]
   mainSections = ["posts"]
@@ -21,6 +30,30 @@ theme = "hugo-theme-runbook"
   [params.runbook]
     themeMode = "auto"
     showThemeToggle = true
+
+    [params.runbook.author]
+      name = "Runbook"
+
+    [params.runbook.seo]
+      jsonLd = true
+      # Never <meta name="keywords"> — specs/003 §3.7 item 3.
+
+    # REQ-TAX-1 — the whole point of the feature: `amazon-eks` renders as "Amazon
+    # EKS" and `ci-cd` as "CI/CD" WITHOUT a single taxonomy `_index.md` file. The
+    # reference site carries 60 such files that do nothing else. Keys are the term's
+    # URL segment; only terms whose capitalisation cannot be inferred need an entry.
+    [params.runbook.taxonomyTitles]
+      "amazon-eks" = "Amazon EKS"
+      "ci-cd" = "CI/CD"
+      "github-actions" = "GitHub Actions"
+      "sql-server" = "SQL Server"
+      "cert-manager" = "cert-manager"
+
+    # Open decision #4 — 159 single-use tags on the reference site. 0 disables the
+    # collapsed "Rarely used" group, which is right for a demo whose every term is
+    # used once. A real archive sets 1.
+    [params.runbook.taxonomy]
+      rareThreshold = 0
 
 [markup]
   [markup.highlight]
@@ -40,6 +73,10 @@ theme = "hugo-theme-runbook"
     name = "Tags"
     pageRef = "/tags"
     weight = 20
+  [[menus.main]]
+    name = "Categories"
+    pageRef = "/categories"
+    weight = 30
 
 [taxonomies]
   tag = "tags"
@@ -60,3 +97,8 @@ theme = "hugo-theme-runbook"
   [[related.indices]]
     name = "categories"
     weight = 200
+
+# Full-content RSS (specs/003 §3.7). Uncapped here because the demo has a handful of
+# posts; a large archive caps it:
+#   [services.rss]
+#     limit = 20

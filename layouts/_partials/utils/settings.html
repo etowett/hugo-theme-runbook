@@ -1,0 +1,93 @@
+{{- /*
+  utils/settings.html — the single place Runbook reads configuration.
+
+  Returns one fully-resolved settings map, so no template ever has to remember a
+  default or spell a key twice. Call it cached — the answer cannot vary per page:
+
+      {{- $rb := partialCached "utils/settings.html" . -}}
+
+  Two rules this file exists to enforce:
+
+  1. **Every key is namespaced under `params.runbook`** (contracts §2.4). Nothing is
+     read from a bare top-level param, so Runbook can never collide with a consumer's
+     own keys.
+
+  2. **`| default true` is a bug for any boolean whose default is true.** A consumer
+     who writes `showLastmod = false` gets `false | default true` → `true`, and their
+     setting is silently ignored. Booleans are therefore resolved with `isset`, which
+     distinguishes "absent" from "present and false". `isset` is case-sensitive and
+     Hugo lower-cases every param key, so the probes below are lower-case on purpose.
+
+  Defaults here are the same values the repo-root `hugo.toml` ships, restated so the
+  theme still behaves correctly when a consumer's config omits the block entirely —
+  and so keys added after the root config was frozen have a home. Both are documented
+  in docs/configuration.md, which is the reference for consumers.
+*/ -}}
+
+{{- $rb := site.Params.runbook | default dict -}}
+{{- $toc := $rb.toc | default dict -}}
+{{- $rel := $rb.related | default dict -}}
+{{- $seo := $rb.seo | default dict -}}
+{{- $srch := $rb.search | default dict -}}
+{{- $tax := $rb.taxonomy | default dict -}}
+{{- $author := $rb.author | default dict -}}
+{{- $tc := $rb.themeColor | default dict -}}
+
+{{- /* ── booleans: absent ≠ false ─────────────────────────────────────────── */ -}}
+{{- $showReadingTime := true -}}{{ if isset $rb "showreadingtime" }}{{ $showReadingTime = $rb.showReadingTime }}{{ end }}
+{{- $showLastmod := true -}}{{ if isset $rb "showlastmod" }}{{ $showLastmod = $rb.showLastmod }}{{ end }}
+{{- $showThemeToggle := true -}}{{ if isset $rb "showthemetoggle" }}{{ $showThemeToggle = $rb.showThemeToggle }}{{ end }}
+{{- $poweredBy := true -}}{{ if isset $rb "poweredby" }}{{ $poweredBy = $rb.poweredBy }}{{ end }}
+{{- $newTab := false -}}{{ if isset $rb "externallinksnewtab" }}{{ $newTab = $rb.externalLinksNewTab }}{{ end }}
+
+{{- $tocEnable := true -}}{{ if isset $toc "enable" }}{{ $tocEnable = $toc.enable }}{{ end }}
+{{- $tocSpy := true -}}{{ if isset $toc "scrollspy" }}{{ $tocSpy = $toc.scrollSpy }}{{ end }}
+
+{{- $relEnable := true -}}{{ if isset $rel "enable" }}{{ $relEnable = $rel.enable }}{{ end }}
+{{- $relFallback := true -}}{{ if isset $rel "fallback" }}{{ $relFallback = $rel.fallback }}{{ end }}
+
+{{- $searchEnable := false -}}{{ if isset $srch "enable" }}{{ $searchEnable = $srch.enable }}{{ end }}
+
+{{- $jsonLd := true -}}{{ if isset $seo "jsonld" }}{{ $jsonLd = $seo.jsonLd }}{{ end }}
+
+{{- $taxCounts := true -}}{{ if isset $tax "showcounts" }}{{ $taxCounts = $tax.showCounts }}{{ end }}
+
+{{- $prevNext := true -}}{{ if isset $rb "showprevnext" }}{{ $prevNext = $rb.showPrevNext }}{{ end }}
+{{- $showTerms := true -}}{{ if isset $rb "showterms" }}{{ $showTerms = $rb.showTerms }}{{ end }}
+
+{{- return dict
+      "dateFormat"          ($rb.dateFormat | default ":date_long")
+      "showReadingTime"     $showReadingTime
+      "showLastmod"         $showLastmod
+      "showThemeToggle"     $showThemeToggle
+      "showPrevNext"        $prevNext
+      "showTerms"           $showTerms
+      "poweredBy"           $poweredBy
+      "externalLinksNewTab" $newTab
+      "logo"                ($rb.logo | default "")
+      "seriesTaxonomy"      ($rb.seriesTaxonomy | default "series")
+      "themeColorLight"     ($tc.light | default "#ffffff")
+      "themeColorDark"      ($tc.dark | default "#0d1117")
+      "toc" (dict
+        "enable"      $tocEnable
+        "minLevel"    (int ($toc.minLevel | default 2))
+        "maxLevel"    (int ($toc.maxLevel | default 3))
+        "minHeadings" (int ($toc.minHeadings | default 2))
+        "scrollSpy"   $tocSpy)
+      "related" (dict
+        "enable"   $relEnable
+        "limit"    (int ($rel.limit | default 5))
+        "fallback" $relFallback)
+      "search" (dict
+        "enable" $searchEnable)
+      "seo" (dict
+        "jsonLd"       $jsonLd
+        "twitterSite"  ($seo.twitterSite | default "")
+        "robots"       ($seo.robots | default "")
+        "defaultImage" ($seo.defaultImage | default "")
+        "authorName"   ($author.name | default "")
+        "authorURL"    ($author.url | default ""))
+      "taxonomy" (dict
+        "rareThreshold" (int ($tax.rareThreshold | default 0))
+        "showCounts"    $taxCounts)
+-}}

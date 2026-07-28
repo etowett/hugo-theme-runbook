@@ -1,0 +1,37 @@
+{{- /*
+  render-image.html — specs/003 §3.5.
+
+  ADR-7 measured ZERO Markdown body images across 497 posts, so this hook exists for
+  third-party consumers rather than for the reference archive. That shapes it: it
+  must be correct and cheap, and it must not drag layout assumptions into the rest of
+  the theme. Nothing else in Runbook reserves space for an image.
+
+  `width` and `height` come from the actual resource whenever the destination
+  resolves to one, because they are what stop the image contributing to CLS — the
+  browser can reserve the box before the bytes arrive. When the destination is a
+  remote URL there is nothing to measure, and the attributes are correctly omitted
+  rather than guessed.
+
+  SVG is excluded from the measurement path deliberately: Hugo classifies it as an
+  image resource but `.Width` requires decoding, and asking for it on an SVG is a
+  build error.
+
+  A Markdown title (the third argument) produces a real `<figure>`/`<figcaption>`.
+*/ -}}
+{{- $img := "" -}}
+{{- with .PageInner.Resources.GetMatch .Destination -}}
+  {{- $img = . -}}
+{{- else -}}
+  {{- with resources.Get .Destination }}{{ $img = . }}{{ end -}}
+{{- end -}}
+{{- $sized := false -}}
+{{- with $img -}}
+  {{- $sized = and (eq .ResourceType "image") (ne .MediaType.SubType "svg") -}}
+{{- end -}}
+{{- if .Title }}<figure class="rb-figure">{{ end -}}
+<img class="rb-image"
+  src="{{ with $img }}{{ .RelPermalink }}{{ else }}{{ $.Destination | safeURL }}{{ end }}"
+  alt="{{ .PlainText }}"
+  {{- if $sized }} width="{{ $img.Width }}" height="{{ $img.Height }}"{{ end }}
+  loading="lazy" decoding="async">
+{{- if .Title }}<figcaption class="rb-figure-caption">{{ .Title }}</figcaption></figure>{{ end -}}

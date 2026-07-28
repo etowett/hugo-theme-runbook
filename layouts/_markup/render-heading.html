@@ -1,0 +1,21 @@
+{{- /*
+  render-heading.html — specs/003 §3.5, anchor links.
+
+  The anchor is a real link with a real accessible name, not an `aria-hidden`
+  decoration. It is also NOT `display: none`-able: hiding it that way removes it from
+  the tab order, and a keyboard user then has no way to reach the permalink at all.
+  The stylesheet must reveal it on hover AND on `:focus-visible` — see the class list
+  in this workstream's PR.
+
+  This hook does not renumber headings. specs/003 §3.6's rule is that the THEME must
+  never emit a second `<h1>`; a body `<h1>` in a consumer's Markdown is the
+  consumer's markup, and silently demoting it would desynchronise `.Fragments` (which
+  the TOC is built from) with what is actually on the page. The reference archive now
+  contains zero body H1s.
+
+  `.Attributes` carries Markdown attributes (`## Install {.compact}`); `id` is
+  skipped because `.Anchor` already accounts for an author-supplied `{#custom-id}`.
+*/ -}}
+<h{{ .Level }} id="{{ .Anchor | safeURL }}" class="rb-heading"
+  {{- range $k, $v := .Attributes }}{{ if ne $k "id" }} {{ $k }}="{{ printf "%v" $v }}"{{ end }}{{ end -}}
+>{{ .Text }} <a class="rb-heading-anchor" href="#{{ .Anchor | safeURL }}" aria-label="{{ i18n "headingAnchor" }}">#</a></h{{ .Level }}>

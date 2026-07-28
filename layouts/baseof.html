@@ -16,7 +16,9 @@
 <head>
   {{- partial "head/head.html" . -}}
 </head>
-<body>
+<body class="rb-body rb-kind-{{ .Kind }}">
+  {{- /* The kind class is the one hook the stylesheet gets for per-page-type layout
+         (a wide archive, a narrow article) without any template branching on CSS. */ -}}
   {{- /* ADR-8 extension point: injected before anything the theme renders. */ -}}
   {{- partial "hooks/custom-body-start.html" . -}}
 

@@ -1,0 +1,43 @@
+{{- /*
+  article/terms.html — the tag and category chips at the foot of an article.
+
+  Every label goes through utils/term-title.html (REQ-TAX-1). This is the reason
+  that partial returns a value instead of being inlined into term.html: the SAME
+  string has to appear on the term page, in the browser tab, in the breadcrumb, in
+  `article:tag`, in JSON-LD `keywords` and here. Sixty `_index.md` files existed on
+  the reference site because there was nowhere else to put it.
+
+  Skipped entirely — no empty <footer>, no dangling heading — when the page carries
+  no terms, and when the consumer never registered the taxonomy at all.
+*/ -}}
+{{- $rb := partialCached "utils/settings.html" . -}}
+{{- $cats := slice -}}
+{{- $tags := slice -}}
+{{- if $rb.showTerms -}}
+  {{- $cats = partial "utils/terms.html" (dict "page" . "taxonomy" "categories") -}}
+  {{- $tags = partial "utils/terms.html" (dict "page" . "taxonomy" "tags") -}}
+{{- end -}}
+{{- if or $cats $tags -}}
+<div class="rb-terms">
+  {{- with $cats }}
+  <div class="rb-terms-group rb-terms-group--categories">
+    <span class="rb-terms-label">{{ i18n "filedUnder" }}</span>
+    <ul class="rb-terms-list">
+      {{- range . }}
+      <li><a class="rb-term" href="{{ .RelPermalink }}">{{ partial "utils/term-title.html" . }}</a></li>
+      {{- end }}
+    </ul>
+  </div>
+  {{- end }}
+  {{- with $tags }}
+  <div class="rb-terms-group rb-terms-group--tags">
+    <span class="rb-terms-label">{{ i18n "taggedWith" }}</span>
+    <ul class="rb-terms-list">
+      {{- range . }}
+      <li><a class="rb-term" href="{{ .RelPermalink }}">{{ partial "utils/term-title.html" . }}</a></li>
+      {{- end }}
+    </ul>
+  </div>
+  {{- end }}
+</div>
+{{- end -}}

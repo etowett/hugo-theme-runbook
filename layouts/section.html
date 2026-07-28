@@ -1,0 +1,39 @@
+{{ define "main" }}
+{{- /*
+  section.html — /posts/, /notes/, or whatever the consumer called it.
+
+  Lists `.Pages`, which is direct children only: subsections stay visible as their
+  own entries instead of being flattened away by `.RegularPagesRecursive`. A section
+  with no `_index.md` still gets a title from Hugo, and the heading, count and
+  pagination all behave the same.
+
+  Three states, all reachable and all deliberate (M4a):
+    * many pages   — paginated
+    * one page     — the count reads "1 post", not "1 posts" (i18n plural form)
+    * none         — the empty state, which is what a new site looks like
+*/ -}}
+<div class="rb-list rb-section">
+  <header class="rb-list-header">
+    <h1 class="rb-list-title">{{ .Title }}</h1>
+    {{- with .Pages }}
+    <p class="rb-list-count">{{ i18n "postCount" (dict "Count" (len .)) }}</p>
+    {{- end }}
+  </header>
+
+  {{- with .Content }}
+  <div class="rb-prose">{{ . }}</div>
+  {{- end }}
+
+  {{- with .Pages }}
+  {{- $paginator := $.Paginate . }}
+  <ul class="rb-post-list">
+    {{- range $paginator.Pages }}
+    {{ partial "list/post-item.html" . }}
+    {{- end }}
+  </ul>
+  {{ partial "list/pagination.html" $paginator }}
+  {{- else }}
+  <p class="rb-empty">{{ i18n "noPosts" }}</p>
+  {{- end }}
+</div>
+{{ end }}

@@ -1,0 +1,52 @@
+{{- /*
+  list/pagination.html — zero-JS pagination.
+
+  Usage:  {{ partial "list/pagination.html" $paginator }}
+
+  Renders nothing at all for a single-page collection, which is the common case for
+  a term page and must not leave an empty <nav> landmark behind.
+
+  "Newer" / "Older" rather than "Previous" / "Next": for a reverse-chronological
+  archive those are the words that describe where the link goes. Page numbers are
+  windowed with the first and last always present, so a 50-page archive is still
+  crawlable and still fits on a phone. The `…` gap is `aria-hidden` — it is a visual
+  cue, not information.
+
+  URL parity note (specs/010 §2): of 354 meta-refresh pages in the reference build,
+  351 are Hugo's automatic `/page/1/` paginator aliases. Any theme regenerates them;
+  they are not a migration burden. What DOES have to hold is the `/page/{n}/` shape,
+  which is Hugo's default and which this partial does not alter.
+*/ -}}
+{{- $p := . -}}
+{{- if gt $p.TotalPages 1 -}}
+{{- $window := 2 -}}
+{{- $last := 0 -}}
+<nav class="rb-pagination" aria-label="{{ i18n "pagination" }}">
+  <ul class="rb-pagination-list">
+    {{- with $p.Prev }}
+    <li class="rb-pagination-prev"><a rel="prev" href="{{ .URL }}">{{ i18n "newer" }}</a></li>
+    {{- end }}
+    {{- range $p.Pagers }}
+      {{- $near := le (int (math.Abs (sub .PageNumber $p.PageNumber))) $window -}}
+      {{- $edge := or (eq .PageNumber 1) (eq .PageNumber $p.TotalPages) -}}
+      {{- if or $near $edge }}
+        {{- if gt .PageNumber (add $last 1) }}
+    <li class="rb-pagination-gap" aria-hidden="true">…</li>
+        {{- end }}
+    <li class="rb-pagination-page">
+      {{- if eq .PageNumber $p.PageNumber -}}
+      <a href="{{ .URL }}" aria-current="page">{{ .PageNumber }}</a>
+      {{- else -}}
+      <a href="{{ .URL }}" aria-label="{{ i18n "goToPage" (dict "Number" .PageNumber) }}">{{ .PageNumber }}</a>
+      {{- end -}}
+    </li>
+        {{- $last = .PageNumber -}}
+      {{- end }}
+    {{- end }}
+    {{- with $p.Next }}
+    <li class="rb-pagination-next"><a rel="next" href="{{ .URL }}">{{ i18n "older" }}</a></li>
+    {{- end }}
+  </ul>
+  <p class="rb-pagination-status">{{ i18n "pageOf" (dict "Current" $p.PageNumber "Total" $p.TotalPages) }}</p>
+</nav>
+{{- end -}}

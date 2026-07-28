@@ -1,17 +1,50 @@
-{{- /* STUB — owned by the "Templates, SEO and taxonomy" workstream. */ -}}
 {{ define "main" }}
-<article class="rb-article">
-  {{- /* specs/003 §3.6 — the theme emits exactly ONE <h1> per page. Third-party
-         content may itself contain a body H1; that is the consumer's markup, but the
-         theme must never add a second one of its own. */ -}}
-  <h1 class="rb-article-title">{{ .Title }}</h1>
-  {{ partial "article/meta.html" . }}
+{{- /*
+  page.html — the article. This is the page the whole theme exists for.
 
-  <div class="rb-prose">
-    {{ .Content }}
+  Structure, and why:
+
+    <article>
+      <header>   h1 + byline        ← the ONLY <h1> the theme emits (specs/003 §3.6)
+      <nav>      table of contents  ← inside the article, after the header, so that
+                                      on a narrow viewport it lands where a reader
+                                      expects it instead of at the foot of the page
+      <div>      .Content
+      <footer>   terms
+    </article>
+    series → article-footer hook → prev/next → related → comments hook
+
+  `.rb-article-layout` wraps the TOC and the prose as siblings so the stylesheet can
+  make it a two-column grid with a sticky aside on wide viewports and a single column
+  below, without either element needing to know which it got.
+
+  Hook order is the ADR-8 contract: `article-footer` is documented as "after the
+  article, before related and comments", and consumers rely on that.
+*/ -}}
+<article class="rb-article">
+  <header class="rb-article-header">
+    <h1 class="rb-article-title">{{ .Title }}</h1>
+    {{ partial "article/meta.html" . }}
+    {{- with .Description }}
+    <p class="rb-article-description">{{ . }}</p>
+    {{- end }}
+  </header>
+
+  <div class="rb-article-layout">
+    {{ partial "article/toc.html" . }}
+    <div class="rb-prose">
+      {{ .Content }}
+    </div>
   </div>
+
+  {{- with partial "article/terms.html" . }}
+  <footer class="rb-article-footer">{{ . }}</footer>
+  {{- end }}
 </article>
 
+{{ partial "article/series.html" . }}
 {{ partial "hooks/article-footer.html" . }}
+{{ partial "article/prev-next.html" . }}
+{{ partial "article/related.html" . }}
 {{ partial "hooks/comments.html" . }}
 {{ end }}

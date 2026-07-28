@@ -1,0 +1,33 @@
+{{- /*
+  article/toc.html — the sticky table of contents (specs/003 §3.4).
+
+  Justified by measurement, not habit: 3,250 H2 and 2,097 H3 across the archive —
+  93.7% of all headings — and p90 = 30 code blocks per post, which is a lot of page
+  to scroll past without a map.
+
+  ▸ THE ANCHORS ARE THE FEATURE. Scroll-spy is an enhancement layered on top by
+    js/modules/toc.js, and the TOC is fully usable with JavaScript disabled: these
+    are ordinary same-document links. `data-rb-toc` is the only contract between this
+    markup and that module, and it is only emitted when scroll-spy is enabled, so
+    turning the setting off costs nothing and breaks nothing.
+
+  Suppressed when there is nothing worth listing. `minHeadings` defaults to 2 —
+  a one-heading "contents" is chrome pretending to be navigation.
+
+  Per-page override: `toc: false` in front matter (the same key hugo-theme-stack
+  uses, so migrating content does not have to be rewritten).
+*/ -}}
+{{- $rb := partialCached "utils/settings.html" . -}}
+{{- $enabled := $rb.toc.enable -}}
+{{- if isset .Params "toc" }}{{ $enabled = .Params.toc }}{{ end -}}
+
+{{- if $enabled -}}
+  {{- $args := dict "headings" .Fragments.Headings "min" $rb.toc.minLevel "max" $rb.toc.maxLevel -}}
+  {{- $flat := partial "utils/flatten-headings.html" $args -}}
+  {{- if ge (len $flat) $rb.toc.minHeadings -}}
+<nav class="rb-toc" aria-labelledby="rb-toc-heading"{{ if $rb.toc.scrollSpy }} data-rb-toc{{ end }}>
+  <h2 class="rb-toc-heading" id="rb-toc-heading">{{ i18n "tableOfContents" }}</h2>
+  <ol class="rb-toc-list">{{ partial "article/toc-items.html" $args }}</ol>
+</nav>
+  {{- end -}}
+{{- end -}}

@@ -1,0 +1,52 @@
+{{- /*
+  admonition — note / tip / important / warning / caution / danger.
+
+  ▸ USAGE REALITY CHECK (specs/003 §3.5). The reference archive uses this shortcode in
+    EXACTLY ONE POST out of 497, and uses tabs, details and filetree zero times. It is
+    an authoring affordance for future content, not a retrofit, and it must not cost
+    the theme anything on the 496 pages that do not use it. That is the whole reason
+    its styling lives in the budgeted main stylesheet rather than being injected
+    per-page the way the reference site's version does it (specs/010 §3).
+
+  Usage — named or positional, so migrating content does not have to be rewritten:
+
+      {{< admonition type="warning" title="Data loss" >}}
+      This drops the database.
+      {{< /admonition >}}
+
+      {{< admonition tip "Faster way" >}}...{{< /admonition >}}
+
+  Parameters:
+      type          note | tip | important | warning | caution | danger
+      title         heading text; defaults to the translated type name
+      collapsible   true → native <details>, zero JavaScript, open by default
+      open          false → collapsed (only meaningful with collapsible)
+
+  An unknown `type` degrades to `note` rather than emitting a class no stylesheet
+  knows about, because a silently unstyled warning box is worse than a styled note.
+*/ -}}
+
+{{- $known := slice "note" "tip" "important" "warning" "caution" "danger" -}}
+{{- $type := lower (or (.Get "type") (.Get 0) "note") -}}
+{{- if not (in $known $type) }}{{ $type = "note" }}{{ end -}}
+
+{{- $i18nKey := printf "admonition%s" (title $type) -}}
+{{- $heading := or (.Get "title") (.Get 1) (i18n $i18nKey) -}}
+
+{{- $collapsible := eq (lower (printf "%v" (.Get "collapsible"))) "true" -}}
+{{- $open := true -}}
+{{- if and $collapsible (isset .Params "open") -}}
+  {{- $open = ne (lower (printf "%v" (.Get "open"))) "false" -}}
+{{- end -}}
+
+{{- if $collapsible -}}
+<details class="rb-admonition rb-admonition--{{ $type }}" data-rb-admonition="{{ $type }}"{{ if $open }} open{{ end }}>
+  <summary class="rb-admonition-title">{{ $heading }}</summary>
+  <div class="rb-admonition-body">{{ .Inner | .Page.RenderString (dict "display" "block") }}</div>
+</details>
+{{- else -}}
+<div class="rb-admonition rb-admonition--{{ $type }}" data-rb-admonition="{{ $type }}" role="note">
+  <p class="rb-admonition-title">{{ $heading }}</p>
+  <div class="rb-admonition-body">{{ .Inner | .Page.RenderString (dict "display" "block") }}</div>
+</div>
+{{- end -}}

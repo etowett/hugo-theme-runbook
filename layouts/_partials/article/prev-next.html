@@ -1,0 +1,36 @@
+{{- /*
+  article/prev-next.html — adjacent-post navigation, scoped to the section.
+
+  `.PrevInSection` / `.NextInSection` rather than the site-wide `.Prev` / `.Next`:
+  site-wide ordering walks straight out of the blog and into the About page.
+
+  ▸ Hugo's `.Prev` is the previous page IN THE COLLECTION, and the default collection
+    order is date-descending — so `.PrevInSection` is the NEWER post and
+    `.NextInSection` is the OLDER one. That is the opposite of what the words suggest
+    and it is a standing source of themes with their post navigation reversed. The
+    variables below are named for what they actually hold.
+
+  Renders nothing when the post is alone in its section — a nav landmark containing
+  no links is worse than no landmark.
+*/ -}}
+{{- $rb := partialCached "utils/settings.html" . -}}
+{{- if $rb.showPrevNext -}}
+{{- $newer := .PrevInSection -}}
+{{- $older := .NextInSection -}}
+{{- if or $newer $older -}}
+<nav class="rb-post-nav" aria-label="{{ i18n "articleNavigation" }}">
+  {{- with $older }}
+  <a class="rb-post-nav-link rb-post-nav-prev" rel="prev" href="{{ .RelPermalink }}">
+    <span class="rb-post-nav-label">{{ i18n "previousPost" }}</span>
+    <span class="rb-post-nav-title">{{ .LinkTitle }}</span>
+  </a>
+  {{- end }}
+  {{- with $newer }}
+  <a class="rb-post-nav-link rb-post-nav-next" rel="next" href="{{ .RelPermalink }}">
+    <span class="rb-post-nav-label">{{ i18n "nextPost" }}</span>
+    <span class="rb-post-nav-title">{{ .LinkTitle }}</span>
+  </a>
+  {{- end }}
+</nav>
+{{- end -}}
+{{- end -}}
