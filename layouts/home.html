@@ -23,11 +23,40 @@
 {{- $main := site.Params.mainSections | default slice -}}
 {{- $pages := where site.RegularPages "Section" "in" $main -}}
 
+{{- /* The hero. Everything in it is derived — nothing is invented and nothing new has
+       to be configured, because a theme that needs three settings filled in before its
+       home page looks finished is a theme most people see looking unfinished.
+
+       The eyebrow is the site's own most-used categories, so it describes the archive
+       rather than asserting a positioning line. It is dropped entirely when the site
+       has no category taxonomy, which is the common case for a fresh `hugo new site`.
+
+       The count is real and it is the CTA: "Browse all 214 posts" is worth a click
+       precisely because 214 is true. The feed link comes off .OutputFormats rather than
+       a hard-coded /index.xml, so it disappears when a consumer turns RSS off. */ -}}
+{{- $cats := "" -}}
+{{- with site.Taxonomies.categories -}}
+  {{- $names := slice -}}
+  {{- range first 3 .ByCount }}{{ $names = $names | append (upper (partial "utils/term-title.html" .Page)) }}{{ end -}}
+  {{- $cats = delimit $names " · " -}}
+{{- end -}}
+
 <div class="rb-home">
   <header class="rb-home-header">
+    {{- with $cats }}
+    <p class="rb-home-eyebrow">{{ . }}</p>
+    {{- end }}
     <h1 class="rb-home-title">{{ .Title }}</h1>
     {{- with .Description }}
     <p class="rb-home-tagline">{{ . }}</p>
+    {{- end }}
+    {{- with $pages }}
+    <p class="rb-home-actions">
+      <a class="rb-btn rb-btn-primary" href="{{ (index $main 0) | relURL }}">{{ i18n "browseAll" (dict "Count" (len .)) }}</a>
+      {{- with site.Home.OutputFormats.Get "rss" }}
+      <a class="rb-btn rb-btn-ghost" href="{{ .RelPermalink }}">RSS</a>
+      {{- end }}
+    </p>
     {{- end }}
   </header>
 

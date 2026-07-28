@@ -55,7 +55,12 @@
     inset-inline: 0;
     block-size: 3px;
     z-index: var(--rb-z-header);
-    background: var(--rb-color-accent);
+    /* Olive, not terracotta. tokens.css defines --rb-color-accent-2 as the structural
+       colour — "series, 'you are here', the reading-progress rail" — while terracotta is
+       the INTERACTION colour. Painting the rail terracotta spent the interaction colour on
+       something you cannot interact with, and collapsed a deliberate two-accent hierarchy
+       into one. This is the token doing the job it was defined for. */
+    background: var(--rb-color-accent-2);
     transform-origin: 0 50%;
     transform: scaleX(0);
     animation: rb-progress linear both;
@@ -173,12 +178,55 @@
 /* ── The home hero ──────────────────────────────────────────────────────────── */
 .rb-home-header { margin-block-end: var(--rb-space-7); }
 .rb-home-title { font-size: var(--rb-text-5xl); }
+
+/* The eyebrow. Mono, tracked out, terracotta — the one place the interaction colour is
+   used on something that is not interactive, because it is reading as a label rather
+   than as prose. Small enough that AA wants 4.5:1, which --rb-color-accent has on the
+   ground and the contrast gate asserts. */
+.rb-home-eyebrow {
+  margin: 0 0 var(--rb-space-3);
+  font-family: var(--rb-font-mono);
+  font-size: var(--rb-text-xs);
+  letter-spacing: 0.08em;
+  color: var(--rb-color-accent);
+}
 .rb-home-tagline {
   max-width: 34ch;
   margin: var(--rb-space-4) 0 0;
   font-size: var(--rb-text-lg);
   color: var(--rb-color-text-muted);
 }
+
+/* Pill buttons, per the design's geometry. Reused by any template that needs an
+   action, so they live here rather than in the home block. */
+.rb-home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rb-space-3);
+  margin: var(--rb-space-5) 0 0;
+}
+.rb-btn {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--rb-target-touch);
+  padding-inline: var(--rb-space-5);
+  border-radius: 999px;
+  font-size: var(--rb-text-sm);
+  font-weight: var(--rb-weight-medium);
+  text-decoration: none;
+}
+/* --rb-color-accent-contrast, not the page background: the fill is accent-700 and the
+   pair is one the contrast gate already asserts. */
+.rb-btn-primary {
+  background: var(--rb-color-accent);
+  color: var(--rb-color-accent-contrast);
+}
+.rb-btn-primary:hover { background: var(--rb-color-accent-hover); color: var(--rb-color-accent-contrast); }
+.rb-btn-ghost {
+  border: 1px solid var(--rb-color-border-strong);
+  color: var(--rb-color-text);
+}
+.rb-btn-ghost:hover { background: var(--rb-color-bg-subtle); color: var(--rb-color-text); }
 .rb-home-intro { margin-block-end: var(--rb-space-6); }
 .rb-section-heading,
 .rb-list-title { font-size: var(--rb-text-2xl); }
@@ -222,7 +270,11 @@
   box-shadow: var(--rb-shadow-sm);
   transition: box-shadow var(--rb-transition), transform var(--rb-transition);
 }
-.rb-post-list-item:hover { box-shadow: var(--rb-shadow-md); }
+/* Hover AND focus-within. Only the title anchor is interactive, so raising the whole
+   card on hover while giving a keyboard user nothing was an affordance a mouse got and
+   a keyboard did not — the same information, delivered to one input device. */
+.rb-post-list-item:hover,
+.rb-post-list-item:focus-within { box-shadow: var(--rb-shadow-md); }
 .rb-post-list-title {
   font-size: var(--rb-text-xl);
   line-height: var(--rb-leading-tight);
@@ -320,11 +372,19 @@
   font-size: inherit;
 }
 .rb-card-plate pre > code { padding-inline-end: 0; width: auto; }
-/* A 60-character cap is a bound on the worst case (the corpus's longest line is 854),
-   not a fit: at a three-column card ~38 characters are visible, so most plates clip.
-   The fade makes the clip read as "there is more of this" rather than as a glyph
-   sliced in half. `to right` and not a logical direction because there is no logical
-   gradient keyword and code is set left-to-right even in the RTL fixture. */
+/* The per-line cap is a bound on the worst case — the corpus's longest line is 854 —
+   and never a fit. At a three-column card roughly 38 characters are visible, so the cap
+   only decides how much gets clipped, not whether.
+
+   It is 52 on a standard card and 90 on the featured one, which is twice the width. A
+   single 90 for both meant every three-column plate was cut at the same place, well
+   past the fade, so a grid of them read as repeated dark slabs rather than as code you
+   could tell apart. The comment previously said 60, which had not been true since the
+   cap moved.
+
+   The fade makes the clip read as "there is more of this" rather than as a glyph sliced
+   in half. `to right` and not a logical direction because there is no logical gradient
+   keyword and code is set left-to-right even in the RTL fixture. */
 .rb-card-plate .chroma,
 .rb-card-plate pre {
   -webkit-mask-image: linear-gradient(to right, #000 88%, transparent 100%);
@@ -460,33 +520,69 @@
    twice" is achievable at all: a JS-driven sheet would need state the rail does not
    have. Each render carries its own heading id so the duplication is not a duplicate
    id, and only the rail carries `data-rb-toc`, so scroll-spy binds once. */
+   ▸ It is a BOTTOM PILL that raises a sheet, not a panel at the top of the article.
+     It was the latter, and the difference is not decoration: a sticky panel above the
+     prose occupies the top of every scroll position on the one viewport with the least
+     of it, and is furthest from the thumb. The pill sits in the bottom third where a
+     thumb already is, and costs the article no vertical space at all until opened. */
 .rb-toc-sheet { display: none; }
 @media (max-width: 56.24rem) {
   .rb-toc { display: none; }
+
+  /* `position: fixed` on the <details> itself, anchored bottom-centre. The closed
+     state is the pill; the open state grows upward from it because the element is
+     pinned by its bottom edge. That is the whole mechanism — no JS, no second
+     element, and `<details>` keeps its native keyboard and screen-reader behaviour. */
   .rb-toc-sheet {
     display: block;
-    position: sticky;
-    inset-block-start: var(--rb-space-3);
+    position: fixed;
+    inset-block-end: max(var(--rb-space-4), env(safe-area-inset-bottom));
+    inset-inline: var(--rb-space-4);
     z-index: var(--rb-z-sheet);
-    margin-block-end: var(--rb-space-5);
+    margin: 0;
+    width: fit-content;
+    max-width: calc(100% - var(--rb-space-6));
+    margin-inline: auto;
     background: var(--rb-color-surface);
     border: 1px solid var(--rb-color-border);
-    border-radius: var(--rb-radius-md);
-    box-shadow: var(--rb-shadow-md);
+    border-radius: var(--rb-radius-lg);
+    box-shadow: var(--rb-shadow-lg);
   }
+  /* Closed: a pill. Open: the top corners square off into the sheet below it. */
   .rb-toc-sheet > summary {
-    padding: var(--rb-space-3) var(--rb-space-4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--rb-space-2);
+    padding-inline: var(--rb-space-5);
     min-block-size: var(--rb-target-touch);
+    border-radius: 999px;
     font-size: var(--rb-text-sm);
-    color: var(--rb-color-text-muted);
-    list-style-position: inside;
+    font-weight: var(--rb-weight-medium);
+    color: var(--rb-color-text);
+    white-space: nowrap;
+    list-style: none;
+  }
+  .rb-toc-sheet > summary::-webkit-details-marker { display: none; }
+  .rb-toc-sheet[open] {
+    inline-size: calc(100% - var(--rb-space-6));
+    width: auto;
+  }
+  .rb-toc-sheet[open] > summary {
+    border-block-end: 1px solid var(--rb-color-border);
+    border-end-start-radius: 0;
+    border-end-end-radius: 0;
   }
   .rb-toc-sheet .rb-toc-list {
-    max-block-size: 50vh;
+    max-block-size: min(50vh, 22rem);
     overflow-y: auto;
-    padding: 0 var(--rb-space-3) var(--rb-space-3);
+    padding: var(--rb-space-3);
   }
   .rb-toc-sheet .rb-toc-heading { display: none; }
+
+  /* The pill floats over the article, so the last paragraph needs somewhere to go —
+     otherwise it sits permanently under the control. */
+  .rb-article { padding-block-end: calc(var(--rb-target-touch) + var(--rb-space-6)); }
 }
 
 /* ── Article tail: series, prev/next, related ───────────────────────────────── */

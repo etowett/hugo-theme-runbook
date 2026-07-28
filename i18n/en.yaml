@@ -70,6 +70,9 @@ noTerms: "No terms yet."
 # state is reachable in any real site and needs real copy.
 emptyTerm: "No posts currently carry this term."
 allPosts: "All posts"
+browseAll:
+  one: "Browse the post"
+  other: "Browse all {{ .Count }} posts"
 # Archive heading for posts with no date. Go's zero time groups them under "0001",
 # which must never reach a reader.
 undated: "Undated"

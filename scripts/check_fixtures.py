@@ -203,6 +203,27 @@ CHECKS = [
         ("an unknown admonition type, which must degrade to note rather than to nothing",
          lambda d: re.search(r'\{\{<\s*admonition\s+type="nonsense"', d.text) is not None),
     ]),
+    ("tilde-fenced-post.md", [
+        # The card plate finds a post's FIRST fence. Every other fixture opens with a
+        # backtick one, which is how a plate that only knew ``` shipped: valid
+        # CommonMark, no error, just a card that quietly lost its picture. This fixture
+        # exists to be the one post that opens with a tilde, so that property is the
+        # thing asserted — not the presence of a tilde somewhere in the file.
+        ("the FIRST fence is a tilde fence",
+         lambda d: re.search(r"\A(?:---.*?---\s*)?(?:[^`~]|`(?!``)|~(?!~~))*~~~", d.text, re.S) is not None),
+        ("a backtick fence follows it, so the two patterns cannot be conflated",
+         lambda d: "```yaml" in d.text),
+    ]),
+    ("tabs-and-variant-procedures.md", [
+        # Registered late: an unregistered fixture is silently skipped by this script,
+        # so the file existed while nothing checked it still did its job.
+        ("tabs: the shortcode is invoked",
+         lambda d: len(re.findall(r"\{\{<\s*tabs\b", d.text)) >= 1),
+        ("tabs: more than one panel, or it is not exercising anything",
+         lambda d: len(re.findall(r"\{\{<\s*tab\b", d.text)) >= 2),
+        ("a fenced block inside a panel, which must still reach the code hook",
+         lambda d: re.search(r"\{\{<\s*tab\b[\s\S]*?```", d.text) is not None),
+    ]),
     ("prose-only-no-code.md", [
         ("the no-code case: zero fenced blocks",
          lambda d: len(d.blocks) == 0),
