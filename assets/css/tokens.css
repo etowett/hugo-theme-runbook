@@ -29,8 +29,26 @@
    ACCESSIBILITY: every foreground/background pair reachable from these tokens is
    asserted at WCAG 2.2 AA in CI — 4.5:1 for body text, 3:1 for large text and UI
    components — in BOTH themes, including every Chroma token. See specs/007 §3.1.
-   Values below are neutral placeholders; the design workstream replaces them and
-   closes open decision Q1 (accent hue).
+   Run `python3 scripts/check_contrast.py` after touching any value here.
+
+   ── OPEN DECISION #1 IS CLOSED HERE: THE ACCENT IS AZURE, HUE ≈ 212° ──────────
+   Reasoning in full: docs/design-tokens.md §2. The short version is three things
+   that are all verifiable rather than matters of taste:
+
+     1. Blue is the only hue readers already decode as "link" without relying on the
+        underline, and Runbook underlines anyway — so the convention is pure gain.
+     2. It is the hue with the widest usable luminance range: the SAME hue clears
+        4.5:1 as #0a58b0 on white and as #58a6ff on #161b22. Teal and green cannot
+        do that without desaturating to grey at the dark end; orange cannot without
+        turning brown at the light end. One hue, both themes, no compromise.
+     3. It is the one hue family the syntax palettes do not use — see below.
+
+   ── THE ACCENT HUE IS RESERVED FOR INTERACTION ───────────────────────────────
+   No Chroma token in either palette sits within 25° of the accent hue, and
+   scripts/check_contrast.py asserts it. Consequence: anywhere on the reading
+   surface, blue means "you can click or focus this" and nothing else. Syntax
+   colour never competes with an affordance, which matters most inside a code
+   block, where a focused copy button sits directly on top of coloured tokens.
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 :root {
@@ -42,36 +60,68 @@
   --rb-color-surface:       #ffffff;
 
   /* ── Text ───────────────────────────────────────────────────────────────── */
-  --rb-color-text:          #1a1d21;   /* body copy — must hit 4.5:1 on --rb-color-bg */
-  --rb-color-text-muted:    #55595f;   /* metadata — must hit 4.5:1, it is small text */
-  --rb-color-text-subtle:   #6b7076;   /* decorative only — never load-bearing text */
+  /* Every value here is tuned against --rb-color-bg-subtle, not --rb-color-bg,
+     because muted text lands in table headers, blockquotes and the footer. The
+     white-background case is then true for free; the reverse is not. */
+  --rb-color-text:          #14171c;   /* body copy — must hit 4.5:1 on --rb-color-bg */
+  --rb-color-text-muted:    #5b6572;   /* metadata — must hit 4.5:1, it is small text */
+  --rb-color-text-subtle:   #68727f;   /* decorative only — never load-bearing text */
 
   /* ── Lines ──────────────────────────────────────────────────────────────── */
-  --rb-color-border:        #e3e5e8;
-  --rb-color-border-strong: #c8ccd1;
+  /* Two tiers, and the difference is a conformance one, not a visual one.
+     --rb-color-border is a decorative separator (table cell, list rule) and WCAG
+     1.4.11 does not reach it. --rb-color-border-strong is the visible BOUNDARY of a
+     UI component — the theme toggle, the blockquote rule — and is held at 3:1. */
+  --rb-color-border:        #e3e6ea;
+  --rb-color-border-strong: #848d99;
 
   /* ── Accent — ONE hue, for links, focus and active state (specs/003 §3.2) ── */
-  --rb-color-accent:        #0b5fbf;
-  --rb-color-accent-hover:  #0949a0;
+  --rb-color-accent:        #0a58b0;
+  --rb-color-accent-hover:  #083f80;
   --rb-color-accent-contrast: #ffffff;  /* text ON the accent */
   --rb-color-focus:         var(--rb-color-accent);
 
   /* ── The code block (specs/003 §3.3) ────────────────────────────────────── */
   --rb-code-bg:             #f6f7f9;
-  --rb-code-text:           #1a1d21;
-  --rb-code-border:         #e3e5e8;
-  --rb-code-chrome-fg:      #6b7076;   /* language tag, copy/wrap controls at rest */
-  --rb-code-chrome-fg-hover:#1a1d21;
-  --rb-code-hl-bg:          #fff3bf;   /* {hl_lines=...} — 3:1 against --rb-code-bg */
-  --rb-code-gutter-fg:      #9aa0a6;
-  --rb-code-output-bg:      #f0f1f3;   /* {output=true} muted treatment (Q3) */
+  --rb-code-text:           #14171c;
+  --rb-code-border:         #e3e6ea;
+  --rb-code-chrome-fg:      #5d6570;   /* language tag, copy/wrap controls at rest */
+  --rb-code-chrome-fg-hover:#14171c;
+  --rb-code-gutter-fg:      #626c77;
+  --rb-code-output-bg:      #eef0f3;   /* {output=true} muted treatment (Q3) */
+
+  /* {hl_lines=...}. The tint is deliberately shallow, because the binding
+     constraint is the OTHER direction: every syntax token has to keep 4.5:1 once
+     this background slides underneath it, and the gate checks exactly that. A
+     tint deep enough to clear 3:1 on its own would push half the palette below AA.
+     So the WCAG 1.4.11 signal is carried by --rb-code-hl-border, an inline-start
+     marker at 3:1, and the tint only reinforces it. Warm in both themes: it reads
+     as a highlighter, and it is the one hue neither palette uses for a token. */
+  --rb-code-hl-bg:          #e2d09b;
+  --rb-code-hl-border:      #b8790b;
+
+  /* ── Table of contents — consumed by the templates workstream ───────────── */
+  --rb-toc-fg:              var(--rb-color-text-muted);
+  --rb-toc-fg-active:       var(--rb-color-accent);
+  --rb-toc-marker:          var(--rb-color-accent);
 
   /* ── Type ───────────────────────────────────────────────────────────────── */
-  /* REQ-FONT-2: the system stacks are the zero-byte fallback and stay fully
-     supported. The bundled faces are prepended by base.css only when
-     params.runbook.bundledCodeFont / bundledProseFont are on. */
-  --rb-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --rb-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  /* REQ-FONT-2 — the system stacks are the zero-byte fallback and stay fully
+     supported. They are declared separately from --rb-font-*, so that turning the
+     bundled face off is one custom-property assignment rather than a copy of the
+     whole stack: head/theme-guard.html emits `--rb-font-mono: var(--rb-font-mono-system)`
+     when params.runbook.bundledCodeFont is false.
+
+     OPEN DECISION #2 IS CLOSED: the bundled CODE font ships ON, the bundled PROSE
+     font ships OFF. Reasoning in docs/design-tokens.md §4 — briefly, 44% of the
+     reference archive draws box-drawing glyphs inside code, where a fallback face
+     substituting mid-block breaks column alignment in captured terminal output;
+     prose has no equivalent failure, so it pays no bytes. */
+  --rb-font-sans-system: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --rb-font-mono-system: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --rb-font-sans: var(--rb-font-sans-system);
+  --rb-font-mono: "JetBrains Mono", var(--rb-font-mono-system);
 
   --rb-text-xs:    0.78rem;
   --rb-text-sm:    0.875rem;
@@ -125,9 +175,20 @@
   --rb-z-skip:   100;
 }
 
-/* Dark palette. Near-black, not pure black — reduces halation for astigmatic
-   readers (specs/003 §3.2). Declared once and applied to both the explicit and the
-   automatic case below. */
+/* ── Dark palette ────────────────────────────────────────────────────────────
+   Near-black, not pure black (specs/003 §3.2) — pure #000 against near-white text
+   maximises halation for astigmatic readers, which is a large share of the people
+   who choose a dark theme in the first place.
+
+   The block below is byte-identical to the [data-theme="dark"] one that follows.
+   That duplication is deliberate: a media query cannot be folded into a selector
+   list, and the alternative — a second indirection layer of --rb-dark-* tokens —
+   costs more bytes than the repeat does, because gzip encodes an exact repeat of a
+   block it has already seen as a back-reference of a few dozen bytes.
+
+   Every value is tuned against --rb-code-bg #161b22, NOT the page background.
+   #161b22 is the lighter of the two, so it is the harder one for light-on-dark
+   text; clearing it clears the page background for free. */
 @media (prefers-color-scheme: dark) {
   :root[data-theme="auto"] {
     color-scheme: dark;
@@ -137,24 +198,25 @@
     --rb-color-surface:       #0d1117;
 
     --rb-color-text:          #e6edf3;
-    --rb-color-text-muted:    #a9b3bd;
-    --rb-color-text-subtle:   #8b949e;
+    --rb-color-text-muted:    #838d9b;
+    --rb-color-text-subtle:   #798491;
 
-    --rb-color-border:        #21262d;
-    --rb-color-border-strong: #30363d;
+    --rb-color-border:        #262c36;
+    --rb-color-border-strong: #616b77;
 
-    --rb-color-accent:        #6cb0ff;
-    --rb-color-accent-hover:  #8cc2ff;
-    --rb-color-accent-contrast: #0d1117;
+    --rb-color-accent:        #58a6ff;
+    --rb-color-accent-hover:  #85c0ff;
+    --rb-color-accent-contrast: #0a0e14;
 
     --rb-code-bg:             #161b22;
     --rb-code-text:           #e6edf3;
-    --rb-code-border:         #21262d;
-    --rb-code-chrome-fg:      #8b949e;
+    --rb-code-border:         #262c36;
+    --rb-code-chrome-fg:      #8792a1;
     --rb-code-chrome-fg-hover:#e6edf3;
-    --rb-code-hl-bg:          #2d3748;
-    --rb-code-gutter-fg:      #6e7681;
-    --rb-code-output-bg:      #12171e;
+    --rb-code-gutter-fg:      #7d8895;
+    --rb-code-output-bg:      #11161d;
+    --rb-code-hl-bg:          #3b311c;
+    --rb-code-hl-border:      #c07e0c;
   }
 }
 
@@ -166,22 +228,23 @@
   --rb-color-surface:       #0d1117;
 
   --rb-color-text:          #e6edf3;
-  --rb-color-text-muted:    #a9b3bd;
-  --rb-color-text-subtle:   #8b949e;
+  --rb-color-text-muted:    #838d9b;
+  --rb-color-text-subtle:   #798491;
 
-  --rb-color-border:        #21262d;
-  --rb-color-border-strong: #30363d;
+  --rb-color-border:        #262c36;
+  --rb-color-border-strong: #616b77;
 
-  --rb-color-accent:        #6cb0ff;
-  --rb-color-accent-hover:  #8cc2ff;
-  --rb-color-accent-contrast: #0d1117;
+  --rb-color-accent:        #58a6ff;
+  --rb-color-accent-hover:  #85c0ff;
+  --rb-color-accent-contrast: #0a0e14;
 
   --rb-code-bg:             #161b22;
   --rb-code-text:           #e6edf3;
-  --rb-code-border:         #21262d;
-  --rb-code-chrome-fg:      #8b949e;
+  --rb-code-border:         #262c36;
+  --rb-code-chrome-fg:      #8792a1;
   --rb-code-chrome-fg-hover:#e6edf3;
-  --rb-code-hl-bg:          #2d3748;
-  --rb-code-gutter-fg:      #6e7681;
-  --rb-code-output-bg:      #12171e;
+  --rb-code-gutter-fg:      #7d8895;
+  --rb-code-output-bg:      #11161d;
+  --rb-code-hl-bg:          #3b311c;
+  --rb-code-hl-border:      #c07e0c;
 }
