@@ -50,6 +50,16 @@ ROOT = Path(__file__).resolve().parent.parent
 CLAUDE = ROOT / ".claude"
 CODEX = ROOT / ".codex"
 AGENTS = ROOT / ".agents"
+
+# Agent sessions check this repository out into `.claude/worktrees/<id>/`, so every
+# recursive walk below would otherwise read a second, third and fourth copy of the very
+# files it is checking and report each copy as a defect in `.claude/`. The directory is
+# gitignored (`.gitignore:25`) and nothing under it is tracked, so it is scratch space by
+# definition and never something this gate has an opinion about. Skipped rather than
+# pruned with `os.walk`, because `.agents/skills` is a symlink and `os.walk` does not
+# follow one — pruning would quietly change which files are traversed as well as which
+# are ignored.
+WORKTREES = CLAUDE / "worktrees"
 MCP_JSON = ROOT / ".mcp.json"
 SETTINGS = CLAUDE / "settings.json"
 CODEX_CONFIG = CODEX / "config.toml"
@@ -67,6 +77,11 @@ notes: list[str] = []
 
 def problem(check: str, msg: str, remedy: str = "") -> None:
     problems.append(f"{check}: {msg}" + (f"\n      → {remedy}" if remedy else ""))
+
+
+def is_scratch(path: Path) -> bool:
+    """True for anything inside an agent's scratch worktree — see WORKTREES."""
+    return WORKTREES in path.parents
 
 
 def rel(path: Path) -> str:
@@ -362,6 +377,8 @@ def check_case_sensitivity() -> None:
     pattern = re.compile(r"(?<![\w./-])(\.[A-Za-z][A-Za-z0-9_-]*)/")
     for base in (CLAUDE, CODEX, AGENTS):
         for path in sorted(base.rglob("*")):
+            if is_scratch(path):
+                continue
             if not path.is_file() or path.suffix not in (".md", ".json", ".toml", ".py"):
                 continue
             for lineno, line in enumerate(path.read_text(errors="replace").splitlines(), 1):
@@ -397,7 +414,7 @@ def check_documented_numbers() -> None:
     quoted = re.compile(r"(\d+)\s+(?:assertions|ratios|contrast assertions)")
     for path in sorted(ROOT.glob("*.md")) + sorted(ROOT.glob("docs/*.md")) + \
             sorted(CLAUDE.rglob("*.md")):
-        if not path.is_file():
+        if is_scratch(path) or not path.is_file():
             continue
         for lineno, line in enumerate(path.read_text(errors="replace").splitlines(), 1):
             for found in quoted.findall(line):
