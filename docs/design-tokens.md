@@ -2,7 +2,7 @@
 
 **Status:** in force
 **Owner:** the design-system workstream
-**Gate:** `python3 scripts/check_contrast.py` — 150 assertions, both themes, must exit 0
+**Gate:** `python3 scripts/check_contrast.py` — 156 assertions, both themes, must exit 0
 
 The token **names** are frozen ([contracts §2.1](contracts.md#21-css-custom-properties)); the values
 live in [`assets/css/tokens.css`](../assets/css/tokens.css) and the syntax palettes in
@@ -435,9 +435,36 @@ the conformant 1.4.11 signal is `--rb-code-hl-border` at 3:1.
 
 ### Table of contents
 
-`--rb-toc-fg`, `--rb-toc-fg-active`, `--rb-toc-marker` — aliases of the muted/accent tokens,
-declared separately so the templates workstream has a name to consume and so the selected-entry
-contrast is asserted.
+`--rb-toc-fg`, `--rb-toc-fg-active`, `--rb-toc-marker`, `--rb-toc-active-bg`, `--rb-toc-hover-bg`
+— named TOC tokens, declared separately so the templates workstream has a stable seam to consume
+and so every state the rail can be in is asserted.
+
+**Both state fills are named, and that is the fix for a measured bug rather than tidiness.** The
+rail and the mobile sheet are painted `--rb-color-surface`. Hover and the selected entry both
+originally reached for `--rb-color-bg-subtle`, and `--rb-color-surface` and `--rb-color-bg-subtle`
+are the *same* `#2a2722` in the dark palette by design — so both states resolved to a **1.00:1**
+background change while every foreground assertion in the gate passed. A foreground-on-background
+sweep structurally cannot see that, because the collapse is between two backgrounds.
+
+| | light | dark | vs the `--rb-color-surface` card |
+|---|---|---|---|
+| `--rb-toc-hover-bg` | `--rb-color-bg-subtle` `#ebddc5` | `#3a352c` | 1.22:1 in **both** themes |
+| `--rb-toc-active-bg` | `#eec7ab` | `--rb-color-accent` `#f6a06b` | 1.43:1 · 7.20:1 |
+| `--rb-toc-fg-active` | `--rb-color-accent-hover` `#643312` | `--rb-color-accent-contrast` | 6.62:1 · 7.96:1 on the pill |
+
+The light selected pill is the constrained end. It is squeezed from both sides — deep enough to
+clear the **1.35 perceptibility floor** against the `#f9f4ed` card, shallow enough that the
+selected ink keeps 4.5:1 on it. `#eec7ab` clears both at 1.43:1 and 6.62:1, and the ink is
+accent-**800** rather than the accent-700 link colour precisely because accent-700 only reaches
+4.34:1 on that pill. The dark palette inverts the relationship instead: a full accent fill with
+its contrast ink, because no tint of a card can be distinguished from a card that shares its value.
+
+Two of the six assertions are **background-against-background and are explicitly not WCAG
+claims**, for the same reason the highlight band's floor is not — see [above](#why-the-highlight-band-is-shallow-and-why-that-is-correct).
+A luminance ratio is a poor instrument for two backgrounds, but a sufficient one to catch a
+collapse to 1.00:1. The selected pill is held at the existing `HL_BAND_MIN` 1.35; hover is held at
+a lower `TOC_HOVER_MIN` 1.15, because hover is transient and is reinforced by a
+muted→body text-colour change that the selected state does not rely on.
 
 ### Type, space, shape
 

@@ -34,6 +34,7 @@ DELTA_E_MIN = 12.0          # dichromatic separation floor, CIELAB dE76
 LIGHTNESS_MIN = 1.50        # separation a pair may fall back on when hue collapses
 ACCENT_HUE_GUARD = 25.0     # degrees a saturated syntax token must keep clear
 HL_BAND_MIN = 1.35          # perceptibility floor for a background band; NOT WCAG
+TOC_HOVER_MIN = 1.15        # ditto, for the transient TOC hover fill; NOT WCAG
 
 # ── parsing ─────────────────────────────────────────────────────────────────────
 
@@ -193,9 +194,21 @@ PAIRS = [
     ("--rb-color-focus",       "--rb-code-bg",          AA_NONTEXT, "focus ring inside a code block"),
     ("--rb-color-border-strong", "--rb-color-bg",       AA_NONTEXT, "control boundary (theme toggle)"),
     ("--rb-color-border-strong", "--rb-color-bg-subtle", AA_NONTEXT, "control boundary on subtle"),
-    ("--rb-toc-fg",            "--rb-color-bg",         AA_TEXT,    "TOC entry"),
-    ("--rb-toc-fg-active",     "--rb-color-bg",         AA_TEXT,    "TOC entry, selected"),
-    ("--rb-toc-marker",        "--rb-color-bg",         AA_NONTEXT, "TOC active marker"),
+    # The rail and the sheet are both painted --rb-color-surface, so that — not
+    # --rb-color-bg — is the background every TOC entry actually sits on. In the dark
+    # palette the card is the LIGHTER of the two, so asserting against the page was
+    # measuring the easier case.
+    ("--rb-toc-fg",            "--rb-color-surface",    AA_TEXT,    "TOC entry on the rail"),
+    ("--rb-color-text",        "--rb-toc-hover-bg",     AA_TEXT,    "TOC entry, hovered"),
+    ("--rb-toc-fg-active",     "--rb-toc-active-bg",    AA_TEXT,    "TOC entry, selected"),
+    ("--rb-toc-marker",        "--rb-toc-active-bg",    AA_NONTEXT, "TOC active marker"),
+    # Two BACKGROUNDS against a third, which is not a WCAG claim — see the band note
+    # further down. These exist because both TOC state fills were --rb-color-bg-subtle
+    # while the card is --rb-color-surface, and those are the same value in the dark
+    # palette: every foreground assertion above passed while the states were invisible.
+    # A ratio is a poor instrument here, but it is a sufficient one to catch collapse.
+    ("--rb-toc-active-bg",     "--rb-color-surface",    HL_BAND_MIN,   "TOC selected pill is perceptible on the rail"),
+    ("--rb-toc-hover-bg",      "--rb-color-surface",    TOC_HOVER_MIN, "TOC hover fill is perceptible on the rail"),
     ("--rb-code-text",         "--rb-code-bg",          AA_TEXT,    "code, uncoloured"),
     ("--rb-code-text",         "--rb-code-output-bg",   AA_TEXT,    "code in an {output=true} block"),
     ("--rb-code-chrome-fg",    "--rb-code-bg",          AA_TEXT,    "copy/wrap control at rest"),

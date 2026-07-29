@@ -159,9 +159,25 @@
   --rb-code-hl-border:      #f6a06b;
 
   /* ── Table of contents — consumed by the templates workstream ───────────── */
+  /* BOTH TOC state surfaces are named, and that is forced rather than tidy. The
+     rail is painted --rb-color-surface; hover and the selected entry originally
+     both reached for --rb-color-bg-subtle, and in the dark palette surface and
+     bg-subtle are deliberately the SAME value — so both states resolved to a
+     1.00:1 background change and the WCAG sweep could not see it, because a
+     background-against-background pair is not a contrast assertion. Two
+     perceptibility floors in check_contrast.py now hold them apart.
+
+     The light selected pill is the tighter of the two ends. It is squeezed from
+     both sides: deep enough to clear the 1.35 perceptibility floor against the
+     #f9f4ed card, shallow enough that the selected ink stays above 4.5:1 on it.
+     #eec7ab with the accent-800 ink lands at 1.43:1 and 6.62:1 — the accent-700
+     link colour only reaches 4.34:1 there, which is why the selected entry uses
+     the deeper step rather than the link colour. */
   --rb-toc-fg:              var(--rb-color-text-muted);
-  --rb-toc-fg-active:       var(--rb-color-accent);
-  --rb-toc-marker:          var(--rb-color-accent);
+  --rb-toc-fg-active:       var(--rb-color-accent-hover);
+  --rb-toc-marker:          var(--rb-color-accent-hover);
+  --rb-toc-active-bg:       #eec7ab;
+  --rb-toc-hover-bg:        var(--rb-color-bg-subtle);
 
   /* ── Type ───────────────────────────────────────────────────────────────── */
   /* REQ-FONT-2 — the system stacks are the zero-byte fallback and stay fully
@@ -270,7 +286,14 @@
 
    The plate goes DOWN here, not up: #171512 against a #211f1b page. In the light
    theme the plate is the darkest thing on the page; in the dark theme it still is.
-   That is what keeps "the code is the picture" true in both. */
+   That is what keeps "the code is the picture" true in both.
+
+   The TOC states invert here. --rb-color-surface and --rb-color-bg-subtle are the
+   same #2a2722 in this palette, so neither TOC state can be a tint of the card:
+   the selected entry takes the accent as a full fill with its contrast ink, and
+   hover takes #3a352c — the same 1.22:1 separation from the card that the light
+   palette's hover has, so the two themes feel identical rather than merely
+   conformant. Reasoning in full above the light block. */
 @media (prefers-color-scheme: dark) {
   :root[data-theme="auto"] {
     color-scheme: dark;
@@ -291,6 +314,11 @@
     --rb-color-accent-contrast: #211f1b;
     --rb-color-accent-2:      #aebf92;
     --rb-color-focus:         var(--rb-color-accent);
+
+    --rb-toc-fg-active:       var(--rb-color-accent-contrast);
+    --rb-toc-marker:          var(--rb-color-accent-contrast);
+    --rb-toc-active-bg:       var(--rb-color-accent);
+    --rb-toc-hover-bg:        #3a352c;
 
     --rb-code-bg:             #171512;
     --rb-code-text:           #f5ead8;
@@ -323,6 +351,11 @@
   --rb-color-accent-contrast: #211f1b;
   --rb-color-accent-2:      #aebf92;
   --rb-color-focus:         var(--rb-color-accent);
+
+  --rb-toc-fg-active:       var(--rb-color-accent-contrast);
+  --rb-toc-marker:          var(--rb-color-accent-contrast);
+  --rb-toc-active-bg:       var(--rb-color-accent);
+  --rb-toc-hover-bg:        #3a352c;
 
   --rb-code-bg:             #171512;
   --rb-code-text:           #f5ead8;
