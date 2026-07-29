@@ -4,7 +4,7 @@ name: Archive parity
 #
 # ── WHY THIS IS NOT ON THE PULL-REQUEST PATH ─────────────────────────────────────────
 #
-# Not because it is slow. The whole job is about 90 seconds: two Hugo builds of 1,154
+# Not because it is slow. The whole job is about 90 seconds: two Hugo builds of ~1,159
 # pages at ~4 s each, a manifest diff at ~11 s, and the gzip distribution.
 #
 # It is off the PR path because **the reference archive is a private repository and this
@@ -60,13 +60,20 @@ concurrency:
 
 env:
   CITIZIX_REPO: etowett/citizix
-  # Pinned 2026-07-28. 500 posts, 8,907 fenced code blocks, 1,154 pages, 357 aliases.
-  CITIZIX_REF: dc1b32120de94cb8698bb17654f9ee03ac435efe
-  # Assertions on the RUNBOOK build at that content pin. Non-alias HTML pages and
-  # meta-refresh aliases respectively; see docs/migration.md §1 for why they differ from
-  # Stack's 1,089 / 356.
-  EXPECT_PAGES: 1058
-  EXPECT_ALIASES: 354
+  # Pinned 2026-07-29, superseding dc1b321. That pin predated the three citizix commits
+  # made FOR this migration — the `latmod:` typo fix, the retired-taxonomy redirects and
+  # the 23 pinned taxonomy titles — so a first run against it would have reported
+  # differences that were already fixed upstream.
+  #
+  # 497 post source files, 6 of them drafts, so 491 published posts. Every number below
+  # was re-derived from a build at this SHA rather than carried over.
+  CITIZIX_REF: 9ec479a6ee4de4e0f467d6d831cd3c43e67c67dd
+  # Assertions on the RUNBOOK build at that content pin, as scripts/check_parity.py
+  # --audit counts them: non-alias HTML pages and meta-refresh aliases. The Stack build
+  # of the same content audits to 1,095 and 358; docs/migration.md §1 says why they
+  # differ. Unchanged by `search.enable` — the index is JSON, not an HTML page.
+  EXPECT_PAGES: 1064
+  EXPECT_ALIASES: 356
 
 jobs:
   parity:
@@ -80,17 +87,43 @@ jobs:
 
       - name: Is the archive reachable?
         id: gate
+        # ── WHY THE TWO TRIGGERS ARE TREATED DIFFERENTLY ─────────────────────────────
+        #
+        # This step used to skip on both, and that is how the job stayed inert from the
+        # day it was written: with no token every later step is skipped, the job exits 0,
+        # and in the checks list a skipped job and a passing job are the same tick. The
+        # gate that exists to keep this migration honest reported success for producing
+        # no evidence at all (#44).
+        #
+        # `workflow_dispatch` is a person clicking Run. There is no reading of that click
+        # under which "did nothing, reported success" is the answer they wanted, so it
+        # FAILS and says what to set.
+        #
+        # `schedule` still skips, and for the reason the original comment gave: nobody is
+        # watching a 04:00 Sunday cron, a fork cannot hold this secret, and a weekly red X
+        # that no contributor can act on is what docs/verification.md §2 says teaches
+        # people to ignore CI. It skips LOUDLY — a warning, not a notice, so the run
+        # summary carries an annotation instead of a line nobody scrolls to.
         env:
           TOKEN: ${{ secrets.CITIZIX_TOKEN }}
         run: |
-          if [ -z "${TOKEN}" ]; then
-            echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::CITIZIX_TOKEN is not set — the reference archive is private."
-            echo "::notice::Skipping cleanly rather than failing: a fork cannot have this secret,"
-            echo "::notice::and a permanent red X on work nobody can fix is worse than no check."
-          else
+          if [ -n "${TOKEN}" ]; then
             echo "available=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          echo "available=false" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "::error::CITIZIX_TOKEN is not set, so the reference archive cannot be"
+            echo "::error::read and this run can prove nothing. Failing rather than"
+            echo "::error::skipping: you asked for this run explicitly."
+            echo "::error::Fix: set a fine-grained PAT with contents:read on"
+            echo "::error::${CITIZIX_REPO} as the CITIZIX_TOKEN repository secret."
+            exit 1
+          fi
+          echo "::warning::CITIZIX_TOKEN is not set — the reference archive is private,"
+          echo "::warning::so the scheduled parity run proved nothing. This job is INERT,"
+          echo "::warning::not passing. Set the secret, or dispatch it manually to get a"
+          echo "::warning::hard failure instead of this warning."
 
       - name: Check out the reference archive (pinned)
         if: steps.gate.outputs.available == 'true'
@@ -138,20 +171,15 @@ jobs:
           done
           cp hugo-theme-runbook/.github/parity/citizix-runbook.yaml "$RB/config.yaml"
 
-          #  · the search page must drop `json` from `outputs` — migration.md §3.
-          #    Runbook ships no JSON output template for a page kind, and under
-          #    --panicOnWarning the missing layout is a hard build failure rather than a
-          #    line that scrolls past.
-          python3 - "$RB/content/page/search/index.md" <<'PY'
-          import re, sys
-          p = sys.argv[1]
-          t = open(p, encoding="utf-8").read()
-          new = re.sub(r"(?m)^\s*-\s*json\s*$\n", "", t, count=1)
-          if new == t:
-              sys.exit("search page no longer declares `outputs: json` — "
-                       "delete this step and the paragraph in docs/migration.md §3")
-          open(p, "w", encoding="utf-8").write(new)
-          PY
+          # The search page's `outputs: [html, rss, json]` is left ALONE. A step here
+          # used to strip `json`, citing a docs/migration.md §3 paragraph that said
+          # Runbook ships no JSON template for a page kind. It has shipped
+          # layouts/search.json since #23, and root-level `search.json` is exactly what
+          # Hugo's post-0.146 lookup matches for `layout: search` + kind page + output
+          # json. Stripping it meant no parity run ever built Runbook's search index or
+          # its UI — layouts/_partials/search/ui.html gates the whole widget on
+          # `.OutputFormats.Get "json"` — so the one feature the gate could not see was
+          # the newest one (#30).
 
           echo "STACK_SITE=$STACK" >> "$GITHUB_ENV"
           echo "RB_SITE=$RB" >> "$GITHUB_ENV"
@@ -175,6 +203,34 @@ jobs:
                --destination "$RUNNER_TEMP/public-runbook" \
                --cleanDestinationDir --gc --minify \
                --panicOnWarning --printPathWarnings
+
+      - name: The search index was actually built
+        if: steps.gate.outputs.available == 'true'
+        # scripts/check_parity.py walks .html and .xml only, so /search/index.json is
+        # invisible to the manifest diff on BOTH sides — it was never going to report the
+        # index appearing or disappearing. That is why stripping `json` went unnoticed for
+        # as long as it did, and it means the manifest diff cannot be the thing that keeps
+        # search built. This step is. It asserts the file exists, parses, and carries
+        # roughly the corpus, so a config or template regression that quietly empties the
+        # index fails here instead of shipping a search box that finds nothing.
+        run: |
+          python3 - "$RUNNER_TEMP/public-runbook/search/index.json" <<'PY'
+          import json, sys
+          p = sys.argv[1]
+          try:
+              d = json.load(open(p, encoding="utf-8"))
+          except FileNotFoundError:
+              sys.exit(f"::error::{p} was not built. Either params.runbook.search.enable "
+                       "is off in .github/parity/citizix-runbook.yaml, or the archive's "
+                       "search page stopped declaring `outputs: json`.")
+          n = len(d.get("docs", []))
+          # A floor, not an assertion of the exact count: the corpus grows between pins
+          # and a number that has to be bumped every time is a number people stop reading.
+          if n < 400:
+              sys.exit(f"::error::search index has {n} documents, expected the post "
+                       "corpus (491 at the pinned ref). Something is filtering it out.")
+          print(f"search index: {n} documents, {len(open(p,'rb').read()):,} B")
+          PY
 
       - name: REQ-CB-1 at archive scale
         if: steps.gate.outputs.available == 'true'
@@ -267,6 +323,26 @@ jobs:
         #
         # --article-glob is explicit because the archive uses flat /:slug/ permalinks and
         # the default `posts/*/index.html` matches nothing there.
+        #
+        # ⚠️ ADVISORY, and only because that same flat-permalink glob is too broad. Both
+        # failures it reports at the pinned ref are pages that are not articles, measured
+        # against budgets specs/005 §3.1 scopes to articles:
+        #
+        #   tags/index.html grew 4,544 → 5,496 B gz (+21.0%) — the unpaginated taxonomy
+        #     browse page, which is docs/migration.md §4's documented, intended cost and
+        #     is already a reviewed `url` difference. The per-page no-regression rule is
+        #     not gated on --enforce-page-weight, so this fails the step outright.
+        #   search/index.html: 3 executable script tags (budget 2) — the inline theme
+        #     guard, runbook.js, and the lazily-loaded search chunk. check_budgets.py
+        #     budgets that chunk separately at SEARCH_JS_GZ_MAX and then counts it again
+        #     here, so the gate contradicts itself on the one page that loads it.
+        #
+        # Both are `--article-glob '*/index.html'` sweeping non-articles into an
+        # article-scoped budget — the same root cause as docs/migration.md §9 defect 4.
+        # The fix belongs in scripts/check_budgets.py, which stream D owns (contracts §1),
+        # so it is named here rather than made here. Remove `continue-on-error` once that
+        # script can tell an article from a browse page.
+        continue-on-error: true
         run: |
           python3 scripts/check_budgets.py "$RUNNER_TEMP/public-stack" \
                   --article-glob '*/index.html' \

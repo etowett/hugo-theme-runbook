@@ -52,8 +52,12 @@ params:
     related:
       enable: true
       limit: 5
+    # `true` because the archive's search page declares `outputs: [html, rss, json]`
+    # and Runbook's layouts/search.json consumes exactly that. Pinned false, this
+    # config made the parity job the one place search was never built — see
+    # docs/migration.md §3.
     search:
-      enable: false
+      enable: true
     taxonomy:
       rareThreshold: 1
 
