@@ -294,23 +294,25 @@ jobs:
       - name: Internal link and fragment crawl
         if: steps.gate.outputs.available == 'true'
         working-directory: hugo-theme-runbook
-        # ⚠️ ADVISORY, and only because of a bug in the ARCHIVE, not in the theme.
+        # BLOCKING. It was advisory until the first execution of this job (#44) proved
+        # there was nothing left for it to tolerate.
         #
-        # The Runbook build now has exactly the same link health as the Stack build: one
-        # failure, `#security-hardening` on a page that defines no such heading, which
-        # fails identically on both. It is a content bug in the reference site and the fix
-        # belongs there (docs/migration.md §9). Blocking this job on it would mean a red X
-        # that nobody working on the THEME can act on, which docs/verification.md §2 says
-        # is how people learn to ignore CI.
+        # The single failure it existed to absorb was `#security-hardening`, linked from
+        # the SaltStack GitOps post and defined by no heading on it. That failed
+        # identically on the Stack build, so it was the archive's bug rather than the
+        # theme's and docs/migration.md §9 defect 6 classified it there. citizix fixed it
+        # in 49fdb91, which is inside this pin: at 9ec479a that page carries neither the
+        # dangling href nor the id, and run 30436578455 reports `no broken internal
+        # links, subresources or fragments` across the whole build.
         #
-        # Remove `continue-on-error` once the archive fixes that link. Everything else the
-        # crawl used to report here was the raw-vs-percent-encoded fragment comparison,
-        # fixed in scripts/check_links.py in this change.
+        # Keeping `continue-on-error` past that point would make this step exactly what
+        # #29 and #44 are each about — a suppression that outlives its defect, and then
+        # absorbs the next one silently while still reporting a green tick. The reason it
+        # was advisory is in the git history if the archive ever regresses.
         #
         # Internal links only. The external sweep is weekly and lives in scheduled.yml
         # (specs/007 §3.5): it takes minutes over thousands of links and fails when a
         # third party's documentation site is down.
-        continue-on-error: true
         run: python3 scripts/check_links.py "$RUNNER_TEMP/public-runbook"
 
       - name: Page weight — distribution and per-page no-regression
