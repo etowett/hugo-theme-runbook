@@ -52,7 +52,7 @@ and the full profile — with method, caveats and what changed on re-measurement
 - **Line numbers cannot be turned on site-wide by accident.** `markup.highlight.lineNos` in a
   consuming site's config has no effect on Runbook's blocks — the render hook builds its own option
   set from scratch, and CI asserts the build is byte-identical with those settings forced on.
-- **A syntax palette that was solved, not picked.** 150 contrast assertions across both themes,
+- **A syntax palette that was solved, not picked.** 156 contrast assertions across both themes,
   every Chroma token against every background that can slide underneath it, plus deuteranopia and
   protanopia simulation so colour survives as a *signal*. See
   [docs/accessibility.md](https://github.com/etowett/hugo-theme-runbook/blob/main/docs/accessibility.md).

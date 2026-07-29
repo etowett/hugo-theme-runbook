@@ -95,6 +95,25 @@ Shared files and how they are kept out of each other's way:
 
 `README.md`, `LICENSE`, `theme.toml`, `hugo.toml`, `specs/**`, this file. Raise a separate PR.
 
+### The agent tooling
+
+Not a workstream — a **direction**. The map above says who may edit a file; this says which copy of
+a fact is the real one, because the tooling is the one part of the repository that exists more than
+once on purpose.
+
+| | |
+|---|---|
+| **Canonical** | `.claude/**`, `.mcp.json`. Change these first, always |
+| **Mirror** | `.codex/**`. Derived. Never edit it to resolve a disagreement — fix the canonical side and re-mirror |
+| **Symlink** | `.agents/skills → ../.claude/skills`. Not a copy, and `check_agents.py` fails if it becomes one |
+| **Shared, never duplicated** | `.claude/hooks/*.py`. Both clients register the *same* script; only the registration differs |
+| **Gate** | `scripts/check_agents.py`, owned by D with the other `check_*.py`. The sync map and the authoring gates are in [`.claude/AGENTS.md`](../.claude/AGENTS.md) |
+
+The rule has teeth because it was broken within a day of the mirror being created: a copied skill
+read `.Codex/hooks/`, which resolves on a case-insensitive macOS filesystem and not on the Linux
+runner, and a copied hook registration hard-coded one contributor's home directory. Both are the
+shape this repository already knows — silent, green locally, wrong in another checkout. Issue #40.
+
 ---
 
 ## 2. Shared contracts

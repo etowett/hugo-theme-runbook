@@ -17,4 +17,20 @@ __pycache__/
 # settings.local.json holds absolute paths from whoever ran the session, and CLAUDE.local.md is
 # personal preference. Committing either puts one contributor's laptop into everyone's config.
 .claude/settings.local.json
+.claude/*.local.json
 CLAUDE.local.md
+
+# Scratch git worktrees for parallel agent sessions. They are real checkouts of this
+# repository, so committing one nests the tree inside itself.
+.claude/worktrees/
+
+# Codex CLI. It mirrors .claude/ — see .claude/AGENTS.md for the sync map — and it writes
+# per-session state into its own directory, so the directory is ignored and only the shared
+# files are re-included. The same rule as settings.local.json above, applied the other way
+# round: allow-list what is shared rather than chase what is not.
+.codex/*
+!.codex/AGENTS.md
+!.codex/config.toml
+!.codex/hooks.json
+!.codex/agents/
+!.codex/rules/

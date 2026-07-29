@@ -1,6 +1,6 @@
 ---
 name: gates
-description: Build exampleSite the way CI does and run every pull-request gate against it — REQ-CB-1, fixture invariants, JSON-LD values, performance budgets, internal links, WCAG contrast, showcase compliance. Use before claiming a change works, before opening a pull request, and whenever a claim in a PR body needs a number behind it. Pass "floor" to reproduce the 0.146.0 end of the CI matrix instead of latest.
+description: Build exampleSite the way CI does and run every pull-request gate against it — REQ-CB-1, fixtures, JSON-LD, budgets, links, contrast, agent config, showcase. Use before claiming a change works, before opening a pull request, and whenever a claim in a PR body needs a number behind it. Pass "floor" for the 0.146.0 end of the CI matrix.
 argument-hint: "[floor]"
 allowed-tools: Bash(hugo *) Bash(python3 *) Bash(git branch*) Bash(env *) Read Grep Glob
 ---
@@ -68,10 +68,16 @@ python3 scripts/check_fixtures.py --check-generated
 python3 scripts/check_jsonld.py   public --require-article
 python3 scripts/check_budgets.py  public
 python3 scripts/check_links.py    public            # internal only; --external is the weekly sweep
-python3 scripts/check_contrast.py                   # -v for all 150 ratios
+python3 scripts/check_contrast.py                   # -v for all 156 ratios
+python3 scripts/check_agents.py                     # mirrors, portability, case, stale numbers
 python3 scripts/check_showcase.py                   # advisory until M5
 python3 .claude/hooks/test_guardrails.py            # only if you touched .claude/hooks/
 ```
+
+`check_agents.py` needs no build — it reads `.claude/`, `.codex/`, `.agents/` and `.mcp.json`. Run
+it after touching any of those, or after changing a number that a doc quotes back. `--fix` repairs
+the two mechanical things (the `.agents/skills` symlink, the executable bit on a hook) and reports
+everything else, because a mirror disagreement needs a decision rather than a guess.
 
 ### 4 — hostile consumer configuration
 

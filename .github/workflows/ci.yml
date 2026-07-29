@@ -202,6 +202,21 @@ jobs:
           fi
           python3 scripts/check_contrast.py
 
+  agent-config:
+    # .claude/ and .mcp.json are canonical; .codex/ mirrors them and .agents/skills is a
+    # symlink. Without this job the mirror rots silently, which it already did once —
+    # a copied skill said `.Codex/hooks/`, which resolves on a case-insensitive macOS
+    # filesystem and would have failed here. The runner is the point: this job is the
+    # only place the case-sensitivity check means anything. See .claude/AGENTS.md.
+    name: Agent config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Mirrors agree, no machine-specific paths, no case drift
+        run: python3 scripts/check_agents.py
+      - name: The guardrail hook's own suite
+        run: python3 .claude/hooks/test_guardrails.py
+
   showcase:
     # Advisory until M5. images/screenshot.* and images/tn.* cannot exist before the
     # theme renders, and README.md is owned by nobody (docs/contracts.md §1), so a
