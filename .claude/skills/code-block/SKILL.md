@@ -1,6 +1,6 @@
 ---
 name: code-block
-description: The measured contract behind Runbook's code-block render hook — why it never trusts site config, the Chroma behaviours that are not in the documentation, and what REQ-CB-1 actually proves. Use before editing layouts/_markup/render-codeblock.html, assets/css/code.css or assets/js/modules/code.js, or when a fenced block renders with line numbers, a stray tabindex, wrong highlight styling or unexpected chrome.
+description: The measured contract behind Runbook's code-block render hook — why it never trusts site config, and what REQ-CB-1 proves. Use before editing layouts/_markup/render-codeblock.html, assets/css/code.css or assets/js/modules/code.js, or when a fenced block renders with line numbers, a stray tabindex or wrong highlight styling.
 allowed-tools: Read Grep Glob Bash(hugo *) Bash(python3 *)
 ---
 

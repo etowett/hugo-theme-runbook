@@ -73,7 +73,7 @@ python3 scripts/check_fixtures.py --check-generated
 python3 scripts/check_jsonld.py   public
 python3 scripts/check_budgets.py  public
 python3 scripts/check_links.py    public          # internal only; --external for the weekly sweep
-python3 scripts/check_contrast.py                 # add -v to see all 150 ratios
+python3 scripts/check_contrast.py                 # add -v to see all 156 ratios
 python3 scripts/check_showcase.py                 # advisory
 ```
 

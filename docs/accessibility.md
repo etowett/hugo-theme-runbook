@@ -32,7 +32,7 @@ anything injected through the [override hooks](extending.md). §5 lists what sta
 the stylesheets, resolves `var()` indirection, and asserts every foreground/background pair a reader
 can actually end up looking at, **in both themes independently**.
 
-**150 assertions across the two themes. All pass.** Run it yourself with
+**156 assertions across the two themes. All pass.** Run it yourself with
 `python3 scripts/check_contrast.py -v` — it prints every ratio.
 
 It goes past the usual token-versus-background sweep in three ways that matter for a code-first

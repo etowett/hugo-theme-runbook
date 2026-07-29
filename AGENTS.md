@@ -57,7 +57,7 @@ usually names the bug that produced it.
 
 ## Build and verify
 
-Run this before you claim anything works. It is a build and seven gates, about fifteen seconds on
+Run this before you claim anything works. It is a build and eight gates, about fifteen seconds on
 a warm checkout, so there is no reason to skip it and guess.
 
 ```bash
@@ -73,7 +73,8 @@ python3 scripts/check_fixtures.py --check-generated
 python3 scripts/check_jsonld.py   public --require-article
 python3 scripts/check_budgets.py  public
 python3 scripts/check_links.py    public           # internal only
-python3 scripts/check_contrast.py                  # -v for all 150 ratios
+python3 scripts/check_contrast.py                  # -v for all 156 ratios
+python3 scripts/check_agents.py                    # the tooling you are running under
 python3 scripts/check_showcase.py                  # advisory until M5
 ```
 
@@ -252,15 +253,26 @@ Shared files with explicit seams, so they do not become conflicts:
 
 ## Tooling
 
-Committed under [`.claude/`](.claude/) and [`.mcp.json`](.mcp.json). Claude Code reads all of it
-automatically; other agents can read the sources directly.
+**[`.claude/`](.claude/) and [`.mcp.json`](.mcp.json) are canonical. [`.codex/`](.codex/) mirrors
+them, and `.agents/skills` is a symlink into `.claude/skills`, not a copy.** The sync map, the
+one-way repair direction and the authoring gates for each artefact kind live in
+[`.claude/AGENTS.md`](.claude/AGENTS.md) — read that before changing anything in this table, and
+run `python3 scripts/check_agents.py` after.
 
 | | |
 |---|---|
 | **Skills** | `/gates` build + every PR gate (`/gates floor` for the 0.146.0 end of the matrix) · `/serve` dev server, spelled correctly · `/new-setting` the config ritual in trap 3 · `/code-block` the render-hook contract · `/hugo-templates` the post-0.146 lookup rules and the version-floor traps |
-| **Hook** | [`.claude/hooks/guardrails.py`](.claude/hooks/guardrails.py) — a `PreToolUse` guard that blocks the traps above *before* the edit lands rather than minutes later in CI, with an error that names the mistake rather than a gate |
-| **Tests** | `python3 .claude/hooks/test_guardrails.py` — 33 cases, half of them "this must **not** fire", including a replay of every tracked file through the hook |
+| **Commands** | `/agents-doctor` runs the mirror gate and repairs the drift it reports |
+| **Subagents** | `spec-locator` what already makes this a rule, with the `file:line` · `theme-locator` where a feature's four touch-points are, and who owns each · `contract-reviewer` a diff against the six traps and the frozen names. All three read-only — `check_agents.py` rejects a subagent that can write |
+| **Hook** | [`.claude/hooks/guardrails.py`](.claude/hooks/guardrails.py) — a `PreToolUse` guard that blocks the traps above *before* the edit lands rather than minutes later in CI, with an error that names the mistake rather than a gate. **One script, registered twice** — Claude Code through `settings.json`, Codex through `.codex/hooks.json`. It is never copied; a copy is the bug that produced `check_agents.py` |
+| **Tests** | `python3 .claude/hooks/test_guardrails.py` — 39 cases, half of them "this must **not** fire", including a replay of every tracked file through the hook |
 | **MCP** | Playwright ([`.mcp.json`](.mcp.json)), for the "measure rather than assert" rule. Opt-in: Claude Code asks before loading a project-scoped server, and nothing in CI or in the build needs it |
+
+**The tooling is gated like the theme is.** `scripts/check_agents.py` runs in CI and fails the pull
+request on a mirror that disagrees with its source, a machine-specific absolute path, a path whose
+case only resolves on a case-insensitive filesystem, a skill description over its context budget, a
+subagent that can write, or a number quoted in prose that the gate it describes no longer reports.
+Every one of those is a real defect this repository has already shipped — see issue #40.
 
 Two notes on the hook. **Every rule cites the spec that makes it a rule** — if you cannot point at
 the line that makes something wrong, it does not belong in there. And **a false positive is a bug

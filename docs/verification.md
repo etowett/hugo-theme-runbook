@@ -57,6 +57,7 @@ python3 scripts/check_budgets.py  public
 python3 scripts/check_links.py    public         # internal only; add --external for the sweep
 python3 scripts/check_showcase.py                # advisory
 python3 scripts/check_contrast.py                # owned by the design workstream
+python3 scripts/check_agents.py                  # the tooling, not the theme — see below
 ```
 
 Reproducing the CI matrix locally against the 0.146.0 floor:
@@ -90,7 +91,24 @@ really a difference of gzip implementation.
 |---|---|---|
 | **Build** (matrix) | yes | Builds `exampleSite` on **Hugo 0.146.0 non-extended** and **latest extended**, with `--panicOnWarning --printPathWarnings --printUnusedTemplates`, then runs the REQ-CB-1, fixture, JSON-LD and budget gates on each |
 | **Contrast** | yes, once it exists | Runs `scripts/check_contrast.py`; emits a notice and passes while the file is absent (design workstream, [contracts §1 A](contracts.md#1-file-ownership)) |
+| **Agent config** | yes | `scripts/check_agents.py` and `test_guardrails.py`. The mirror gate — see §2.1 |
 | **Showcase** | no (`continue-on-error`) | `scripts/check_showcase.py`. Advisory until M5 — see §5 |
+
+#### 2.1 Why the agent-config job runs on the runner and not only locally
+
+Everything `check_agents.py` asserts can be checked on a laptop except one thing, and that one thing
+is why the job exists: **a path whose case is wrong resolves on macOS and fails on Linux.** The
+defect that produced this gate was a copied skill file reading `.Codex/hooks/` where the directory
+is `.codex/`. It worked on the machine that wrote it, worked in every local test, and would have
+failed for the next contributor. The case-sensitivity check compares every `.<dir>/` reference in
+the tooling against the real directory names, so it catches the mistake on either platform — but the
+runner is the platform where the underlying bug actually bites.
+
+The job also fails on a machine-specific absolute path in shared config, a mirror that disagrees
+with its canonical source (including MCP server *arguments*, which is where a version pin lives), a
+skill description over its context budget, a subagent granted write tools, and a number quoted in
+prose that the gate it describes no longer reports. That last one is not hypothetical: the contrast
+gate moved from 150 to 156 assertions and five files kept saying 150.
 
 Both matrix legs matter and can break independently. The minimum is what `theme.toml` and
 `[module.hugoVersion]` promise, and it is built **non-extended** because ADR-0 declares extended is
