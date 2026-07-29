@@ -75,12 +75,23 @@ that omits it is not reproducible. `scripts/check_budgets.py` shells out to the 
 rather than using zlib, so its numbers match the command quoted in
 [005 §5](../specs/005-performance-budgets.md#5-reproducibility) by hand.
 
-**Compare page weights on one platform only.** Measured on the same build, GNU gzip on the Linux
-runner and Apple gzip on macOS disagree: the article p50 reads 2,585 B on CI and 2,728 B locally.
-The theme-shell figures happen to agree exactly (CSS 2,125 B, JS 481 B), but that is luck, not a
-property. So the p50/p90 gates and any `--baseline` file must be produced and consumed on the same
-platform — a baseline captured on a laptop and compared on a runner reports a regression that is
-really a difference of gzip implementation.
+**Compare page weights on one platform only.** GNU gzip on the Linux runner and Apple gzip on macOS
+do not agree on the same bytes. Measured on one commit, one build, both platforms:
+
+| | macOS, Apple gzip | CI, GNU gzip |
+|---|---:|---:|
+| CSS total | 7,356 | **7,374** |
+| Core article JS | 2,068 | 2,068 |
+| Search chunk | 1,416 | 1,416 |
+| Article p50 | 4,163 | 4,163 |
+| Article p90 | 6,983 | **7,004** |
+
+**Which figures move, and by how much, is a property of the input, not a constant** — three of these
+five agree exactly and the other two differ by 0.2–0.3%, while an earlier build of this same demo
+site put the article p50 5.5% apart. So do not treat any of that as a correction factor to apply.
+The rule is the same either way: the p50/p90 gates and any `--baseline` file must be produced and
+consumed on the same platform, because a baseline captured on a laptop and compared on a runner
+reports a regression that is really a difference of gzip implementation.
 
 ---
 
@@ -265,8 +276,8 @@ reflects only what the theme emits.
 
 Reproduce the whole column with `python3 scripts/check_budgets.py public`; every figure is that
 run's own output rather than a number typed in from somewhere. The gzipped ones were taken on macOS,
-so CI's GNU gzip will report them a few percent apart on the identical build — read the headroom,
-never the last digit, and see [§1 Reproducibility](#reproducibility). The raw font sizes are
+and CI reports CSS as **7,374** on the identical build — read the headroom, never the last digit,
+and see [§1 Reproducibility](#reproducibility) for the full pair. The raw font sizes are
 platform-independent.
 
 CSS is at 92% of its ceiling and the code font at 82% of its; those two are where the next
