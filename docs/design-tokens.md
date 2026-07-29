@@ -474,10 +474,42 @@ muted→body text-colour change that the selected state does not rely on.
 `--rb-space-1..8` on a 4px base; `--rb-radius-sm|md|lg` **8 / 16 / 28px**, plus
 **`--rb-radius-code`** 20px for the plate and **`--rb-radius-pill`** 999px for tags, nav, TOC
 entries and archive rows; **`--rb-shadow-sm|md|lg`**, warm-tinted rather than neutral black
-because a grey shadow on a cream ground reads as dirt; `--rb-measure` 70ch,
-`--rb-content-width`, `--rb-page-width` **72rem**, `--rb-gutter`; `--rb-target-min` 24px and
-**`--rb-target-touch`** 44px, `--rb-focus-width`, `--rb-focus-offset`; `--rb-transition`;
-`--rb-z-header` / **`--rb-z-sheet`** / `--rb-z-skip`.
+because a grey shadow on a cream ground reads as dirt; the page shell below;
+`--rb-target-min` 24px and **`--rb-target-touch`** 44px, `--rb-focus-width`,
+`--rb-focus-offset`; `--rb-transition`; `--rb-z-header` / **`--rb-z-sheet`** / `--rb-z-skip`.
+
+#### The page shell — two widths, because an article is not a card grid
+
+| Token | Value | |
+|---|---|---|
+| `--rb-measure` | 70ch | prose measure, [specs/003 §3.1](../specs/003-design-spec.md) says 68–72ch |
+| `--rb-content-width` | 46rem | |
+| `--rb-page-width` | **84rem** | the card grid's shell — three columns and their gaps |
+| **`--rb-article-width`** | **73rem** | the article's shell. `layout.css` scopes `--rb-page-width` down to it on any page containing `.rb-article` |
+| **`--rb-rail-width`** | **18.25rem** | the TOC rail — the design's 292px |
+| **`--rb-rail-gap`** | `--rb-space-7` | prose-to-rail column gap |
+| `--rb-gutter` | `clamp(1rem, 4vw, 2.5rem)` | 40px at the design's frame, 16px at 360px |
+
+**Two shell widths rather than one, and the second is arithmetic rather than taste.** The prose is
+capped at `--rb-measure`, so a prose track wider than the measure cannot be filled and the
+difference becomes a void between the text and the rail — 226px of it at a 1440px viewport, which
+is what the 84rem shell produced before `--rb-article-width` existed. The article shell is
+therefore the sum of the things in it:
+
+```
+measure 749.6px + rail 292px + gap 48px + 2 × gutter 40px = 1169.6px → 73rem = 1168px
+```
+
+which leaves the prose track at 748px, a hair under the measure — so the track bounds the prose and
+there is no slack left to become a hole. **Changing any one of those four means re-deriving
+`--rb-article-width`;** they are named tokens rather than literals in the grid for exactly that
+reason. Verified in Chromium at 1440px: prose 748px in a 748px track, header, h1 and prose all on
+x = 176.
+
+Note that `--rb-measure` is a `ch` value and a `ch` is the advance of "0" **in the font of the
+element it is applied to**. It is a measure only for elements set in `--rb-font-sans`; applied to a
+display-face heading it silently means something much wider. `.rb-article-title` is deliberately
+outside the rule that applies it.
 
 None of these are configuration. There is deliberately no `params.runbook.accent`, no radius
 setting and no font-size setting: every one of them is a value the contrast gate or the budget
@@ -492,6 +524,20 @@ Overriding the custom properties directly is the supported route, and §7 says w
 
 - any `--rb-color-*`, `--rb-code-*`, `--rb-syn-*` value;
 - `--rb-font-sans`, `--rb-font-mono`, `--rb-measure`, `--rb-text-*`, `--rb-space-*`, `--rb-radius-*`.
+
+**`--rb-measure`, `--rb-rail-width` and `--rb-rail-gap` come as a set with
+`--rb-article-width`.** Widening the measure alone does not widen the article shell, so the extra
+characters have nowhere to go and the prose simply stops short of the rail again — the void this
+theme had before §6's arithmetic existed. Move all four, or none:
+
+```css
+:root {
+  --rb-measure:       76ch;    /* ≈ 814px on the 17px body sans */
+  --rb-article-width: 77rem;   /* 814 + 292 + 48 + 80 = 1234px */
+}
+```
+
+Changing `--rb-font-sans` moves the measure too, because `ch` is a property of the font.
 
 The syntax palette is **11 custom properties per theme**, not a 60-selector fork. Retheming
 Chroma means:

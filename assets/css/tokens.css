@@ -252,10 +252,41 @@
   --rb-shadow-lg: 0 12px 32px rgba(46, 43, 37, 0.22);
 
   /* ── Measure and page shell ─────────────────────────────────────────────── */
+  /* --rb-measure is a `ch` value, so it resolves against the FONT OF THE ELEMENT IT
+     IS APPLIED TO and is only a measure for elements set in --rb-font-sans. Applied
+     to a display-font heading it means something else entirely: 70ch of Caprasimo at
+     --rb-text-4xl measured 1223px against the same token's 749.6px on 17px body
+     sans, so the article h1 ran 473px wider than the paragraphs under it. Anything
+     not set in the body face gets --rb-measure-display or the column, never this. */
   --rb-measure:       70ch;   /* prose measure — specs/003 §3.1 says 68–72ch */
   --rb-content-width: 46rem;
   --rb-page-width:    84rem;  /* reference-width desktop grid, with the TOC rail */
-  --rb-gutter:        var(--rb-space-5);
+
+  /* The TOC rail, and the gap between it and the prose. Named rather than inlined
+     into the grid because --rb-article-width below is their sum and has to stay in
+     step with them; three literals in two files is how that drifts. 18.25rem is the
+     design's 292px. */
+  --rb-rail-width:    18.25rem;
+  --rb-rail-gap:      var(--rb-space-7);
+
+  /* THE ARTICLE SHELL IS SIZED TO ITS CONTENT, NOT TO THE CARD GRID. layout.css
+     scopes --rb-page-width down to this on article pages. Reasoning in full there;
+     briefly, a `1fr` prose track inside the 84rem grid shell took all the slack the
+     page had while the prose stayed capped at --rb-measure, and the 226px difference
+     became a void between the text and the rail.
+
+       measure 749.6px + rail 292px + gap 48px + 2 × gutter 40px = 1169.6px
+
+     73rem is 1168px, which leaves the prose track at 748px — a hair under the
+     measure, so the track is what bounds the prose and there is no slack left to
+     become a hole. Verified in Chromium at 1440px: prose 748px in a 748px track. */
+  --rb-article-width: 73rem;
+
+  /* 24px flat put the frame closer to the window edge than the design draws it (40px)
+     and was no kinder at 360px, where it is the whole side margin. 2.5rem is a
+     literal rather than a step because the 4px scale has no 40px: --rb-space-6 is
+     32px and --rb-space-7 is 48px, and the sum above is built on this number. */
+  --rb-gutter:        clamp(var(--rb-space-4), 4vw, 2.5rem);
 
   /* ── Controls ───────────────────────────────────────────────────────────── */
   --rb-target-min: 24px;      /* WCAG 2.2 target size — specs/003 §3.6 */
