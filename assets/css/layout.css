@@ -603,7 +603,12 @@ a.rb-term:hover { background: var(--rb-color-accent); color: var(--rb-color-acce
   line-height: var(--rb-leading-tight);
   text-decoration: none;
 }
-.rb-toc-link:hover { background: var(--rb-color-bg-subtle); color: var(--rb-color-text); }
+/* --rb-toc-hover-bg, not --rb-color-bg-subtle. The rail is painted
+   --rb-color-surface, and in the dark palette surface and bg-subtle are the same
+   value by design — so the obvious spelling gave hover a background change of
+   exactly 1.00:1 and left the text colour carrying the whole state. Both TOC
+   surfaces are now named and both are asserted against the card. */
+.rb-toc-link:hover { background: var(--rb-toc-hover-bg); color: var(--rb-color-text); }
 /* Scroll-spy sets aria-current; the dot is the visual half of the same fact. Its
    palette-scoped token clears 3:1 on the selected pill, and the inline-start edge
    makes it read as a position marker on the rail rather than a bullet. */
@@ -629,7 +634,8 @@ a.rb-term:hover { background: var(--rb-color-accent); color: var(--rb-color-acce
    JavaScript bundle deleted — which is also the only reason "one partial rendered
    twice" is achievable at all: a JS-driven sheet would need state the rail does not
    have. Each render carries its own heading id so the duplication is not a duplicate
-   id, and only the rail carries `data-rb-toc`, so scroll-spy binds once. */
+   id, and only the rail carries `data-rb-toc`, so scroll-spy binds once.
+
    ▸ It is a BOTTOM PILL that raises a sheet, not a panel at the top of the article.
      It was the latter, and the difference is not decoration: a sticky panel above the
      prose occupies the top of every scroll position on the one viewport with the least
@@ -812,7 +818,11 @@ a.rb-term:hover { background: var(--rb-color-accent); color: var(--rb-color-acce
 @media (pointer: coarse) {
   .rb-nav-list a,
   .rb-search-link,
-  .rb-term,
+  /* `a.rb-term`, not `.rb-term`: the chip rule above is element-qualified so that a
+     term PAGE root carrying the same class does not receive chip paint. A bare
+     `.rb-term` here is (0,1,0) against that (0,1,1) and loses `display`, which
+     silently drops the flex centring and leaves the label at the top of a 44px box. */
+  a.rb-term,
   .rb-toc-link,
   .rb-pagination-list a,
   .rb-theme-toggle {
