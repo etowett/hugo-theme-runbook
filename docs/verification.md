@@ -55,7 +55,7 @@ python3 scripts/check_fixtures.py --check-generated
 python3 scripts/check_jsonld.py   public
 python3 scripts/check_budgets.py  public
 python3 scripts/check_links.py    public         # internal only; add --external for the sweep
-python3 scripts/check_showcase.py                # advisory
+python3 scripts/check_showcase.py                # advisory; add --network to resolve the demo URL
 python3 scripts/check_contrast.py                # owned by the design workstream
 python3 scripts/check_agents.py                  # the tooling, not the theme — see below
 ```
@@ -137,9 +137,18 @@ not choose, and "it builds on my config" is not the claim being made.
 |---|---|---|
 | `0 22 * * *` daily | Build against **latest** Hugo | It can break with no change to this repository. The showcase rebuilds every theme daily at 00:00 UTC and a theme that stops building disappears from it with no notice ([009 §4](../specs/009-showcase-compliance.md)). 22:00 UTC is deliberate: two hours before the showcase rebuild, so CI finds it first |
 | `0 3 * * 1` weekly | **External link sweep** | It takes minutes over thousands of links, hits rate limits, and fails when a third party's docs site is down. Gating a PR on that produces a red X nobody can act on, which teaches people to ignore CI ([007 §3.5](../specs/007-verification.md)) |
+| daily, with the build | **Demo site resolves** — `check_showcase.py --network` | It fetches `theme.toml`'s `demosite` URL, and a pull request must not go red because a host is down. It is also drift nothing else can see: the showcase links a visitor straight at that URL ([009 §2](../specs/009-showcase-compliance.md)) while every build stays green. `demosite` sat at a URL that had never once resolved, and the one check that mentioned it deferred to a verification nothing performed (issue #46) |
 
-Both open or update a **tracking issue** on failure rather than only turning a square red, because
-a scheduled job nobody is watching fails silently.
+All three open or update a **tracking issue** on failure rather than only turning a square red,
+because a scheduled job nobody is watching fails silently.
+
+`netlify.toml` is what the demo job exists to guard: it builds `exampleSite` with the
+`--themesDir <parent> --theme <basename>` spelling, because Netlify checks the repository out into
+a directory named `repo` and `--themesDir ../..` fails there exactly as it does in a worktree. It
+overrides `--baseURL` at deploy time from Netlify's own `$URL`/`$DEPLOY_PRIME_URL` so the committed
+`baseURL = "https://example.com/"` — which [009 §2](../specs/009-showcase-compliance.md) requires
+and `check_showcase.py` asserts — stays hermetic. **The Netlify site itself still has to be created
+and connected to the repository**, which is why `theme.toml` carries no `demosite` value yet.
 
 #### The link exclusion list
 
@@ -273,17 +282,23 @@ grades findings, because most of the outstanding work cannot be done yet:
 - **TODO** — a requirement whose artefact does not exist yet.
 - **NOTE** — owned by a different workstream, or by nobody.
 
-At this commit: 0 fail, 2 todo, 3 note, 7 ok. The two TODOs are `images/screenshot.{png,jpg}`
+At this commit: **0 fail, 3 todo, 1 note, 8 ok**. Two TODOs are `images/screenshot.{png,jpg}`
 (≥ 1500×1000, 3:2) and `images/tn.{png,jpg}` (≥ 900×600, 3:2), which cannot be produced before the
 theme renders. The script reports them as missing rather than crashing, and reads PNG and JPEG
 dimensions from their headers with no imaging library.
 
-One NOTE is worth acting on separately: **`README.md` contains two relative links**
-(`specs/README.md` and `LICENSE`), which break when the README is carried onto themes.gohugo.io.
-`README.md` is owned by nobody per [contracts §1](contracts.md#nobody), so it needs its own PR.
+The third is the demo site, and it is the one worth reading twice. `theme.toml` advertised
+`https://hugo-theme-runbook.netlify.app/` from the first commit; that host has never resolved, and
+because the field was only checked for **presence** the gate reported it as fine (issue #46). The
+field is now absent — [009 §2](../specs/009-showcase-compliance.md) requires a public demo site but
+does not list `demosite` among the theme.toml fields it requires, so an absent field is an honest
+report of undone work where a 404 was a false one. `--network` resolves whatever value is there and
+**FAILs on a non-2xx**, on a DNS failure and on a timeout; without the flag the run is hermetic and
+touches nothing, so per-PR runs never depend on the network.
 
 The job is `continue-on-error: true` and will stay that way until M5. Run
-`python3 scripts/check_showcase.py --strict` to make TODOs fail — that is the release gate.
+`python3 scripts/check_showcase.py --strict` to make TODOs fail — that is the release gate, and the
+missing demo now fails it.
 
 Note the submission process changed and the old checklist is stale: `gohugoio/hugoThemes` is
 archived, `reviewTheme.sh` is gone, and submission is now a **pull request** to

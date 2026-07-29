@@ -11,6 +11,12 @@ name: Scheduled
 # The external link sweep is here because it takes minutes, hits rate limits, and fails
 # when a third party's documentation site is down. specs/007 §3.5: gating a PR on that
 # produces a red X nobody can act on, which teaches people to ignore CI.
+#
+# The demo-site check is here for the same reason and a sharper one: the theme.toml field
+# the showcase reads sat at a URL that had never resolved, and the only check that
+# mentioned it deferred to "the scheduled latest-Hugo job" — which builds exampleSite and
+# has never fetched anything (issue #46). Resolving a URL belongs on a clock, not on a
+# pull request.
 
 on:
   schedule:
@@ -102,6 +108,63 @@ jobs:
             gh label create ci-nightly --description "Opened by the scheduled CI job" \
               --color B60205 2>/dev/null || true
             gh issue create --title "$TITLE" --label ci-nightly \
+              --body-file "$RUNNER_TEMP/body.md"
+          fi
+
+  showcase-demo:
+    # The showcase entry links a visitor straight at theme.toml's `demosite`, and a demo
+    # that goes dark takes the entry's usefulness with it while every gate stays green —
+    # presence in the file was all anything checked (issue #46).
+    #
+    # --network and nothing else. ci.yml deliberately runs check_showcase.py offline, so
+    # a pull request never turns red because a host is down (specs/007 §3.5), and it is
+    # NOT --strict: images/screenshot.* and images/tn.* are absent on purpose until M6
+    # and would fail every run for a reason nobody can act on today.
+    #
+    # Until `demosite` is restored to theme.toml this job reports the missing demo as a
+    # TODO and passes. That is the intended sequence: netlify.toml builds the demo, the
+    # Netlify site has to be created and connected by hand, and the field goes back the
+    # day it is live — at which point this job starts guarding it with no further change.
+    name: Demo site resolves
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: theme.toml's demosite must answer 2xx
+        run: python3 scripts/check_showcase.py --network
+
+      - name: Open or update a tracking issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          TITLE="Showcase demo site is not answering"
+          cat > "$RUNNER_TEMP/body.md" <<'BODY'
+          `scripts/check_showcase.py --network` could not resolve the `demosite` URL in
+          `theme.toml`, or the URL answered with something other than 2xx.
+
+          The Hugo Themes showcase links a visitor straight at that URL (specs/009 §2), so
+          a dead demo is a broken entry rather than a broken build — nothing else in CI
+          notices, which is exactly the gap issue #46 was opened for.
+
+          Check the deploy first: `netlify.toml` builds `exampleSite` with the
+          `--themesDir <parent> --theme <basename>` spelling, because Netlify checks the
+          repository out into a directory named `repo` and `--themesDir ../..` fails there
+          with `module "hugo-theme-runbook" not found`. If the fix is that the demo moved,
+          update `theme.toml` rather than this job; if the demo is gone for good, remove
+          the field rather than leaving a URL that 404s.
+          BODY
+          printf '\nRun: %s\n' "$RUN_URL" >> "$RUNNER_TEMP/body.md"
+          EXISTING=$(gh issue list --state open --label ci-demo \
+            --search "$TITLE in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh label create ci-demo --description "Opened by the scheduled demo-site check" \
+              --color 0E8A16 2>/dev/null || true
+            gh issue create --title "$TITLE" --label ci-demo \
               --body-file "$RUNNER_TEMP/body.md"
           fi
 
