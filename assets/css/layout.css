@@ -37,6 +37,29 @@
   padding-inline: var(--rb-gutter);
 }
 
+/* ── THE ARTICLE SHELL IS NARROWER THAN THE CARD-GRID SHELL ──────────────────
+   84rem is sized for a three-column card grid. An article is a reading measure and a
+   rail, which is a much narrower thing, and letting it inherit the grid's width is
+   what put a void in the middle of the page:
+
+     the prose track was `minmax(0, 1fr)` and took all the slack the shell had — 976px
+     at a 1440px viewport — while the prose inside it stayed capped at --rb-measure,
+     749.6px. The 226px difference had nowhere to go, so it sat between the end of
+     every line and the rail. The page read as squeezed into its left half, which is
+     the complaint that produced this rule.
+
+   Scoping the shell TOKEN rather than the <main> element is what keeps the header,
+   the article and the footer on one left edge. Narrowing `.rb-main` alone would have
+   centred the prose under a full-width header and misaligned the brand with the h1;
+   --rb-page-width is read by all three, so moving the token moves all three together.
+
+   `:has()` and not a body class because `layouts/*.html` and `layouts/_partials/**`
+   belong to stream C (contracts §1) and this is stream A's file. The theme already
+   depends on `:has()` for the card-stretch rule below. Where it is unsupported the
+   selector never matches, article pages keep the 84rem shell, and the result is
+   exactly today's layout — the void, but nothing broken. */
+:root:has(.rb-article) { --rb-page-width: var(--rb-article-width); }
+
 /* ── Reading progress — ZERO JavaScript ──────────────────────────────────────
    A scroll-linked animation, so the browser drives it off the scroll position on the
    compositor rather than a listener on the main thread. specs/003 §3.5 and the
@@ -214,8 +237,13 @@
 
 .rb-main { padding-block: var(--rb-space-6) var(--rb-space-8); }
 
+/* .rb-article-title is deliberately NOT in this list. --rb-measure is `70ch`, and a
+   `ch` is the advance of "0" IN THE ELEMENT'S OWN FONT — so the one token meant two
+   different widths depending on which face it landed on: 749.6px on the 17px body
+   sans, 1223px on Caprasimo at --rb-text-4xl. The h1 ran 473px wider than the
+   paragraphs beneath it while appearing to share their measure. The title is bounded
+   by its column instead, which is now the measure's width anyway. */
 .rb-prose,
-.rb-article-title,
 .rb-article-description,
 .rb-article-header .rb-meta { max-width: var(--rb-measure); }
 
@@ -560,11 +588,14 @@ a.rb-term:hover { background: var(--rb-color-accent); color: var(--rb-color-acce
 .rb-article-layout > * { min-width: 0; }
 @media (min-width: 56.25rem) {
   .rb-article-layout {
-    /* A TOC has long labels in the real corpus, so it needs room to wrap them
-       sensibly without taking the prose column below its reading measure. The
-       clamp remains viable at the 900px desktop breakpoint and reaches the
-       reference-like 18rem rail on a normal desktop. */
-    grid-template-columns: minmax(0, 1fr) clamp(15rem, 20vw, 18rem);
+    /* The rail is a fixed --rb-rail-width at the top of the range and the prose
+       track takes the remainder, which the shell above has already sized to the
+       measure — so `1fr` here resolves to 748px rather than to 976px, and the prose
+       fills it. The clamp survives because the shell is a max-width: between the
+       900px breakpoint and 73rem the viewport is the binding constraint, and the
+       rail gives width back to the prose rather than holding 292px it has not got. */
+    grid-template-columns: minmax(0, 1fr) clamp(15rem, 22vw, var(--rb-rail-width));
+    column-gap: var(--rb-rail-gap);
     align-items: start;
   }
   .rb-article-layout > .rb-prose { grid-area: 1 / 1; }
@@ -572,10 +603,13 @@ a.rb-term:hover { background: var(--rb-color-accent); color: var(--rb-color-acce
     grid-area: 1 / 2;
     position: sticky;
     inset-block-start: var(--rb-space-5);
-    /* Navigation must remain a compact card rather than growing to the full
-       height of a tall desktop viewport. Long tables of contents scroll inside
-       this bounded rail; the mobile sheet keeps its own larger touch target. */
-    max-block-size: min(26rem, calc(100vh - var(--rb-space-8)));
+    /* Bounded by the VIEWPORT, not by a fixed 26rem. The old cap was 416px and the
+       theme's own 158-block fixture has a twenty-entry contents list 551px tall, so
+       the rail clipped itself and scrolled internally while 580px of viewport sat
+       empty below it. A sticky element still may not outgrow the screen it is pinned
+       to, so the bound stays — it is just the real one. `- 2 ×` the sticky offset
+       keeps the same air under the rail as above it. */
+    max-block-size: calc(100vh - var(--rb-space-5) * 2);
     overflow-y: auto;
     padding: var(--rb-space-5);
     background: var(--rb-color-surface);
@@ -585,19 +619,59 @@ a.rb-term:hover { background: var(--rb-color-accent); color: var(--rb-color-acce
   }
 }
 .rb-toc-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--rb-space-2);
   font-size: var(--rb-text-xs);
   font-family: var(--rb-font-mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--rb-color-text-subtle);
-  margin: 0 0 var(--rb-space-2);
+  margin: 0 0 var(--rb-space-4);
 }
-.rb-toc-list { list-style: none; margin: 0; padding: 0; }
-.rb-toc-list--nested { padding-inline-start: var(--rb-space-3); }
+/* The design's icon chip, drawn here rather than added to the markup:
+   `layouts/_partials/article/toc.html` is stream C's file (contracts §1) and this is
+   stream A's, so a CSS-only chip is the difference between a design change and a
+   cross-boundary edit.
+
+   Three gradient bars over a round background, not a data-URI SVG and not a mask. A
+   data URI would bake the light theme's ink into the glyph; a mask cannot be used
+   here at all, because it clips the element it is applied to — the round chip and
+   the lines drawn on it are one box, so masking to the glyph would take the chip
+   with it. Stops rather than a real gradient (`linear-gradient(<colour> 0 0)`) is the
+   flat-fill idiom, and background-size/position place the bars: a 14px lane centred
+   in the 28px chip, three 2px rules on a 4px rhythm, 9/13/17 so the block they make
+   is centred on 14.
+
+   Both colours are already-asserted tokens, so this introduces no new contrast pair:
+   --rb-toc-active-bg is the selected pill's background and --rb-toc-fg-active is the
+   ink already asserted against it, in both palettes. */
+.rb-toc-heading::before {
+  content: "";
+  flex: none;
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  border-radius: var(--rb-radius-pill);
+  background-color: var(--rb-toc-active-bg);
+  background-image:
+    linear-gradient(var(--rb-toc-fg-active) 0 0),
+    linear-gradient(var(--rb-toc-fg-active) 0 0),
+    linear-gradient(var(--rb-toc-fg-active) 0 0);
+  background-repeat: no-repeat;
+  background-size: 14px 2px, 9px 2px, 11px 2px;
+  background-position: 7px 9px, 7px 13px, 7px 17px;
+}
+.rb-toc-list { list-style: none; display: grid; gap: 2px; margin: 0; padding: 0; }
+.rb-toc-list--nested { padding-inline-start: var(--rb-space-3); margin-block-start: 2px; }
+/* 8px of block padding, not 4. At 4 the rows were 24.1px tall and touching, which is
+   a dense list rather than the design's rail; the design draws 8px with a 2px gap and
+   that is what makes it read as navigation you can hit. The 24px inline-start is the
+   marker's lane — see the ::before below, which lives inside this padding. */
 .rb-toc-link {
   display: block;
   position: relative;
-  padding: var(--rb-space-1) var(--rb-space-3) var(--rb-space-1) var(--rb-space-5);
+  padding: var(--rb-space-2) var(--rb-space-3) var(--rb-space-2) var(--rb-space-5);
+  border-radius: var(--rb-radius-pill);
   color: var(--rb-toc-fg);
   font-size: var(--rb-text-sm);
   line-height: var(--rb-leading-tight);
