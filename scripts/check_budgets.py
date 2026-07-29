@@ -25,7 +25,13 @@ the originally proposed 7 KB ceiling *before Runbook added a single byte*.
 
     The mechanism below is complete and tested. The numbers must be re-derived from a
     fresh Stack baseline captured at the same commit as the comparison — see
-    `--write-baseline` and docs/verification.md.
+    `--write-baseline` and docs/verification.md §4, which now carries the procedure.
+
+    Because that state survived two milestones unnoticed, a run in which the page-weight
+    half gates nothing does not end in the word PASS on its own: it ends in
+    `PASS (page-weight gates INERT …)` and names each rule that measured something and
+    gated nothing. Still exit 0 — see the comment beside that code for why a red X here
+    would be the wrong lever.
 
 Compression is ``gzip -n -9`` throughout. **The ``-n`` is mandatory.** Without it gzip
 writes a modification timestamp into the header, byte counts move between runs, and the
@@ -39,10 +45,12 @@ from __future__ import annotations
 import argparse
 import gzip as gzip_mod
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlparse
@@ -88,6 +96,21 @@ EXECUTABLE_SCRIPT_TYPES = {
     "text/javascript", "application/javascript", "application/ecmascript",
     "text/ecmascript", "application/x-javascript",
 }
+
+# ── THE LAZY SEARCH CHUNK — ONE DEFINITION, TWO CONSUMERS ─────────────────────────────
+# The chunk is budgeted separately, at SEARCH_JS_GZ_MAX, because it is loaded only on
+# /search/ — everything reachable from runbook.js shares one 3 KB budget and the search
+# entry has its own. That allowance and the per-page script-tag rule used to derive "is
+# this the search chunk" independently, and disagreed: the byte budget granted the chunk
+# its own 3 KB and the per-page sweep then failed search/index.html for carrying a third
+# executable <script> tag, against a ceiling read off a synthetic fixture that loads no
+# search at all (issue #51). A budget that grants a feature an allowance and then
+# penalises the one page that uses it is not measuring anything.
+#
+# Both consumers now resolve the chunk through find_search_chunk(), so they cannot drift
+# apart again. The exclusion is scoped to the per-page sweep and deliberately NOT applied
+# to the shell-fixture row — see the comment there.
+SEARCH_CHUNK_GLOBS = ("**/search*.js", "**/js/search/*.js")
 
 # Attributes that cause the browser to fetch a subresource. Anchor `href` is deliberately
 # absent: a link to github.com in post prose is content, not a host the theme added.
@@ -175,6 +198,39 @@ def resolve_local(build: Path, url: str):
     return candidate if candidate.is_file() else None
 
 
+def find_search_chunk(build: Path):
+    """Every built file that is the lazy search chunk — the single definition (see above).
+
+    Both globs are the pair this gate has always carried. The current pipeline emits
+    `js/search/index.<hash>.js`; the flat `search*.js` spelling is kept so a rename cannot
+    drop the chunk out of both rules at once. The result is a set rather than a
+    concatenation — no build has yet emitted a file matching both patterns, and a set makes
+    it impossible to weigh one twice against SEARCH_JS_GZ_MAX if one ever does.
+    """
+    found = set()
+    for pattern in SEARCH_CHUNK_GLOBS:
+        found.update(p for p in build.glob(pattern) if p.is_file())
+    return sorted(found)
+
+
+def counted_scripts(build: Path, page: "PageParser", search_chunk):
+    """A page's executable ``<script>`` tags for the per-page budget, minus the search chunk.
+
+    Per-page is a corpus rule and the corpus contains /search/, which is *supposed* to load
+    the chunk; the chunk is weighed against its own budget instead. An inline script is
+    never the chunk, and a src the build cannot resolve to a local file is not either — a
+    consumer's third-party tag counts, which is the point.
+    """
+    chunk = set(search_chunk)
+    counted = []
+    for src in page.executable_scripts:
+        local = None if src == "(inline)" else resolve_local(build, src)
+        if local is not None and local in chunk:
+            continue
+        counted.append(src)
+    return counted
+
+
 class Report:
     def __init__(self):
         self.fails = []
@@ -200,9 +256,92 @@ class Report:
             self.fails.append(f"{name}: {value:,} {unit} exceeds budget {budget:,}")
 
 
+def self_test() -> int:
+    """The script-tag rule, exercised in both directions against a synthetic build tree.
+
+    Issue #51 was a false positive — /search/ failed for loading the chunk the gate had
+    already granted its own budget. Fixing only that direction would convert it into a false
+    negative, which is worse: a gate that cannot fail is a gate nobody looks at, and this one
+    is the only thing standing between a consuming site and an analytics tag per page. So
+    both directions are pinned here, against a tree built from strings rather than from a
+    Hugo run, so the rule can be checked without a build and cannot rot silently.
+    """
+    report = Report()
+
+    def case(name: str, ok: bool, measured: str):
+        # The measurement is printed whether or not the case passes, for the same reason
+        # report.row prints a value next to every budget: a green line with no number in it
+        # cannot be checked by the person reading the log.
+        report.lines.append(f"  {'ok  ' if ok else 'FAIL'}  {name:<62} {measured}")
+        if not ok:
+            report.fails.append(f"{name}: {measured}")
+
+    def parse(html: str) -> PageParser:
+        page = PageParser()
+        page.feed(html)
+        return page
+
+    with tempfile.TemporaryDirectory() as tmp:
+        build = Path(tmp).resolve()
+        (build / "js" / "search").mkdir(parents=True)
+        (build / "js" / "search" / "index.deadbeef.js").write_text("// lazy search chunk\n")
+        (build / "js" / "runbook.cafebabe.js").write_text("// core bundle\n")
+        (build / "js" / "vendor.f00d.js").write_text("// a third script that is not search\n")
+
+        chunk = find_search_chunk(build)
+        names = [p.relative_to(build).as_posix() for p in chunk]
+        case("the shared definition resolves the chunk, and only the chunk",
+             names == ["js/search/index.deadbeef.js"], f"matched {names}")
+
+        search_page = parse(
+            "<script>/* theme guard */</script>"
+            '<script type="application/ld+json">{}</script>'
+            '<script defer src="/js/search/index.deadbeef.js"></script>'
+            '<script defer src="/js/runbook.cafebabe.js"></script>'
+        )
+        n = len(counted_scripts(build, search_page, chunk))
+        case("a page carrying the search chunk is within the per-page budget",
+             n <= EXECUTABLE_SCRIPTS_MAX, f"{n} counted, budget {EXECUTABLE_SCRIPTS_MAX}")
+        raw = len(search_page.executable_scripts)
+        # Not the same rule: the shell row is where a chunk that stopped being lazy shows up.
+        case("the shell-fixture row still counts the chunk",
+             raw == 3, f"{raw} raw on the same page")
+
+        noisy_page = parse(
+            "<script>/* theme guard */</script>"
+            '<script defer src="/js/runbook.cafebabe.js"></script>'
+            '<script defer src="/js/vendor.f00d.js"></script>'
+        )
+        n = len(counted_scripts(build, noisy_page, chunk))
+        case("a page carrying three non-search scripts is still over budget",
+             n > EXECUTABLE_SCRIPTS_MAX, f"{n} counted, budget {EXECUTABLE_SCRIPTS_MAX}")
+
+        offsite_page = parse(
+            "<script>/* theme guard */</script>"
+            '<script defer src="/js/runbook.cafebabe.js"></script>'
+            '<script defer src="https://example.com/search.js"></script>'
+        )
+        n = len(counted_scripts(build, offsite_page, chunk))
+        case("an off-site script merely named like the chunk still counts",
+             n > EXECUTABLE_SCRIPTS_MAX, f"{n} counted, budget {EXECUTABLE_SCRIPTS_MAX}")
+
+    print("Script-tag rule — regression cases (issue #51)")
+    for line in report.lines:
+        print(line)
+    print()
+    if report.fails:
+        print(f"FAIL: {len(report.fails)} self-test failure(s)")
+        for f in report.fails:
+            print(f"  - {f}")
+        return 1
+    print(f"PASS: check_budgets self-test ({len(report.lines)} cases)")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("build_dir", type=Path, help="a built Hugo site (e.g. public/)")
+    parser.add_argument("build_dir", type=Path, nargs="?",
+                        help="a built Hugo site (e.g. public/)")
     parser.add_argument(
         "--shell-fixture", default="posts/theme-shell-baseline/index.html",
         help="synthetic minimal-content page used for the theme-shell measurement "
@@ -226,7 +365,17 @@ def main() -> int:
              "thresholds have been re-derived from a fresh baseline (specs/005 §3.1).",
     )
     parser.add_argument("--json", type=Path, default=None, help="also write results as JSON")
+    parser.add_argument(
+        "--self-test", action="store_true",
+        help="check the script-tag rule against a synthetic build tree and exit — needs no "
+             "build, so it runs before the one that would take fifteen seconds to produce",
+    )
     args = parser.parse_args()
+
+    if args.self_test:
+        return self_test()
+    if args.build_dir is None:
+        parser.error("build_dir is required unless --self-test is passed")
 
     build = args.build_dir.resolve()
     if not build.is_dir():
@@ -291,7 +440,7 @@ def main() -> int:
     report.row("CSS total", css_total if css_found else None, CSS_GZ_MAX)
     report.row("Core article JS", js_core, CORE_JS_GZ_MAX)
 
-    search_js = sorted(build.glob("**/search*.js")) + sorted(build.glob("**/js/search/*.js"))
+    search_js = find_search_chunk(build)
     report.row("Search chunk (lazy)",
                sum(gz_file(p) for p in search_js) if search_js else None, SEARCH_JS_GZ_MAX)
 
@@ -302,6 +451,10 @@ def main() -> int:
     else:
         report.row("Bundled code font subset", None, FONT_SUBSET_MAX)
 
+    # Deliberately the RAW count, with no search-chunk exclusion. The fixture is a minimal
+    # page that must never carry the lazy chunk, so this row is where "the lazy chunk
+    # stopped being lazy" is caught — excluding it here would hide exactly the regression
+    # the shell ceiling exists for.
     n_exec = len(page.executable_scripts)
     report.row("Executable <script> tags", n_exec, EXECUTABLE_SCRIPTS_MAX, unit="tags")
     report.row("Third-party hosts", len(third_party), THIRD_PARTY_HOSTS_MAX, unit="hosts")
@@ -324,7 +477,9 @@ def main() -> int:
         "third_party_hosts": sorted(third_party),
     }
 
-    # Every article must also respect the script-tag budget, not just the fixture.
+    # Every article must also respect the script-tag budget, not just the fixture — but on
+    # the page the lazy search chunk is meant to load, the chunk is measured against its own
+    # budget above rather than counted twice (issue #51, and the block at the top).
     over_budget_pages = []
     weights = {}
     for path in sorted(build.glob(args.article_glob)):
@@ -332,8 +487,9 @@ def main() -> int:
         html = path.read_text(encoding="utf-8", errors="replace")
         pp = PageParser()
         pp.feed(html)
-        if len(pp.executable_scripts) > EXECUTABLE_SCRIPTS_MAX:
-            over_budget_pages.append((rel, len(pp.executable_scripts)))
+        counted = counted_scripts(build, pp, search_js)
+        if len(counted) > EXECUTABLE_SCRIPTS_MAX:
+            over_budget_pages.append((rel, len(counted)))
         weights[rel] = gz_size(path.read_bytes())
 
     if over_budget_pages:
@@ -428,6 +584,43 @@ def main() -> int:
                     f"{rel} grew {before:,} → {now:,} B gz (+{(now / before - 1):.1%})"
                 )
 
+    # ── Which half of this gate is actually gating? ───────────────────────────────────
+    # Every page-weight threshold has been None since the mechanism landed, and it survived
+    # two milestones because the run ended in the word PASS (issue #45). `placeholder gate:
+    # None` is printed forty lines above the verdict and nobody reads up. So the verdict
+    # itself now names the rules that are not gating, in the same shape as report.fails.
+    #
+    # Exit stays 0, deliberately, and that is the whole design constraint. ci.yml runs this
+    # on every pull request; the thresholds cannot be derived from exampleSite or from a
+    # laptop — twelve synthetic fixtures are not a corpus, and Apple gzip and GNU gzip
+    # disagree by ~5% on the same build — so they need the parity job, which has never run
+    # (#44). A non-zero exit would put a red X on every pull request for a condition no
+    # author introduced and none can fix, which is the "red X nobody can act on" that
+    # specs/007 §3.5 keeps out of ci.yml, and the fastest way to teach people to ignore it.
+    # Loud and green, not red. On a runner it is also an annotation, because that surfaces
+    # in the checks UI rather than in log text that has gone unread for two milestones.
+    inert = []
+    unset = sorted(k for k, v in PLACEHOLDER_PAGE_WEIGHT.items() if v is None)
+    if unset:
+        inert.append(
+            f"{len(unset)} of {len(PLACEHOLDER_PAGE_WEIGHT)} page-weight thresholds are unset "
+            f"({', '.join(unset)}) — measured and printed above, gating nothing. "
+            "Deriving them needs the parity job (#44); the procedure is docs/verification.md §4"
+        )
+    if not weights:
+        inert.append(
+            f"the distribution gate matched no pages under {args.article_glob!r}, so p50/p90 "
+            "measured nothing at all"
+        )
+    if not args.baseline:
+        inert.append("no --baseline was passed, so the per-page no-regression rule did not run")
+    elif not args.baseline.is_file():
+        inert.append(
+            f"--baseline {args.baseline} does not exist, so the per-page no-regression rule "
+            "did not run"
+        )
+    results["inert"] = inert
+
     if args.json:
         args.json.parent.mkdir(parents=True, exist_ok=True)
         args.json.write_text(json.dumps(results, indent=2, sort_keys=True) + "\n")
@@ -440,6 +633,17 @@ def main() -> int:
         for f in report.fails:
             print(f"  - {f}")
         return 1
+    if inert:
+        print(f"PASS (page-weight gates INERT — {len(inert)} rule(s) measured but gated nothing)")
+        for item in inert:
+            print(f"  ! {item}")
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            print(
+                "::warning file=scripts/check_budgets.py,"
+                "title=Budgets passed but the page-weight half is not gating::"
+                + "; ".join(inert)
+            )
+        return 0
     print("PASS: budgets")
     return 0
 
