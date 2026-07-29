@@ -16,9 +16,18 @@ Findings are graded, because most of this cannot be fixed yet:
 Only FAIL sets a non-zero exit. This job is advisory (non-blocking) in CI until M5 —
 see .github/workflows/ci.yml and docs/verification.md.
 
+One requirement is about the world rather than about the tree, and is opt-in for that
+reason. `--network` resolves the `demosite` URL over HTTP and FAILS on a non-2xx.
+Without the flag the run is hermetic and touches nothing, so a pull request is never
+gated on a host being reachable (specs/007 §3.5); `.github/workflows/scheduled.yml`
+passes it daily at 22:00 UTC instead, two hours ahead of the showcase's own rebuild
+(specs/009 §4). Presence alone was checked here until issue #46, which is how the field
+sat for months at a URL that had never once resolved.
+
 Standard library only, and deliberately so: reading PNG/JPEG dimensions by hand is 30
 lines and avoids making Pillow a contributor prerequisite for a theme that ships with
-"no Node, no npm, no build toolchain" on the tin.
+"no Node, no npm, no build toolchain" on the tin. The same rule is why the demo site is
+fetched with urllib rather than requests.
 
 Python 3.8+.
 """
@@ -29,6 +38,8 @@ import argparse
 import re
 import struct
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 REQUIRED_THEME_TOML_FIELDS = [
@@ -40,6 +51,14 @@ SCREENSHOT_MIN = (1500, 1000)
 THUMBNAIL_MIN = (900, 600)
 ASPECT = 3 / 2
 ASPECT_TOLERANCE = 0.01
+
+# --network only. Long enough that a cold Netlify edge answers, short enough that a dead
+# host does not hold a scheduled job open.
+DEMO_TIMEOUT = 15.0
+# Some hosts answer 403 to a checker with no User-Agent while working in a browser —
+# .github/link-exclusions.json exists because of that class of false positive, and
+# naming the checker is cheaper than an exclusion.
+USER_AGENT = "runbook-check-showcase/1 (+https://github.com/etowett/hugo-theme-runbook)"
 
 # Substrings that indicate a live third-party tracking credential. specs/009 §2 forbids
 # these anywhere in exampleSite; it is also why the showcase demo is exampleSite and not
@@ -156,12 +175,99 @@ def check_image(repo: Path, stem: str, minimum, f: Findings):
             f.ok(f"{rel}: {w}x{h}, 3:2")
 
 
+def demosite_value(data, text: str) -> str:
+    """The declared demo URL, with the same parse fallback as the field check above.
+
+    Anchored at the start of a line so the commented-out example in theme.toml — which
+    is there to say what to restore, and when — is not read as a declaration.
+    """
+    if data is not None:
+        return str(data.get("demosite") or "")
+    match = re.search(r"""^\s*demosite\s*=\s*["']([^"']+)""", text, re.MULTILINE)
+    return match.group(1) if match else ""
+
+
+def fetch_status(url: str, timeout: float):
+    """(status, detail) for a GET of `url`, following redirects.
+
+    `status` is None when no response arrived at all — DNS failure, refused connection,
+    TLS error, timeout. That case is kept distinct because it is the shape a demo site
+    takes when it is deleted rather than merely broken, and because a traceback escaping
+    a scheduled job tells whoever reads the tracking issue less than either.
+    """
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            response.read(1024)     # drain a little rather than the whole page
+            return response.getcode(), response.geturl()
+    except urllib.error.HTTPError as exc:       # a response, just not a usable one
+        return exc.code, str(exc.reason or "")
+    except urllib.error.URLError as exc:        # no response: DNS, refused, TLS
+        return None, str(exc.reason)
+    except OSError as exc:                      # socket.timeout on Python < 3.10
+        return None, str(exc)
+
+
+def check_demosite(data, text: str, f: Findings, network: bool, timeout: float) -> None:
+    """specs/009 §2 — the public demo site, and the theme.toml field that points at it.
+
+    The field is not in §2's required list (009-showcase-compliance.md:40); the demo
+    itself is (:54). So an absent field is an honest report of undone work, while a URL
+    that 404s fails the requirement and hides that it is failing — issue #46.
+    """
+    url = demosite_value(data, text)
+    if not url:
+        f.todo(
+            "theme.toml declares no demosite — the demo is not deployed",
+            "specs/009 §2 requires a public demo site that builds against latest Hugo "
+            "(:54), and §3 requires it to be the deployed exampleSite, never "
+            "citizix.com. netlify.toml builds it; the Netlify site still has to be "
+            "created and connected. `demosite` itself is not one of §2's required "
+            "theme.toml fields (:40), so its absence is honest — restore it, and delete "
+            "the entry in .github/link-exclusions.json, the day the deploy is live.",
+        )
+        return
+
+    if not re.match(r"^https?://", url):
+        f.fail(f"theme.toml demosite is {url!r}, which is not an absolute http(s) URL")
+        return
+
+    if not network:
+        f.note(f"demosite = {url} — declared, not resolved",
+               "presence is not reachability, and presence was all this script checked "
+               "until issue #46. Re-run with --network to fetch it; scheduled.yml does "
+               "that daily so a demo going dark is found here rather than by the "
+               "showcase's own rebuild (specs/009 §4).")
+        return
+
+    status, detail = fetch_status(url, timeout)
+    if status is None:
+        f.fail(f"demosite {url} could not be reached — {detail}",
+               "no HTTP response at all — DNS failure, refused connection or timeout, "
+               "which is the shape a demo takes when it is gone rather than merely "
+               "broken. The showcase links a visitor straight at this URL "
+               "(specs/009 §2).")
+    elif 200 <= status < 300:
+        landed = f" → {detail}" if detail and detail.rstrip("/") != url.rstrip("/") else ""
+        f.ok(f"demosite {url} resolves — HTTP {status}{landed}")
+    else:
+        f.fail(f"demosite {url} returns HTTP {status} {detail}".rstrip(),
+               "the showcase links a visitor straight at this URL, and its entry for "
+               "the theme is only as good as what answers here (specs/009 §2).")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--repo-root", type=Path,
                         default=Path(__file__).resolve().parent.parent)
     parser.add_argument("--strict", action="store_true",
                         help="treat TODO as failure — for the M5 release gate")
+    parser.add_argument("--network", action="store_true",
+                        help="resolve the demosite URL over HTTP and fail on a non-2xx. "
+                             "Off by default so a pull request never depends on a host "
+                             "being up — scheduled.yml runs it daily instead")
+    parser.add_argument("--timeout", type=float, default=DEMO_TIMEOUT,
+                        help=f"seconds to wait for the demo site (default {DEMO_TIMEOUT:g})")
     args = parser.parse_args()
 
     repo = args.repo_root.resolve()
@@ -193,6 +299,7 @@ def main() -> int:
                 f.fail(f"theme.toml min_version is {min_version!r}, ADR-0 declares 0.146.0")
             else:
                 f.ok("theme.toml min_version = 0.146.0 matches ADR-0")
+        check_demosite(data, text, f, args.network, args.timeout)
 
     # ── root hugo.toml [module.hugoVersion] ───────────────────────────────────────────
     root_cfg = repo / "hugo.toml"
@@ -281,9 +388,11 @@ def main() -> int:
     check_image(repo, "tn", THUMBNAIL_MIN, f)
 
     # ── Things that cannot be checked from the filesystem ─────────────────────────────
-    f.note("public demo site building against latest Hugo",
-           "specs/009 §3 — must be the deployed exampleSite, never citizix.com. "
-           "Verified by the scheduled latest-Hugo job, not by this script.")
+    #
+    # The demo site used to be a NOTE here, deferring to "the scheduled latest-Hugo job".
+    # That job builds exampleSite; it has never deployed it and it fetches nothing, so
+    # the verification the note pointed at did not exist — issue #46. check_demosite()
+    # above does it now, and --network is what makes it a check rather than a claim.
     f.note("submission is a PR to gohugoio/hugoThemesSiteBuilder",
            "add the URL to themes.txt in lexicographical order; the Netlify deploy "
            "preview is the gate. The old hugoThemes issue process and reviewTheme.sh "

@@ -1,0 +1,78 @@
+# Netlify build for the Hugo Themes showcase demo.
+#
+# specs/009 §2 requires "a public demo site that builds against latest Hugo", and §3
+# requires that demo to be the deployed exampleSite rather than citizix.com, which
+# carries AdSense, GTM and GA4 that the showcase's own no-live-credentials rule
+# excludes. Until this file existed there was nothing that deployed exampleSite
+# anywhere, and theme.toml advertised a demo URL regardless — issue #46.
+#
+# Nothing here is required to build the theme, run a gate or pass CI. ADR-1 is about the
+# build toolchain; this is a host's manifest and adds no dependency to either.
+#
+# THE SITE ITSELF STILL HAS TO BE CREATED IN NETLIFY AND CONNECTED TO THIS REPOSITORY.
+# That needs an account and cannot be done from the checkout, which is why theme.toml
+# carries no `demosite` value yet — a field that 404s is worse than a field that is
+# absent.
+
+[build]
+  # Relative to the repository root, which is where Netlify runs the command. The build
+  # writes here explicitly — see the --destination note below for why it has to.
+  publish = "public"
+
+  # Four spellings below are load-bearing. Each one is a bug that has already been paid
+  # for somewhere in this repository.
+  #
+  # --themesDir <parent> --theme <basename>, never `--themesDir ../..`
+  #     exampleSite/hugo.toml declares `theme = "hugo-theme-runbook"`, so Hugo looks for
+  #     a DIRECTORY of that name inside --themesDir. Netlify checks the repository out
+  #     into /opt/build/repo, so that directory is named `repo` and `../..` fails with
+  #     `module "hugo-theme-runbook" not found`. This is the renamed-clone case from
+  #     docs/verification.md §1 and .claude/hooks/guardrails.py R1 — reached here by
+  #     default rather than by accident, which is why the issue that asked for this file
+  #     asked for this spelling by name.
+  #
+  # --destination is ABSOLUTE
+  #     Hugo resolves a relative --destination against --source, so `--destination
+  #     public` would write exampleSite/public/ and `publish = "public"` would then
+  #     deploy a directory at the repository root that does not exist.
+  #
+  # --panicOnWarning
+  #     Hugo logs a missing layout, a shortcode called with the wrong arguments and a
+  #     deprecated function at WARN and then exits 0 (specs/007 §3.5). Without it a
+  #     deploy that renders nothing useful is a green tick — and the showcase entry
+  #     links straight at it.
+  #
+  # --baseURL
+  #     exampleSite/hugo.toml pins `baseURL = "https://example.com/"`. specs/009 §2
+  #     requires that value and scripts/check_showcase.py asserts it, so the committed
+  #     file stays hermetic and the real host is supplied here instead: $URL is the
+  #     site's own address, $DEPLOY_PRIME_URL the address of a branch or pull-request
+  #     deploy. Both are set by Netlify. Resolved once from $CONTEXT rather than by
+  #     duplicating the command into [context.production] and [context.deploy-preview]:
+  #     three copies of a command whose theme-path spelling must not drift is precisely
+  #     how that spelling drifts.
+  command = '''
+    set -eu
+    if [ "${CONTEXT:-production}" = "production" ]; then
+      DEMO_BASE_URL="$URL"
+    else
+      DEMO_BASE_URL="$DEPLOY_PRIME_URL"
+    fi
+    hugo --source exampleSite \
+         --themesDir "$(dirname "$PWD")" --theme "$(basename "$PWD")" \
+         --destination "$PWD/public" --cleanDestinationDir \
+         --gc --minify --panicOnWarning --printPathWarnings \
+         --baseURL "$DEMO_BASE_URL"
+  '''
+
+[build.environment]
+  # Pinned rather than tracking latest, because a deploy that changes under you is not a
+  # reference anybody can read a bug report against. The showcase's own requirement —
+  # that the theme builds against LATEST Hugo, specs/009 §4 — is covered by the daily
+  # job in .github/workflows/scheduled.yml, which is two hours ahead of the showcase
+  # rebuild for exactly that reason. Netlify's default Hugo is far below the 0.146.0
+  # floor in theme.toml, so leaving this unset is not an option.
+  #
+  # 0.164.0 is the version this build was verified against locally before the file was
+  # committed. Raise it when the scheduled job proves a newer one, not on a schedule.
+  HUGO_VERSION = "0.164.0"

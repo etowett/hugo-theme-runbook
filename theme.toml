@@ -6,7 +6,22 @@ license = "MIT"
 licenselink = "https://github.com/etowett/hugo-theme-runbook/blob/main/LICENSE"
 description = "A minimal, code-first Hugo theme for technical blogs — for people who ship procedures, not photographs."
 homepage = "https://github.com/etowett/hugo-theme-runbook"
-demosite = "https://hugo-theme-runbook.netlify.app/"
+
+# `demosite` is deliberately absent until the demo is actually deployed — issue #46.
+#
+# It used to read https://hugo-theme-runbook.netlify.app/, which has never resolved: no
+# netlify.toml existed and no workflow deployed exampleSite anywhere. specs/009 §2 lists
+# the theme.toml fields the showcase requires — name, license, licenselink, description,
+# homepage, tags, features, min_version and [author] — and `demosite` is not among them
+# (009-showcase-compliance.md:40). What §2 does require, separately, is "a public demo
+# site that builds against latest Hugo" (009-showcase-compliance.md:54). A URL that 404s
+# fails that requirement AND misreports it; an absent optional field only fails it.
+#
+# scripts/check_showcase.py now grades the absence as a TODO, so --strict — the M5
+# release gate — fails until this is restored, and with --network it resolves whatever
+# value is here and FAILS on a non-2xx. netlify.toml is the build that has to run first.
+# Restore this line the day the Netlify site is created, connected and live:
+#     demosite = "https://<site>.netlify.app/"
 
 # ADR-0: the theme targets Hugo's post-v0.146.0 template system. `layouts/_markup/`,
 # `layouts/_partials/`, `page.html` and `home.html` do not resolve below this floor.
