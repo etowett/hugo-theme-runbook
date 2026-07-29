@@ -53,6 +53,7 @@ hugo server --source exampleSite --themesDir "$(dirname "$PWD")" --theme "$(base
 python3 scripts/check_reqcb1.py                  # builds twice itself
 python3 scripts/check_fixtures.py --check-generated
 python3 scripts/check_jsonld.py   public
+python3 scripts/check_budgets.py  --self-test    # the script-tag rule, both directions; needs no build
 python3 scripts/check_budgets.py  public
 python3 scripts/check_links.py    public         # internal only; add --external for the sweep
 python3 scripts/check_showcase.py                # advisory; add --network to resolve the demo URL
@@ -218,6 +219,35 @@ redefined by editing one number.
 
 The budget is enforced on **every** article page, not only on the measurement fixture.
 
+#### The lazy search chunk is counted once, not twice
+
+`/search/` carries a third executable tag — the search chunk, loaded only there. The same script
+already budgets that chunk separately at `SEARCH_JS_GZ_MAX`, because everything reachable from
+`runbook.js` shares one 3 KB budget and the search entry has its own
+([005 §3.1](../specs/005-performance-budgets.md#31-theme-shell-budgets--hard-ci-gates)). Counting it
+again in the per-page sweep meant the gate granted the feature an allowance and then failed the one
+page that used it (issue #51), which measures nothing:
+
+```
+FAIL: 1 budget violation(s)
+  - search/index.html: 3 executable script tags (budget 2)
+```
+
+The per-page sweep now excludes the chunk, resolved through the **same** `find_search_chunk()` the
+byte budget uses — the two rules disagreed because each derived "is this the search chunk"
+separately, and one definition is the fix rather than a wider tolerance.
+
+Two things are deliberately *not* excluded, because both would turn a false positive into a false
+negative:
+
+- **The shell-fixture row still counts every executable tag.** The fixture is a minimal page that
+  must never carry the chunk, so that row is where "the lazy chunk stopped being lazy" is caught.
+- **An off-site `src` that merely looks like the chunk is still counted.** The exclusion matches a
+  file resolved inside the build, not a URL that ends in `search.js`.
+
+`python3 scripts/check_budgets.py --self-test` pins all of that — five cases, both directions, over
+a synthetic build tree, needing no Hugo run. It runs in `ci.yml` before the gate itself.
+
 ### Theme-shell budgets are hard ceilings
 
 Measured on `exampleSite/content/posts/theme-shell-baseline.md` — a deliberately minimal synthetic
@@ -226,15 +256,21 @@ reflects only what the theme emits.
 
 | Asset | Budget | At this commit |
 |---|---:|---:|
-| CSS, total | ≤ 8,000 B gz | 2,125 |
-| Core article JS | ≤ 3,000 B gz | 481 |
-| Search chunk | ≤ 3,000 B gz | not built |
-| Bundled code font, per subset | ≤ 30 KB raw | not built |
+| CSS, total | ≤ 8,000 B gz | 7,356 |
+| Core article JS | ≤ 3,000 B gz | 2,068 |
+| Search chunk | ≤ 3,000 B gz | 1,416 |
+| Bundled code font, per subset | ≤ 30 KB raw | 25,032 (`jetbrains-mono-subset`), 20,772 (`caprasimo-latin`) |
 | Executable `<script>` tags | ≤ 2 | 2 |
 | Third-party hosts | 0 | 0 |
 
-The current numbers are small because most of the theme does not exist yet. They are a floor to
-regress from, not an achievement.
+Reproduce the whole column with `python3 scripts/check_budgets.py public`; every figure is that
+run's own output rather than a number typed in from somewhere. The gzipped ones were taken on macOS,
+so CI's GNU gzip will report them a few percent apart on the identical build — read the headroom,
+never the last digit, and see [§1 Reproducibility](#reproducibility). The raw font sizes are
+platform-independent.
+
+CSS is at 92% of its ceiling and the code font at 82% of its; those two are where the next
+regression will land.
 
 ### Page-weight budgets are PLACEHOLDERS and are not enforced
 
@@ -251,25 +287,80 @@ Runbook not existing yet**. The p50 gate would be met by doing nothing and the p
 met by the theme being replaced. specs/005 §3.1 carries an explicit
 **"Re-baseline required before M3"** warning saying exactly this.
 
-To re-derive them:
+#### The run says so, out loud, every time
 
-```bash
-# 1. Build the SAME corpus with the theme being compared against, at the commit you will
-#    compare from. A baseline captured at a different commit measures the corpus changing,
-#    not the theme changing.
-python3 scripts/check_budgets.py <stack-build> --write-baseline .github/budgets/stack-baseline.json
+A threshold that stayed `None` across two milestones was caught by nothing, and the reason is that
+`placeholder gate: None` prints forty lines above a verdict that read `PASS: budgets` (issue #45).
+A gate that measures nothing must not print the same word as a gate that passed, so the verdict now
+names the half that is not gating:
 
-# 2. Build the same corpus with Runbook, and diff per page.
-python3 scripts/check_budgets.py <runbook-build> --baseline .github/budgets/stack-baseline.json
+```
+PASS (page-weight gates INERT — 2 rule(s) measured but gated nothing)
+  ! 4 of 4 page-weight thresholds are unset (article_p50, article_p90, homepage, list_page) …
+  ! no --baseline was passed, so the per-page no-regression rule did not run
 ```
 
-Then set `PLACEHOLDER_PAGE_WEIGHT` in `scripts/check_budgets.py` from the observed distribution and
-pass `--enforce-page-weight` in CI. Until the thresholds are real numbers, `--enforce-page-weight`
-deliberately **fails** rather than silently passing on `None`.
+On a runner it is additionally a `::warning::` annotation, which surfaces in the checks UI rather
+than in log text nobody opens, and the same list is written to `budgets.json` under `inert` so it can
+be read by a machine. The **exit status stays 0**, deliberately: the thresholds cannot be derived
+from a laptop or from `exampleSite`, only from the parity job, which has never run (#44). Failing
+`ci.yml` would put a red X on every pull request for a condition no author introduced and none can
+fix — the "red X nobody can act on" that [§2](#2-what-ci-runs) keeps out of the per-PR workflow.
+Loud and green, not red.
+
+#### How to derive the thresholds — the procedure, once #44 unblocks it
+
+Every step below exists because skipping it produces a number that looks authoritative and measures
+something else. **Do not set these from a local run**; do not set them from `exampleSite`, whose
+twelve fixtures are chosen to be atypical.
+
+1. **One run, one runner, one commit.** Capture the Stack baseline and the Runbook distribution in
+   the *same* `parity.yml` job, at the same `CITIZIX_REF`. A different commit measures the corpus
+   changing; a different platform measures gzip changing — GNU gzip on the runner and Apple gzip on
+   macOS disagree by ~5% on identical bytes ([§1 Reproducibility](#reproducibility)).
+
+   ```bash
+   python3 scripts/check_budgets.py <stack-build>   --article-glob '*/index.html' \
+           --write-baseline "$RUNNER_TEMP/stack-baseline.json"
+   python3 scripts/check_budgets.py <runbook-build> --article-glob '*/index.html' \
+           --baseline "$RUNNER_TEMP/stack-baseline.json" --json "$RUNNER_TEMP/budgets.json"
+   ```
+
+2. **Derive from the Runbook side, not the Stack side.** The threshold's job is to catch Runbook
+   regressing against itself. A gate set from the incumbent's distribution is met on the day it is
+   written and never fires again — that is precisely how the 9,000 B p50 in
+   [005 §3.2](../specs/005-performance-budgets.md#32-page-weight-budgets--distribution-gates-not-ceilings)
+   became decorative.
+
+3. **Headroom is a percentage, and the derivation is recorded beside the value.** A round number
+   with no note is how the current stale pair happened. Write it so the next person can recompute
+   it:
+
+   ```python
+   "article_p50": <value>,   # <measured> B gz, runbook side, CITIZIX_REF <sha>, run <id>, +<pct>%
+   ```
+
+   `TODO(eutychus): confirm the headroom percentage.` No number is given here on purpose — it is a
+   judgement about how far a normal content commit may move the median, nothing in the specs argues
+   one, and a figure invented in this document would be quoted back as if it had been measured.
+   Choose it in the pull request that sets the thresholds and defend it there.
+
+4. **Commit the baseline JSON** so the per-page no-regression rule has something stable to compare
+   against between runs, and re-generate it deliberately, in its own commit, whenever `CITIZIX_REF`
+   moves.
+
+5. **Then flip enforcement on** — `--enforce-page-weight` in `parity.yml`, opt-out rather than
+   opt-in. Until then that flag deliberately **fails** rather than silently passing on `None`, so
+   it cannot be turned on early by accident.
+
+6. **Update what describes the placeholder state**: this section, and the
+   **"Re-baseline required before M3"** warning in specs/005 §3.1. `specs/**` belongs to nobody
+   ([contracts §1](contracts.md#nobody)), so that is its own pull request.
 
 The no-regression rule is the one that actually protects readers: a theme cannot compress content,
 but it must never make a given page heavier than the theme it replaced rendered it. An absolute
-ceiling measures the author's writing.
+ceiling measures the author's writing. It is also the half that needs no threshold at all — it works
+the moment a baseline exists, which is one more reason #44 is the blocker rather than the arithmetic.
 
 ---
 
@@ -452,20 +543,22 @@ is in the capture set specifically (REQ-FONT-1).
 | Hugo matrix, min + latest, `--panicOnWarning` | **implemented**; 0.146.0 non-extended verified locally |
 | Hostile consumer-config build permutations | **implemented** |
 | Fixture invariants + deterministic regeneration | **implemented** |
-| JSON-LD parse + value assertions | **implemented**; the `Article` assertions are **inert** until `head/schema.html` emits Article schema. Pass `--require-article` at that point |
+| JSON-LD parse + value assertions | **implemented** and no longer inert: `head/schema.html` emits `Article`, and `ci.yml` passes `--require-article` on every pull request |
+| Unused-template sweep against a reasoned allowlist | **implemented**; a waiver in `.github/unused-templates-allowed.txt` that goes stale fails too |
 | Theme-shell budgets | **implemented** as hard gates |
-| Script-tag budget | **implemented**, counting executable scripts — §4 |
-| Page-weight distribution + no-regression | mechanism **implemented**, thresholds are **placeholders**, no baseline committed — §4 |
+| Script-tag budget | **implemented**, counting executable scripts, and counting the lazy search chunk once rather than twice — §4. Both directions pinned by `check_budgets.py --self-test` |
+| Page-weight distribution + no-regression | mechanism **implemented**, thresholds are **placeholders**, no baseline committed — §4. The run now ends in `PASS (page-weight gates INERT …)` rather than `PASS`, because a threshold that stayed `None` across two milestones was caught by nothing (#45). Blocked on #44 |
 | Internal link and fragment crawl | **implemented**, runs nightly in `scheduled.yml` and in `parity.yml` — NOT in `ci.yml`, so it is not a per-PR gate |
 | External link sweep | **implemented**, weekly, tracking issue on failure |
-| Showcase compliance | **implemented**, advisory until the screenshots exist — §5 |
-| Contrast gate | **not mine** — design workstream. CI job exists and passes with a notice until the script lands |
+| Showcase compliance | **implemented**, advisory until the screenshots and the demo deploy exist — §5 |
+| Agent-configuration mirror gate | **implemented** — `check_agents.py` and the guardrail hook's own suite run as their own `ci.yml` job. Owned as a direction rather than a workstream ([contracts](contracts.md)) |
+| Contrast gate | **implemented** and gating — `scripts/check_contrast.py` runs as its own `ci.yml` job. Owned by the design workstream, not by this document |
 | Visual regression | **scaffolded only**, no baselines — §7 |
-| Lighthouse | **scaffolded only**, not wired to a workflow — §7 |
-| Layer 2 archive smoke build | **not started**. Needs the reference corpus pinned as a submodule or tarball ([007 §2](../specs/007-verification.md)) |
-| Zero-JS / storage-disabled / strict-CSP passes | **not started**. All three are Playwright projects; they land with the visual suite |
-| URL/alias manifest diff vs the Stack build | **not started** ([010 §2](../specs/010-citizix-migration.md)) |
-| Accessibility support statement | **not started** ([007 §4](../specs/007-verification.md)) |
+| Lighthouse | **scaffolded only**: `.github/lighthouse/lighthouserc.json` exists and no workflow references it — §7 |
+| Layer 2 archive smoke build | **implemented** as `parity.yml`, which checks out the reference archive pinned at `CITIZIX_REF` rather than vendoring it ([007 §2](../specs/007-verification.md)). It has never executed — `CITIZIX_TOKEN` is unset (#44) |
+| Zero-JS / storage-disabled / strict-CSP passes | **not started**. All three are Playwright projects; `playwright.config.mjs` carries only the six viewport × scheme projects, and they land with the visual suite |
+| URL/alias manifest diff vs the Stack build | **implemented** as `scripts/check_parity.py` ([010 §2](../specs/010-citizix-migration.md)), reached only from `parity.yml` — so it is written, and it has never run (#44) |
+| Accessibility support statement | **shipped** — [`docs/accessibility.md`](accessibility.md): §1 what was verified and how, §2 the WCAG 2.2 AA target, §3 ten named areas that were **not** tested ([007 §4](../specs/007-verification.md)). Owned by the release-hygiene workstream |
 
 Automated scores are reported as automated scores. A perfect Lighthouse accessibility score is not
 WCAG conformance and must never be presented as such.

@@ -174,7 +174,18 @@ jobs:
         # are placeholders and are reported only — specs/005 §3.1 requires them to be
         # re-derived from a fresh baseline, and the numbers in specs/005 §3.2 were set
         # against a baseline the reference site has since improved past.
-        run: python3 scripts/check_budgets.py "$RUNNER_TEMP/public" --json "$RUNNER_TEMP/budgets.json"
+        #
+        # That half of the gate therefore still exits 0, but no longer ends in a bare
+        # `PASS`: it prints `PASS (page-weight gates INERT …)` and raises a ::warning::
+        # annotation naming every rule that measured something and gated nothing. Two
+        # milestones of `placeholder gate: None` scrolled past unread in this log (#45).
+        #
+        # --self-test runs first because it needs no build: it pins both directions of the
+        # per-page script-tag rule, which had granted the lazy search chunk its own byte
+        # budget and then failed /search/ for loading it (#51).
+        run: |
+          python3 scripts/check_budgets.py --self-test
+          python3 scripts/check_budgets.py "$RUNNER_TEMP/public" --json "$RUNNER_TEMP/budgets.json"
 
       - name: Upload build and budget report
         if: matrix.primary
