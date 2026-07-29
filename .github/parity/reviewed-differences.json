@@ -13,7 +13,14 @@
     "failing on the same two lines forever.  Delete the rule when the bug is fixed —",
     "check_parity.py prints every reason on every run, so it stays visible.",
     "",
-    "Measured 2026-07-28 against citizix@dc1b321 with Hugo v0.164.0+extended.",
+    "DERIVED AT: citizix@9ec479a6ee4de4e0f467d6d831cd3c43e67c67dd, Hugo v0.164.0+extended,",
+    "2026-07-29, with `search.enable: true` and the search page's `outputs: json` left",
+    "intact.  Recorded here because a rule is only true of the content commit it was",
+    "reviewed against: the previous set was derived at dc1b321 and nothing in the tree",
+    "said so, so nobody could tell whether a rule that stopped matching had been fixed",
+    "or had simply drifted off the corpus.  Re-derive and re-record when CITIZIX_REF in",
+    ".github/workflows/parity.yml moves.",
+    "",
     "Full analysis and per-difference reasoning: docs/migration.md."
   ],
   "rules": [
@@ -51,21 +58,13 @@
       "surface": "sitemap",
       "kind": "removed",
       "match": "^https://citizix\\.com/(og-default|android-chrome-512x512)\\.png$",
-      "reason": "These are <image:loc> values, not page URLs — citizix overrides layouts/sitemap.xml with a Google image-sitemap extension. It fires on `.Params.image`, which exactly two pages in a 1,154-page build carry, and on one of those it emits an empty <image:title/> because `$.Title` inside `range .Data.Pages` resolves to the sitemap page. Runbook uses Hugo's internal sitemap. See docs/migration.md §5 for why the override is classified citizix-only and recommended for deletion rather than porting."
-    },
-    {
-      "surface": "rss_item",
-      "kind": "changed",
-      "match": "^/index\\.xml$",
-      "defect": true,
-      "reason": "DEFECT (templates/SEO stream): layouts/rss.xml uses `site.RegularPages` for the home feed instead of filtering to `params.mainSections`, so /about-us/, /contact-us/, /privacy-policy/ and /search/ are published as feed items. Stack's feed carries 490 posts; Runbook's carries 494 pages. Delete this rule when rss.xml filters by mainSections."
+      "reason": "These are <image:loc> values, not page URLs — citizix overrides layouts/sitemap.xml with a Google image-sitemap extension. It fires on `.Params.image`, which exactly two pages in a 1,159-page build carry, and on one of those it emits an empty <image:title/> because `$.Title` inside `range .Data.Pages` resolves to the sitemap page. Runbook uses Hugo's internal sitemap. See docs/migration.md §5 for why the override is classified citizix-only and recommended for deletion rather than porting."
     },
     {
       "surface": "rss_item",
       "kind": "changed",
       "match": "^/(tags|categories)/index\\.xml$",
-      "defect": true,
-      "reason": "DEFECT (templates/SEO stream): layouts/rss.xml ranges `.RegularPages`, which is EMPTY on a taxonomy list kind — a term is not a regular page. /tags/index.xml drops from 295 items to 0 and /categories/index.xml from 28 to 0, so both feeds ship as valid-but-empty channels. Fix is either `.Pages` for taxonomy kinds or not emitting RSS for them at all. Delete this rule when it is fixed."
+      "reason": "The two taxonomy LIST feeds carry different things in the two themes, by design on Runbook's side (layouts/rss.xml, the `eq .Kind \"taxonomy\"` branch). Stack ranges the taxonomy's children, which on a taxonomy kind are TERM pages, so /tags/index.xml is 297 links to /tags/{term}/ and /categories/index.xml is 28 links to /categories/{term}/ — a feed whose items are tags, which tells a subscriber that a tag exists rather than that an article was published. Runbook collects the pages carrying any term in that taxonomy, newest first: /tags/index.xml is 488 article permalinks and /categories/index.xml is 491. The two item sets have ZERO overlap, which is why this reports as `changed` on both feeds rather than as a partial edit. Measured consequence worth knowing: every published post on this archive carries a category, so Runbook's /categories/index.xml is set-identical to /index.xml, and /tags/index.xml is that set minus the three posts that carry no tag. Term feeds (/tags/{term}/index.xml) are unaffected and identical on both themes — .RegularPages is correct there. NOT the pair of defects this rule replaces: those were the home feed publishing non-post pages, and both taxonomy feeds shipping EMPTY, and #25 fixed both. The home-feed rule matched nothing at this pin (491 items on both sides) and has been deleted rather than left to rot."
     }
   ]
 }

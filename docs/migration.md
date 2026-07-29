@@ -34,17 +34,21 @@ What the theme genuinely controls, and what the manifest diff found:
 |---|---|
 | Post, page, section, term URLs | **identical** |
 | Home and section pagination `/post/page/{n}/` | **identical** |
-| `/search/` | **still exists**, HTML + RSS |
-| RSS feed paths (329 feeds) | **identical** |
+| `/search/` | **still exists**, HTML + RSS + JSON |
+| RSS feed paths (331 feeds) | **identical** |
 | Canonical, `og:url` | **identical on every page that still exists** |
 | `/tags/page/{n}/`, `/categories/page/{n}/` | **31 URLs removed** — §4 |
 | JSON-LD `mainEntityOfPage` | **removed from 4 non-article pages** — deliberate, §4 |
-| RSS item lists | **3 feeds differ** — two are theme defects, §9 |
+| RSS item lists | **2 feeds differ** — both by design, §9 |
 | Sitemap `<loc>` | identical; 2 `<image:loc>` entries dropped — §5 |
 
-Totals: **104 differences across 8 causes, 0 unreviewed.** The reasoning for each is
+Totals: **103 differences across 7 causes, 0 unreviewed.** The reasoning for each is
 recorded in `.github/parity/reviewed-differences.json`, where the reason field is
 structurally mandatory.
+
+Measured at citizix@`9ec479a`, Hugo v0.164.0+extended. The file records the ref it was
+derived at, because a reviewed difference is only true of the content commit it was
+reviewed against.
 
 ---
 
@@ -130,25 +134,51 @@ never collide with your own keys. Reference: [configuration.md](configuration.md
 | `categories`, `tags` | unchanged | |
 | `keywords` | **ignored** | Runbook never emits `<meta name="keywords">` ([003](../specs/003-design-spec.md) §3.7 item 3). Leaving the front matter in place is harmless |
 | `type: post` | unchanged | |
-| `layout: search` | falls through to `page.html` | until the search workstream ships `layouts/search.html` |
-| `outputs: [html, rss, json]` | **must drop `json`** | see below |
+| `layout: search` | **matched by `layouts/search.html`** | shipped in #23; it does not fall through to `page.html` |
+| `outputs: [html, rss, json]` | **keep all three** | see below |
 
-**`outputs: json` on the search page is a hard build failure.** Stack ships
-`layouts/page/search.json`; Runbook does not (its search index is a separate concern
-owned by the search workstream). Under `--panicOnWarning` the build dies with
+**Keep `json`. Runbook's search index is built from it.** Under Hugo's post-v0.146
+lookup, a root-level `search.json` matches `layout: search` + kind `page` + output
+`json`, and Runbook has shipped [`layouts/search.json`](../layouts/search.json) since
+#23 — so the archive's search page needs no front-matter change at all.
 
+Earlier revisions of this section said the opposite: that Runbook shipped no JSON
+template for a page kind and that `outputs: json` was therefore a hard build failure
+under `--panicOnWarning`. That was true before #23 and false after it, and the
+`layout: search` row directly above still described the search workstream as unshipped,
+which is how the error survived. Building this archive with `json` left in place exits 0,
+emits no `found no layout file` warning, and produces `/search/index.json` — 491
+documents, 178,113 B, in Runbook's own `{"v":1,"docs":[…]}` schema, against the 4,617,791 B
+of full article text Stack's index carries.
+
+**Dropping `json` does not merely skip the index — it removes the search UI.**
+`layouts/_partials/search/ui.html` gates the whole widget on the output format:
+
+```go-html-template
+{{- with .OutputFormats.Get "json" }}{{ $json = .RelPermalink }}{{ end -}}
+{{- if and $cfg.enable $json -}}
 ```
-found no layout file for "json" for layout "search" for kind "page"
-```
 
-Remove `json` from that page's `outputs` before building. `/search/index.json` is then
-no longer produced — nothing on citizix links to it, and Stack's own search widget
-fetched it from the client only.
+With no `json` output there is no `$json`, so nothing renders. The incumbent theme
+resolves its index the same way — `data-json` plus a client-side `fetch` — so the advice
+to drop it broke search on **both** themes, which is what made it worth correcting
+rather than merely tidying.
 
-**Two content typos worth fixing while you are in there**, both found by surveying front
-matter across the archive and both currently silent: `latmod:` for `lastmod:` in
-`content/page/privacy-policy/index.md`, and a capital `Keywords:` in
+The parity harness carried the same mistake in executable form: it stripped `json` from
+the search page and pinned `search.enable: false`, so no parity run ever built either the
+index or the UI. Both are gone; `.github/parity/citizix-runbook.yaml` now sets
+`search.enable: true`. Note that `scripts/check_parity.py` walks `.html` and `.xml` only,
+so the index is invisible to the manifest diff on both sides and the diff was never going
+to catch its absence — `.github/workflows/parity.yml` asserts the index separately, for
+exactly that reason.
+
+**Two content typos this survey found have since been fixed upstream** (citizix#84, in
+the pinned ref): `latmod:` for `lastmod:` in `content/page/privacy-policy/index.md`, and
+a capital `Keywords:` in
 `content/post/2021-09-01-install-manjaro-21-gnome-step-by-step-with-screenshots.md`.
+Neither spelling appears anywhere in the corpus at `9ec479a`. Kept as a note because both
+are silent — Hugo ignores an unknown front-matter key and lower-cases a known one — so
+they are worth grepping for on any archive being migrated, not only this one.
 
 ---
 
@@ -178,17 +208,26 @@ Google's index today. Two ways:
 - `aliases:` on `content/tags/_index.md` and `content/categories/_index.md`, which makes
   Hugo emit the meta-refresh stubs. Cheaper to review, worse for crawlers than a 301.
 
-Prefer the server rule. citizix already serves through nginx.
+Prefer the server rule. citizix already serves through nginx — and has done this since
+citizix#86, which is in the pinned ref: `nginx.conf` carries
+`location ~ ^/tags/page/[0-9]+/?$` and its `/categories/` twin, both `return 301`. This
+step is **done** for the reference archive and is recorded here for anyone migrating
+another one.
 
-**Cost of the change, measured:** `/tags/` grows from 4,560 to 5,205 B gzipped
-(+14.1%) because it now carries all 295 terms. That is still below the 6,000 B list-page
-budget, and it replaces 30 HTTP round-trips with one.
+**Cost of the change, measured** at `9ec479a`: `/tags/` grows from 4,544 to 5,496 B
+gzipped (+21.0%) because it now carries all 297 terms on one page. It replaces 30 HTTP
+round-trips with one. Two caveats on that number — it is above the 6,000 B list-page
+budget's older 5,205 B reading because the corpus gained terms, and the per-page
+no-regression rule in `check_budgets.py` fails on it, since that rule is scoped by
+`--article-glob` and `/tags/` is not an article. See §9 defect 8.
 
 ### `/search/` and everything else
 
-`/search/` still exists at the same path, still emits HTML and RSS, and still carries
-its menu entry. Section pagination (`/post/page/{n}/`), home pagination, all 329 RSS
-feed paths, the sitemap URL set and every canonical are unchanged.
+`/search/` still exists at the same path, still carries its menu entry, and still emits
+HTML and RSS — plus JSON, which is Runbook's search index and is why §3 says to keep
+`outputs: json` rather than drop it. Section pagination (`/post/page/{n}/`), home
+pagination, all 331 RSS feed paths, the sitemap URL set and every canonical are
+unchanged.
 
 ---
 
@@ -396,13 +435,14 @@ called out as such. Each defect below is reproducible with the commands in §10.
 
 | # | Where | What |
 |---|---|---|
-| 1 | `layouts/rss.xml` | The home feed uses `site.RegularPages` instead of filtering to `params.mainSections`, so `/about-us/`, `/contact-us/`, `/privacy-policy/` and `/search/` are published as feed items. Stack: 490 items. Runbook: 494 |
-| 2 | `layouts/rss.xml` | Ranges `.RegularPages`, which is **empty** on a taxonomy list kind. `/tags/index.xml` goes from 295 items to 0 and `/categories/index.xml` from 28 to 0 — valid but empty channels. Fix is `.Pages` for taxonomy kinds, or no RSS output format for them |
+| 1 | `layouts/rss.xml` | **FIXED in #25.** The home feed used `site.RegularPages` instead of filtering to `params.mainSections`, so `/about-us/`, `/contact-us/`, `/privacy-policy/` and `/search/` were published as feed items. At `9ec479a` both themes' `/index.xml` carry the same 491 items and the reviewed-difference rule that allowed it has been deleted |
+| 2 | `layouts/rss.xml` | **FIXED in #25.** Ranged `.RegularPages`, which is **empty** on a taxonomy list kind, so `/tags/index.xml` and `/categories/index.xml` shipped as valid but empty channels. They now collect the pages carrying any term in the taxonomy. The two feeds still *differ* from Stack's, which list term pages rather than articles — that is a design difference and is recorded as one, no longer as a defect |
 | 3 | `scripts/check_links.py` | **FIXED IN THIS CHANGE** (one line, in a file no running workstream owns). A heading id containing a non-ASCII character is emitted raw in `id=` and percent-encoded in `href=` — `id=step-3-—-optional-…` against `href=#step-3-%e2%80%94-optional-…`. That is not a theme bug: Go's `html/template` normalises URL-context attributes and `safeURL` does not suppress it, and a user agent percent-decodes a fragment before matching ids, so both spellings address the same element. The checker was comparing them raw. See below — this was **already failing on `exampleSite`**, not only on the archive |
 | 4 | `scripts/check_budgets.py` | `--article-glob` defaults to `posts/*/index.html`, which matches nothing on a site using flat `/:slug/` permalinks; the script then silently falls back to "the first page that matches", which on this archive is an **alias stub**, and reports the theme-shell CSS and JS as "not built yet". The fallback should skip meta-refresh pages |
 | 5 | `exampleSite/content/posts/image-and-figure.md` | References `/not-fetched.png`, which is not in the build. The only remaining `check_links.py` failure on `exampleSite` after defect 3 was fixed. Either the asset is missing or the fixture is deliberately testing a broken image, in which case it needs a recorded exclusion |
 | 6 | citizix content | `/production-grade-saltstack-multi-environment-gitops-almalinux-10/` links to `#security-hardening`, which no heading on that page defines. **Pre-existing** — it fails on the Stack build too. A citizix fix, not a theme one |
 | 7 | `docs/verification.md` §2, §8 | Both say the internal link and fragment crawl "runs per PR". It does not — `ci.yml` runs only the REQ-CB-1, fixture, JSON-LD and budget gates. `check_links.py` runs in `scheduled.yml`, nightly |
+| 8 | `scripts/check_budgets.py` | The per-page script-tag and no-regression rules are scoped by `--article-glob`, which on a flat `/:slug/` archive is `*/index.html` and therefore matches pages that are not articles. Two consequences at `9ec479a`, both of them intended behaviour reported as failures: `tags/index.html` trips the 2% no-regression rule at +21.0% (§4, and already a reviewed `url` difference), and `search/index.html` trips the 2-executable-script budget at 3 — the inline theme guard, `runbook.js`, and the lazily-loaded search chunk that the same script *also* budgets separately as `SEARCH_JS_GZ_MAX`. Counting that chunk twice means the gate contradicts itself on the one page that loads it. Same root cause as defect 4. Until it can tell an article from a browse page, `parity.yml` runs the budget step `continue-on-error` |
 
 **Defect 3 was not a citizix problem.** Before the fix, `scripts/check_links.py` reported
 **9 failures on `exampleSite` itself** — eight of them the Arabic headings in
@@ -436,8 +476,9 @@ cp ~/Code/my/citizix/config.yaml "$SITE/"
 hugo --source "$SITE" --destination /tmp/rb-parity/stack \
      --cleanDestinationDir --gc --minify
 
-# 2. Candidate — Runbook. Apply the migration: drop the site's own layouts, rewrite
-#    the config per §2, drop `json` from the search page's outputs per §3.
+# 2. Candidate — Runbook. Apply the migration: drop the site's own layouts and rewrite
+#    the config per §2. The search page's front matter is left ALONE — `outputs: json`
+#    is what builds Runbook's index (§3).
 RB=$(mktemp -d)
 cp -R "$SITE"/{content,static,assets,archetypes} "$RB/"
 # … write $RB/config.yaml per §2.3 …
@@ -449,9 +490,15 @@ hugo --source "$RB" \
 # 3. The manifest diff. Exit 0 only when every difference is in the allowlist.
 python3 scripts/check_parity.py /tmp/rb-parity/stack /tmp/rb-parity/runbook
 
-# 4. Build-wide invariants.
+# 4. Build-wide invariants. These two numbers are the pinned ref's, and
+#    .github/workflows/parity.yml asserts the same pair — keep them in step.
 python3 scripts/check_parity.py --audit /tmp/rb-parity/runbook \
-        --expect-pages 1058 --expect-aliases 354
+        --expect-pages 1064 --expect-aliases 356
+
+# 4b. The search index. check_parity.py walks .html and .xml only, so nothing above
+#     would notice /search/index.json going missing (§3).
+python3 -c "import json,sys; d=json.load(open('/tmp/rb-parity/runbook/search/index.json')); \
+print(len(d['docs']), 'documents'); sys.exit(len(d['docs']) < 400)"
 
 # 5. REQ-CB-1 at archive scale — these two trees must be byte-identical.
 HUGO_MARKUP_HIGHLIGHT_LINENOS=true HUGO_MARKUP_HIGHLIGHT_LINENUMBERSINTABLE=true \
@@ -473,15 +520,40 @@ python3 scripts/check_budgets.py /tmp/rb-parity/runbook --article-glob '*/index.
 Same content, same commit, same Hugo. Theme-shell figures are from one representative
 article (`/how-to-install-and-configure-redis-6-on-ubuntu-20-04/`).
 
+**The theme-shell rows were re-measured at `9ec479a`; the distribution table below it was
+not.** Runbook's shell has grown since this section was written — CSS by 82% as the
+shortcode and search stylesheets landed — and leaving the old figures would have
+understated it. Stack's column reproduces byte-for-byte at both refs, which is what makes
+the comparison sound: the movement is Runbook's, not the corpus's. The build-time row is
+left at its original Linux-runner reading — swapping in a laptop number would compare two
+machines rather than two themes.
+
 | | Stack | Runbook |
 |---|--:|--:|
-| CSS, gzipped | 10,031 B | **4,039 B** |
-| JavaScript, gzipped | 5,209 B | **2,068 B** |
+| CSS, gzipped | 10,031 B | **7,354 B** |
+| JavaScript, gzipped — core bundle | 2,800 B | **2,068 B** |
+| JavaScript, gzipped — all chunks | 5,209 B | **3,484 B** |
+| Search index, gzipped | 1,271,345 B | **41,296 B** |
 | `<script>` tags on an article | 11 | **4** (2 executable + 2 `ld+json`) |
 | Third-party hosts the theme adds | 5 | **0** |
-| Build time, 1,154 pages | 3,929 ms | 4,068 ms |
+| Build time, 1,154 pages (Linux runner, `dc1b321`) | 3,929 ms | 4,068 ms |
 
-Page-weight distribution across the 489 pages that are articles in both builds:
+`7,354 B` of CSS sits against `check_budgets.py`'s 8,000 B ceiling with 646 B of
+headroom — worth watching rather than acting on, but it is no longer the comfortable
+margin the old 4,039 B figure implied.
+
+The search rows are new because search was never built here before (§3). Runbook's index
+is 178,113 B raw against Stack's 4,617,791 B — 26× smaller on the same 491 posts — and
+that is a schema decision rather than a compression win. Stack stores the full `content`
+of every article; Runbook stores five short keys per document (`t` title, `u` permalink,
+`d` date, `s` a summary truncated at `summaryLength`, `g` taxonomy terms), which is what
+`layouts/search.json` emits.
+
+Page-weight distribution across the 489 pages that are articles in both builds,
+**still as measured at `dc1b321`** — re-deriving it at the new pin mixes corpus drift
+into a theme comparison, and the first real CI run is the place to do that properly.
+`TODO(eutychus): re-derive §11's distribution table from a parity run at 9ec479a once
+CITIZIX_TOKEN is set.`
 
 | | Stack | Runbook | |
 |---|--:|--:|--:|
