@@ -13,6 +13,10 @@ Hugo v0.164.0+extended, citizix content at `dc1b321`.
 
 Reproduce any of it with the commands in §10.
 
+**Doing the cutover rather than reading about it: §12.** That section is the executable
+form of [010](../specs/010-citizix-migration.md) §5 — the preview recipe, the fixture set
+to compare by eye, the rollback triggers and the rollback command. Read it before the day.
+
 ---
 
 ## 1. What actually breaks
@@ -617,3 +621,356 @@ Three conditions on using them:
 3. **Re-derive on the runner before turning `--enforce-page-weight` on.** These numbers
    came from a container on an arm64 laptop, not from a GitHub runner. The gzip
    implementation matches; nothing else was verified.
+
+---
+
+## 12. Cutover
+
+[010](../specs/010-citizix-migration.md) §5 defines six steps. Steps 1 and 2 are done and are
+§1 above. Steps 3 to 6 had no executable form at all, which is what this section is: the
+preview recipe, the pages to compare by eye, the rollback triggers as numbers, and the
+rollback command.
+
+It is worth being blunt about why it is written down rather than improvised. Every other gate
+in this repository exists because someone decided a green tick should mean something. The
+cutover has no tick. It is a human procedure — [010](../specs/010-citizix-migration.md) §5.5
+records that citizix deploys by manual `workflow_dispatch` only, and that this is deliberate
+and must not be automated — so an unwritten procedure is the risk here, not the theme. And the
+one step that has to work first time, on the day it is needed, under pressure, is the rollback,
+which is also the only one that has never been run (§12.6).
+
+Everything below is measured at citizix@`9ec479a`, the ref `.github/workflows/parity.yml` pins,
+unless it says otherwise.
+
+### 12.1 The preview, and how `noindex` is actually applied
+
+The preview exists so that a person can compare it against production on the pages a manifest
+diff cannot judge. It must not be indexed while that happens, and **three layers are involved,
+because no single one covers the whole surface.**
+
+**Layer 1 — the theme setting. This is the only layer Runbook ships.**
+`params.runbook.seo.robots` is a site-wide default robots directive that front-matter `robots`
+overrides ([configuration.md](configuration.md#seo)), and
+[`layouts/_partials/head/seo.html`](../layouts/_partials/head/seo.html) emits it as
+`<meta name="robots">`. It takes an environment variable, which is what makes it right for a
+preview: the preview build then differs from the production build by one variable rather than
+by a forked config file that drifts from the real one between now and cutover.
+
+```bash
+HUGO_PARAMS_RUNBOOK_SEO_ROBOTS="noindex, nofollow" hugo --source … --minify
+```
+
+**Measured on `exampleSite`, Hugo v0.164.0:** 34 of the build's 46 HTML files gain
+`<meta name=robots content="noindex, nofollow">`. The 12 that do not are Hugo's own
+meta-refresh alias stubs — the build reports `Aliases 12` — and each contains nothing but a
+`<link rel=canonical>` and a `<meta http-equiv=refresh>`. **Hugo's internal alias template emits
+no robots directive**, so this layer does not cover an alias stub, and it cannot cover
+`/index.xml`, `/sitemap.xml` or `/search/index.json` at all, because none of those can carry a
+`<meta>` tag. On the archive that is 356 alias stubs plus 331 feeds outside the directive.
+
+**Layer 2 — `robots.txt`, which citizix already owns.** `static/robots.txt` is copied verbatim
+into the build, so nothing a theme does can override it, and Hugo generates none of its own here
+(`enableRobotsTXT` is not set in `config.yaml`). The production file ends `Allow: /` and
+`Sitemap: https://citizix.com/sitemap.xml`. Deployed unchanged to a preview host, it invites
+crawling and advertises production's sitemap. **The preview must serve its own** — `User-agent: *`
+/ `Disallow: /` — and this is a citizix-side change, not a theme one.
+
+**Layer 3 — an `X-Robots-Tag` response header at the edge.** This is the only layer that reaches
+every response: the alias stubs, the feeds, the sitemap and the search index included. It belongs
+in the preview's `nginx.conf` server block alongside the 301s already there, and it is also
+citizix-side. Layer 1 is still worth having even with layer 3 in place, because it survives being
+served from somewhere other than that nginx.
+
+**What the preview must not change: `baseURL`.** `Dockerfile:4` hardcodes `-b https://citizix.com`,
+so a preview built from the unmodified Dockerfile emits production canonicals. Leave it. A
+canonical pointing at production is the correct duplicate-content signal for a temporary copy,
+and the canonical *values* are already asserted by `check_parity.py` in the parity job, so nothing
+is lost by not re-deriving them against a preview host. Pointing it at the preview would buy
+nothing and would make §1's canonical row unverifiable on the artefact you are about to ship.
+
+**Disqus must be off on the preview.** §6's snippet lives in the *site*, and citizix's Disqus
+shortname is a live account. Rendering the embed on a preview host registers new, empty threads
+keyed on preview URLs, in the same account that holds years of real ones. Leave
+`disqusShortname` unset in the preview config; an empty comment area on the preview is expected
+and is not evidence of anything. Thread continuity is verified on production after cutover —
+§12.7.
+
+### 12.2 The fixture set to compare page-by-page
+
+[010](../specs/010-citizix-migration.md) §5.3 says "the pinned fixture set" without saying which
+pages. Reviewing 1,064 pages by eye is not a procedure, and reviewing a random 20 proves nothing.
+These are the 21 URLs where something in this document says the theme changes behaviour, so each
+one is in the list because a named section predicts what it should look like. Open each on the
+preview and on production side by side.
+
+| URL | What it is here to catch |
+|---|---|
+| `/` | Home. Carries `image: /og-default.png` (`content/_index.md`), so it is one of the two pages the retired sitemap image extension fired on — §5 |
+| `/page/2/` | Home pagination survives — §4 |
+| `/post/page/2/` | Section pagination survives — §4 |
+| `/how-to-install-and-configure-redis-6-on-ubuntu-20-04/` | The representative article §11's theme-shell figures are read from |
+| `/kubernetes-tls-security-hardening-guide-traefik-nginx/` | The largest page in the archive at 47,503 B gz, and the **one article of 489 that gets heavier** under Runbook (+138 B, +0.3%) — §11 |
+| `/how-to-install-and-configure-puppet-7-server-on-ubuntu-20-04/` | [010](../specs/010-citizix-migration.md) §1 bug 1 — everything after the unterminated fence used to render inside a single code block |
+| `/how-to-install-and-configure-postgres-13-on-centos-8/` | §1 bug 2 — the last bare `<pre><code>` in the entire build |
+| `/production-grade-saltstack-multi-environment-gitops-almalinux-10/` | §9 defect 6. It must still fail **identically** on both themes, not differently |
+| `/how-to-secure-kubernetes-clusters-with-firewalld-and-saltstack-almalinux-10-production-ready/` | The only post using the `admonition` shortcode — §5's replacement, and the page that proves the admonition CSS moved out of the per-page `<style>` |
+| `/install-manjaro-21-gnome-step-by-step-with-screenshots/` | `image: /android-chrome-512x512.png` — the second image-sitemap page, and the OG-image path — §5 |
+| `/tags/` | §4 — unpaginated, all 297 terms, 4,544 → 5,496 B gz |
+| `/categories/` | §4 — same change, 28 terms |
+| `/tags/page/2/` | Must **301 to `/tags/`**. That redirect is `nginx.conf`, not the theme, so the manifest diff cannot see it |
+| `/tags/amazon-eks/` | REQ-TAX-1 — a term whose title comes from `params.runbook.taxonomyTitles` rather than from an `_index.md` |
+| `/tags/k8s---docker/` | REQ-TAX-2 — a retired term whose redirect lives as `aliases:` on the surviving `/tags/k8s/`. Deleting the wrong file breaks this silently — §8.2 |
+| `/search/` | §3 — the page, the UI, and the widget's dependence on `outputs: json` |
+| `/search/index.json` | §3 — 491 documents. `check_parity.py` walks `.html` and `.xml` only, so nothing in the manifest diff would notice it missing |
+| `/about-us/` | §5 — one of the four pages that lose `mainEntityOfPage` and gain `@type WebPage`. It also carries the archive's only three front-matter `aliases:` — §1 |
+| `/privacy-policy/` | Same, plus the `latmod:` typo fix that landed upstream — §3 |
+| `/index.xml` | §9 defects 1 and 2 — the home feed, 491 items, no `/about-us/` |
+| `/sitemap.xml` | §5 — the override is deleted, and Hugo's internal sitemap must produce the same `<loc>` set |
+
+`/contact-us/` is deliberately absent: it changes in exactly the same way as `/about-us/` and
+`/privacy-policy/`, and a fixture set nobody finishes is worse than a shorter one.
+
+### 12.3 Checking the preview — what is automated and what is not
+
+[010](../specs/010-citizix-migration.md) §5.4 asks for the link crawl and the budget gates
+against the preview. **Neither `scripts/check_links.py` nor `scripts/check_budgets.py` was taught
+to speak HTTP, and that is a decision rather than an omission.** Both want a *tree*, and the
+preview already serves one, so the tree is what they get — extracted from the image that is
+actually deployed, which is stronger evidence than rebuilding locally and assuming the image
+matches.
+
+```bash
+# 1 — pull the deployed artefact out of the image that is running.
+#     Dockerfile:8 — COPY --from=build /site/public /usr/share/nginx/html
+CID=$(docker create ektowett/citizix:"$PREVIEW_TAG")
+docker cp "$CID":/usr/share/nginx/html /tmp/preview-tree
+docker rm "$CID"
+
+# 2 — both gates, unmodified, against the bytes the preview is serving.
+python3 scripts/check_links.py /tmp/preview-tree
+python3 scripts/check_budgets.py /tmp/preview-tree --article-glob '*/index.html' \
+        --baseline /tmp/stack-baseline.json --json /tmp/preview-budgets.json
+```
+
+**Verified 2026-07-29** against a locally built citizix image: the extraction yields 1,445 HTML
+files, and `check_links.py` runs over them in 3.5 s, infers `citizix.com` as the base host from
+the homepage canonical, finds 530 distinct external URLs and reports exactly one failure —
+`#security-hardening`, which is §9 defect 6 and is a content bug in the archive. `check_budgets.py`
+runs over the same tree and reports the distribution: p50 9,155, p90 11,630, max 47,503 B gz
+across 499 articles, homepage 6,725, worst taxonomy list 5,159. That image is a **Stack** build,
+so those figures are §11's Stack column reproduced independently, a few bytes apart because this
+was Apple gzip on macOS rather than the Linux runner — the drift §11.1 warns about, visible.
+
+Three reasons not to teach either script HTTP:
+
+1. **A budget measured over the wire would be a worse number, not a more realistic one.** It
+   would be nginx's gzip at nginx's level, and [005 §5](../specs/005-performance-budgets.md)
+   makes `gzip -n -9` part of the measurement precisely so two readings are comparable. A number
+   produced a different way cannot be diffed against the baseline it exists to be diffed against.
+2. **A crawler is a dependency surface.** Frontier, retries, rate limits, concurrency — in a
+   repository whose thesis is the standard library and no toolchain
+   ([ADR-1](../specs/006-architecture-decisions.md)).
+3. **It would catch nothing new.** The bytes served are the bytes extracted. Everything an HTTP
+   crawl would newly see is an nginx concern, and those are below.
+
+**The manual half is the edge, and it is short.** These are the facts that exist only in the
+deployment and that no gate in this repository can reach. Run them against the preview host:
+
+```bash
+PREVIEW=https://<preview host>
+
+# a — the fixture set resolves to the status it should, and nothing is 5xx.
+#     /tags/page/2/ is the one that must be 301: it is nginx.conf, not the theme.
+for u in / /page/2/ /post/page/2/ /tags/ /categories/ /search/ /about-us/ \
+         /sitemap.xml /index.xml /search/index.json; do
+  printf '%s %s\n' "$(curl -s -o /dev/null -w '%{http_code}' "$PREVIEW$u")" "$u"
+done
+curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' "$PREVIEW/tags/page/2/"   # 301 → /tags/
+
+# b — noindex reaches the responses a <meta> tag cannot (§12.1).
+curl -sI "$PREVIEW/sitemap.xml" | grep -i x-robots-tag
+curl -s  "$PREVIEW/robots.txt"          # must be the preview's Disallow: /, not production's
+
+# c — health. helm/prod.yml probes this every 30 s, so it is already being watched.
+curl -s "$PREVIEW/healthz"              # {"status":"ok"}
+```
+
+**What `check_budgets.py` still needs**, named here rather than changed because stream D owns it
+(contracts §1): the two `--article-glob` defects in §9 (4 and 8). Until the script can tell an
+article from a browse page or an alias stub, its exit code is not usable as a cutover trigger and
+you have to read the individual failures — `/tags/` at +21.0% and `/search/` at three executable
+scripts are both expected, both already reviewed, and neither is a rollback trigger.
+
+### 12.4 Rollback triggers
+
+[010](../specs/010-citizix-migration.md) §5.6 names three. Two can be given a number today. The
+third cannot, and saying so is the honest answer.
+
+**Trigger 1 — any URL parity failure. The number is 1.**
+
+`python3 scripts/check_parity.py` exits non-zero on a single difference that is not in
+`.github/parity/reviewed-differences.json` with a reason. At `9ec479a` the reviewed set is 103
+differences across 7 causes with **0 unreviewed** (§1), so one unreviewed difference is a
+regression by construction. On the deployed side the equivalent is the fixture-set sweep in
+§12.3: any URL in §12.2 answering with a status other than the one that table predicts.
+
+**Trigger 2 — any 5xx. The number is 1.**
+
+A static nginx serving a static tree has no legitimate 5xx, so the first one is the trigger.
+Kubernetes is already watching half of this continuously: `helm/prod.yml` sets liveness and
+readiness probes on `/healthz` at `periodSeconds: 30`, so a pod that stops serving is failed out
+without anyone looking. What the probe does not catch is a 5xx on a *page* while `/healthz` still
+returns 200, which is why the fixture-set sweep is run rather than just trusting the probe.
+
+**Trigger 3 — "any Lighthouse regression beyond threshold". This is not a trigger, and it cannot
+be made into one from what exists.**
+
+`TODO(eutychus): confirm what the citizix Lighthouse trigger should be.` It depends on two things
+that do not exist yet, and inventing a number would be worse than leaving the gap visible:
+
+- **There is no Lighthouse baseline, for citizix or for anything else.**
+  `.github/lighthouse/lighthouserc.json` marks itself scaffold only and deliberately not wired
+  into CI; [accessibility.md](accessibility.md) and [verification.md](verification.md) both record
+  that no score exists. A regression needs something to regress from.
+- **The numbers that do exist are for a different target.**
+  [007 §3.3](../specs/007-verification.md) gates accessibility, best practices and SEO at 100 and
+  performance at ≥ 98, median of 5 runs — **against the `exampleSite` demo, never against
+  production citizix**, and [009 §3](../specs/009-showcase-compliance.md) gives the reason: citizix
+  carries advertising and analytics. The same section requires citizix-like pages to be measured
+  separately with third-party effects reported independently of first-party ones. So a citizix
+  trigger needs a decision on whether GTM, GA4 and AdSense sit inside the threshold or outside it,
+  and a pre-cutover run against production on this fixture set with pinned Chrome and Lighthouse
+  versions to be the baseline. **[010](../specs/010-citizix-migration.md) §5.6 and
+  [007 §3.3](../specs/007-verification.md) contradict each other on this point** and the spec is
+  the place to settle it.
+
+**What stands in until then, with numbers.** The theme's own byte budgets are measurable on the
+preview artefact today and are most of what a performance regression would have been measuring:
+
+| Rule | Number | Where it is written |
+|---|--:|---|
+| Per-page growth against the Stack baseline | **+2%** | `scripts/check_budgets.py`, `REGRESSION_TOLERANCE` |
+| CSS, gzipped | **8,000 B** | `CSS_GZ_MAX` — Runbook measures 7,354 B, §11 |
+| Core JS, gzipped | **3,000 B** | `CORE_JS_GZ_MAX` — measures 2,068 B |
+| Search chunk, gzipped | **3,000 B** | `SEARCH_JS_GZ_MAX` |
+| Executable `<script>` tags per article | **2** | `EXECUTABLE_SCRIPTS_MAX` |
+| Third-party hosts the theme adds | **0** | `THIRD_PARTY_HOSTS_MAX` |
+
+The per-page rule is the sharp one — a theme cannot compress content, but it must never render a
+given page heavier than the theme it replaced did. Read it with §12.3's caveat about the two known
+false failures.
+
+### 12.5 The rollback command
+
+**Confirm this before cutover, not after** — that is [010](../specs/010-citizix-migration.md)
+§5.6's own instruction, and it is the step this section exists for.
+
+§5.6 says: *"the theme is a submodule pin, so rollback is a submodule revert plus a redeploy."*
+**That is not true of citizix today, in two independent ways, both verified 2026-07-29:**
+
+1. `.gitmodules` has exactly one entry, `themes/hugo-theme-stack`. There is no Runbook submodule
+   to revert.
+2. `.github/workflows/deploy-k8s.yml:26` runs `git submodule update --init --recursive --remote`.
+   `--remote` updates each submodule to the tip of its **remote default branch** instead of the
+   commit the superproject records, so the recorded pin is not what gets built. Adding Runbook as
+   a submodule without removing that flag would produce a pin that reverting does not change.
+
+`--remote` has a consequence today that has nothing to do with Runbook: **the deployed Stack
+version is whatever upstream `main` holds at deploy time, not what the repository records.**
+
+So the rollback that can actually be executed is not a submodule revert. It is at the deployment
+layer, and it is better than a submodule revert anyway, because it involves no rebuild. The deploy
+job writes a new image tag into the `argocd-releases` repository (`deploy-k8s.yml:84-93`): it
+copies the rendered manifests into `apps/citizix/prod/<tag>/`, `sed`s the tag in
+`argocd-apps/prod-citizix.yml`, commits as `updated prod citizix with new image tag <tag>` and
+pushes. Argo CD reconciles from there.
+
+```bash
+# BEFORE cutover — record the tag that is live. This string is the rollback.
+grep '^  tag:' ~/Code/my/citizix/helm/prod.yml       # main-374610d at the time of writing
+
+# ROLLBACK — revert the single commit the deploy job made in argocd-releases.
+git -C argocd-releases log --oneline -1              # "updated prod citizix with new image tag <new>"
+git -C argocd-releases revert --no-edit HEAD
+git -C argocd-releases push origin main
+```
+
+The previous image is immutable and already in the registry, so this re-points Argo at manifests
+that already exist rather than rebuilding anything.
+
+`TODO(eutychus): confirm the Argo CD sync policy for prod-citizix — whether it auto-syncs or needs
+a manual sync, and the reconciliation window.` That is the difference between a rollback measured
+in seconds and one that needs a second manual step, and it is not recorded in any file in either
+repository.
+
+**This command has never been run.** [010](../specs/010-citizix-migration.md) §5.6 requires
+confirming it before cutover; confirming means executing it against the preview and watching the
+preview return to Stack, not reading it and agreeing that it looks right. A rollback that has been
+run once is a rollback; one that has only been written down is a plan.
+
+### 12.6 Cutover, and the observation period
+
+Cut over by dispatching `deploy-k8s.yml` by hand.
+[010](../specs/010-citizix-migration.md) §5.5 records that citizix deploys by manual
+`workflow_dispatch` only and that this must not be automated; nothing here changes that.
+
+Immediately after the deploy reconciles, run the §12.3 edge checks against production rather than
+the preview, and re-run the §12.2 fixture set. Then verify Disqus (§12.7).
+
+**The observation period.** [010](../specs/010-citizix-migration.md) §5.7 says "a defined period"
+and §6 places it between cutover and showcase submission, but no file defines it. A floor is
+derivable from what is actually scheduled, which is a better basis than a round number:
+
+| Job | Cadence |
+|---|---|
+| Demo build and gates against latest Hugo (`scheduled.yml`) | nightly, 22:00 UTC |
+| External link sweep (`scheduled.yml`) | weekly, Mondays 03:00 UTC |
+| Archive parity (`parity.yml`) | weekly, Sundays 04:00 UTC |
+
+The longest cadence is weekly, so **7 days is the shortest period that contains one full pass of
+every scheduled gate**, and it has to span both a Sunday and a Monday to get one of each.
+**Proposed: 14 days** — two full passes, so that a failure has a chance to reproduce instead of
+being read as a flake, which on a weekly job is otherwise a fortnight's wait anyway.
+`TODO(eutychus): confirm — 7 is derived, 14 is a proposal, and`
+[010](../specs/010-citizix-migration.md) `§5.7 is the file that should record whichever it is.`
+
+### 12.7 Disqus thread continuity — what is verified and what is not
+
+§6 says every existing thread reattaches by itself because threads key on the page URL and post
+URLs are unchanged. The first half of that is now verified precisely; the second half is not, and
+this is the `TODO(eutychus): confirm` from #47.
+
+**Verified.** Runbook's
+[`layouts/_partials/hooks/comments.html`](../layouts/_partials/hooks/comments.html)
+is an intentionally empty extension point — it does nothing beyond existing, by design
+([ADR-8](../specs/006-architecture-decisions.md)), so the theme contributes no behaviour here at
+all. On the Stack side, `layouts/_partials/comments/provider/disqus.html` wraps a call to Hugo's
+internal `disqus.html`, and that template sets `this.page.identifier` **only** when
+`.Params.disqus_identifier` is present. No page, config key or layout anywhere in citizix sets
+`disqus_identifier`, `disqus_url` or `disqus_title`. So today's threads are keyed on the URL, and
+the URLs do not change (§1).
+
+**Not verified, and the reason it matters.** The Disqus snippet in
+[extending.md](extending.md#disqus) sets `this.page.identifier = {{ .Permalink }}` **explicitly**,
+which is a change from what citizix sends today, namely nothing. Whether Disqus matches an
+existing URL-keyed thread the first time an identifier is supplied for it is Disqus's behaviour,
+not Hugo's, and it cannot be established from any file in either repository. Nothing has ever been
+exercised against a real citizix thread ID.
+
+So make it a numbered cutover step rather than an assumption. Immediately after cutover, open a
+post known to carry comments and confirm the existing thread renders with its existing comment
+count, before anything else is declared fine. If it does not, the fix is to drop the explicit
+`this.page.identifier` line and let Disqus fall back to the URL as it does today.
+`TODO(eutychus): confirm which post to use — it needs the highest comment count in the Disqus
+admin for shortname citizix, which is not visible from either repository.`
+
+### 12.8 The §3 override loose end, closed
+
+[010](../specs/010-citizix-migration.md) §3 left `layouts/sitemap.xml` as
+*"Evaluate: is the image-extension and priority logic a Runbook capability or citizix-only?"*.
+**Disposition: citizix-only, and delete rather than port.** §5 above carries the full reasoning
+and the measurement; in short, Runbook ships no sitemap template at all, Hugo's internal one is
+what the site should serve, and the parity manifest confirms the `<loc>` set is unchanged. The only
+sitemap difference the run reports is two `<image:loc>` entries, recorded in
+`.github/parity/reviewed-differences.json` with the reason. That closes the last of §3's ten
+files.
