@@ -357,7 +357,7 @@ jobs:
 
       - name: Upload the manifests
         if: always() && steps.gate.outputs.available == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: parity-manifests
           # URLs, canonicals, sitemap entries and byte counts only. The BUILT SITE is
