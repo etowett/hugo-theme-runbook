@@ -250,6 +250,12 @@ CHECKS = [
         ("i18n: a mixed-direction table",
          lambda d: "|" in d.text and re.search(r"\|[^|\n]*[؀-ۿ]", d.text) is not None),
     ]),
+    ("links-and-punctuation.md", [
+        ("#69: a link directly followed by punctuation",
+         lambda d: re.search(r"\]\([^)]*\)[,.;)]", d.text) is not None),
+        ("#83: a bare <https://…> autolink of 100+ characters",
+         lambda d: re.search(r"<https://[^>\s]{92,}>", d.text) is not None),
+    ]),
 ]
 
 

@@ -176,7 +176,9 @@ table {
 }
 /* render-table.html's scroll box (#67): a wide table scrolls inside it instead of
    widening the page. It takes the table's block margin, so the gap sits outside the box. */
-.rb-table { overflow-x: auto; margin: 0 0 var(--rb-space-4); }
+/* `position: relative` makes the box the containing block for an absolute
+   .rb-visually-hidden in a cell, which otherwise escapes the scroll box and pans the page (#69). */
+.rb-table { position: relative; overflow-x: auto; margin: 0 0 var(--rb-space-4); }
 .rb-table > table { margin: 0; }
 th, td { border: 1px solid var(--rb-color-border); padding: var(--rb-space-2) var(--rb-space-3); text-align: start; }
 th { background: var(--rb-color-bg-subtle); font-weight: var(--rb-weight-medium); }
