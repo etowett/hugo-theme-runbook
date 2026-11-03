@@ -34,6 +34,25 @@
 const TRIGGER_OFFSET = 96; /* px below the viewport top; clears a sticky header */
 
 export function initToc() {
+  /* The open mobile sheet covers up to half the viewport — far more than the
+     `scroll-padding-block-end` in layout.css allows for — so it must not stay open
+     over the thing the reader went to (#103): close it when one of its links is
+     followed (else it covers the target heading) and when focus lands anywhere
+     outside it (else Tab walks focus underneath it, WCAG 2.4.11). `focusin` on the
+     document rather than `focusout` on the sheet, because Safari does not focus a
+     tapped <summary>, so focus may never have been inside. Bound before the early
+     return below: the sheet carries no `data-rb-toc` and must close with scroll-spy
+     off too. Without JS it simply stays open, as it did before. */
+  const sheet = document.querySelector('.rb-toc-sheet');
+  if (sheet) {
+    sheet.addEventListener('click', (e) => {
+      if (e.target.closest('a')) sheet.open = false;
+    });
+    document.addEventListener('focusin', (e) => {
+      if (sheet.open && !sheet.contains(e.target)) sheet.open = false;
+    });
+  }
+
   const nav = document.querySelector('[data-rb-toc]');
   if (!nav || typeof IntersectionObserver === 'undefined') return;
 
