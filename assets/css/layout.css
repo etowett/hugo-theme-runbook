@@ -283,7 +283,10 @@
 /* ── The home hero ──────────────────────────────────────────────────────────── */
 .rb-home-header { margin-block-end: var(--rb-space-7); }
 .rb-home-hero { display: grid; gap: var(--rb-space-6); align-items: end; }
-.rb-home-title { font-size: var(--rb-text-5xl); }
+/* #106: fluid below ~473px, where 11vw reaches the 52px token, so desktop is unchanged. At 52px
+   "Infrastructure" is wider than a phone and the heading's `overflow-wrap: anywhere` split it;
+   that break stays as the fallback for a word longer still. */
+.rb-home-title { font-size: clamp(var(--rb-text-3xl), 11vw, var(--rb-text-5xl)); }
 
 /* The eyebrow. Mono, tracked out, terracotta — the one place the interaction colour is
    used on something that is not interactive, because it is reading as a label rather
