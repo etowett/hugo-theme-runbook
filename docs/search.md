@@ -93,7 +93,7 @@ This closes **open decision #5** in
 | `t` | title | `.LinkTitle` |
 | `u` | URL | `.RelPermalink` |
 | `d` | date | `.Date`, `YYYY-MM-DD`. Absent on an undated page. Sort key only — never displayed |
-| `f` | display date | `.Date` through `time.Format` with `params.runbook.dateFormat`, the same as every other surface. Absent with `d` |
+| `f` | display date | `.Date` through `time.Format` with `params.runbook.dateFormat`, the same call as `article/meta.html` and `article/related.html`. Absent with `d` |
 | `s` | summary | `.Description`, else the page content with code stripped. Capped — see `summaryLength` |
 | `g` | terms | Display titles from every taxonomy in `taxonomies`, flattened and de-duplicated |
 

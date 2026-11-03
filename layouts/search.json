@@ -24,10 +24,7 @@
       f   date in params.runbook.dateFormat, for display
       s   summary, capped  g   taxonomy term display titles, flattened
 
-    `d` and `f` carry the same date twice on purpose. The scorer tie-breaks on `d`
-    with a string compare, which only works on ISO; `f` is what the reader sees, and
-    it is formatted here because dateFormat is a Go layout or a locale-aware Hugo
-    token that the chunk cannot reproduce. ~20 B raw per document.
+    `d` is the ISO sort key engine.js tie-breaks on; `f` is display-only — see docs/search.md.
 
     Long keys ("title", "summary", …) cost ~20 KB raw across the reference archive —
     8% of the budget — and almost nothing gzipped, because gzip crushes the repetition
