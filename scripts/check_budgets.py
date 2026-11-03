@@ -151,11 +151,14 @@ class PageParser(HTMLParser):
         self.executable_scripts = []   # list of src or "(inline)"
         self.data_scripts = []         # list of type=
         self.subresources = []         # list of URL strings
+        self.refresh = False           # <meta http-equiv="refresh"> — a Hugo alias stub
         self._script_type = None
 
     def handle_starttag(self, tag, attrs):
         a = {k.lower(): (v or "") for k, v in attrs}
-        if tag == "script":
+        if tag == "meta" and a.get("http-equiv", "").strip().lower() == "refresh":
+            self.refresh = True
+        elif tag == "script":
             stype = a.get("type", "").strip().lower().split(";")[0]
             if stype in EXECUTABLE_SCRIPT_TYPES:
                 self.executable_scripts.append(a.get("src", "(inline)"))
@@ -229,6 +232,48 @@ def counted_scripts(build: Path, page: "PageParser", search_chunk):
             continue
         counted.append(src)
     return counted
+
+
+def read_page(path: Path) -> PageParser:
+    page = PageParser()
+    page.feed(path.read_text(encoding="utf-8", errors="replace"))
+    return page
+
+
+def is_article(path: Path, page: PageParser) -> bool:
+    """Whether a page matched by ``--article-glob`` is an article — the single definition.
+
+    The shell-fixture fallback and the per-page sweep both route through this (issue #64).
+    On a flat ``/:slug/`` archive the glob is ``*/index.html``, which also matches Hugo
+    alias stubs and taxonomy lists; the fallback then measured a 243-byte redirect as the
+    theme shell, and ``/tags/`` failed the no-regression rule for a reviewed change.
+
+    The evidence has to be the same in the Stack baseline and the Runbook candidate, or the
+    no-regression rule compares two different sets of pages. The theme's article type
+    cannot be that evidence: Runbook's JSON-LD says ``BlogPosting`` (head/schema.html),
+    and Stack's og:type says ``article`` on every regular page, About and Search included.
+    Both signals used here are written by Hugo from content and site config, not by the theme:
+
+    * an alias stub is ``<meta http-equiv="refresh">`` — Hugo's alias template, either
+      theme, minified or not, and never an article;
+    * a list page (home, section, taxonomy, term) gets an RSS ``index.xml`` beside its
+      ``index.html``; a regular page does not. That catches ``tags/`` and ``categories/``.
+
+    Known edges: a page whose front matter adds an ``rss`` output (the archive's /search/)
+    is classified as a list, which is right for a budget sweep; a regular page outside
+    ``mainSections`` such as /about-us/ still counts, because nothing theme-neutral tells it
+    from a post; and a site that disables RSS, or renames it (e.g.
+    ``baseName = feed``), gets the old behaviour back for its lists.
+    """
+    return not page.refresh and not (path.parent / "index.xml").is_file()
+
+
+def shell_candidate(build: Path, path: Path, search_chunk) -> bool:
+    """Whether the shell fallback may measure this page: an article that does not load the
+    lazy search chunk, because the shell row counts executable tags raw and would fail it."""
+    page = read_page(path)
+    return (is_article(path, page)
+            and len(counted_scripts(build, page, search_chunk)) == len(page.executable_scripts))
 
 
 class Report:
@@ -325,7 +370,38 @@ def self_test() -> int:
         case("an off-site script merely named like the chunk still counts",
              n > EXECUTABLE_SCRIPTS_MAX, f"{n} counted, budget {EXECUTABLE_SCRIPTS_MAX}")
 
-    print("Script-tag rule — regression cases (issue #51)")
+        # Article classification (issue #64) — the shapes a flat `*/index.html` glob matches.
+        # The stub is Hugo's alias template as `--minify` writes it, unquoted attributes and all.
+        pages = {
+            "old-slug": ('<!doctype html><html lang=en-us><head><title>x</title>'
+                         '<link rel=canonical href=/new-slug/><meta name=robots content="noindex">'
+                         '<meta http-equiv=refresh content="0; url=/new-slug/"></head></html>', False),
+            "tags": ("<article>a term</article><article>another</article>", True),
+            "new-slug": ('<article class=main-article><h1>Post</h1></article>'
+                         '<script type="application/ld+json">{"@type":"Article"}</script>', False),
+        }
+        for slug, (html, has_rss) in pages.items():
+            (build / slug).mkdir()
+            (build / slug / "index.html").write_text(html)
+            if has_rss:
+                (build / slug / "index.xml").write_text("<rss/>")
+        verdict = {s: is_article(build / s / "index.html", read_page(build / s / "index.html"))
+                   for s in pages}
+        case("an alias stub is not an article", not verdict["old-slug"],
+             f"is_article={verdict['old-slug']}")
+        case("a taxonomy list (RSS beside it) is not an article", not verdict["tags"],
+             f"is_article={verdict['tags']}")
+        case("a real article is an article", verdict["new-slug"],
+             f"is_article={verdict['new-slug']}")
+
+        (build / "search").mkdir()
+        (build / "search" / "index.html").write_text(
+            '<script defer src="/js/search/index.deadbeef.js"></script>')
+        ok = not shell_candidate(build, build / "search" / "index.html", chunk)
+        case("the shell fallback skips a page that loads the search chunk", ok,
+             f"shell_candidate={not ok}")
+
+    print("Script-tag rule and article classification — regression cases (issues #51, #64)")
     for line in report.lines:
         print(line)
     print()
@@ -388,21 +464,23 @@ def main() -> int:
     results = {"theme_shell": {}, "page_weight": {}}
 
     # ── Theme shell ───────────────────────────────────────────────────────────────────
+    search_js = find_search_chunk(build)
     fixture = build / args.shell_fixture
     if not fixture.is_file():
-        # Fall back to any article so the gate still measures something.
-        candidates = sorted(build.glob(args.article_glob))
-        if not candidates:
-            print(f"FAIL: neither {args.shell_fixture} nor {args.article_glob} exists in {build}")
+        # Fall back to any article so the gate still measures something — an article, not
+        # whatever sorts first, which on a flat archive is an alias stub (issue #64).
+        fixture = next((p for p in sorted(build.glob(args.article_glob))
+                        if shell_candidate(build, p, search_js)), None)
+        if fixture is None:
+            print(f"FAIL: neither {args.shell_fixture} nor an article under "
+                  f"{args.article_glob} exists in {build}")
             return 2
-        fixture = candidates[0]
         report.todos.append(
             f"shell fixture {args.shell_fixture} missing; measured "
             f"{fixture.relative_to(build)} instead, which includes content bytes"
         )
 
-    page = PageParser()
-    page.feed(fixture.read_text(encoding="utf-8", errors="replace"))
+    page = read_page(fixture)
 
     print("Theme-shell budgets — hard ceilings, measured on a synthetic fixture")
     print(f"  fixture: {fixture.relative_to(build)}")
@@ -440,7 +518,6 @@ def main() -> int:
     report.row("CSS total", css_total if css_found else None, CSS_GZ_MAX)
     report.row("Core article JS", js_core, CORE_JS_GZ_MAX)
 
-    search_js = find_search_chunk(build)
     report.row("Search chunk (lazy)",
                sum(gz_file(p) for p in search_js) if search_js else None, SEARCH_JS_GZ_MAX)
 
@@ -479,14 +556,17 @@ def main() -> int:
 
     # Every article must also respect the script-tag budget, not just the fixture — but on
     # the page the lazy search chunk is meant to load, the chunk is measured against its own
-    # budget above rather than counted twice (issue #51, and the block at the top).
+    # budget above rather than counted twice (issue #51, and the block at the top). Pages the
+    # glob matches that are not articles — alias stubs, taxonomy lists — are skipped (#64).
     over_budget_pages = []
     weights = {}
+    skipped = []
     for path in sorted(build.glob(args.article_glob)):
         rel = path.relative_to(build).as_posix()
-        html = path.read_text(encoding="utf-8", errors="replace")
-        pp = PageParser()
-        pp.feed(html)
+        pp = read_page(path)
+        if not is_article(path, pp):
+            skipped.append(rel)
+            continue
         counted = counted_scripts(build, pp, search_js)
         if len(counted) > EXECUTABLE_SCRIPTS_MAX:
             over_budget_pages.append((rel, len(counted)))
@@ -516,14 +596,15 @@ def main() -> int:
         p50 = percentile(values, 50)
         p90 = percentile(values, 90)
         worst_page = max(weights, key=weights.get)
-        print(f"  {len(values)} article page(s)")
+        print(f"  {len(values)} article page(s)"
+              + (f", {len(skipped)} non-article match(es) skipped" if skipped else ""))
         print(f"    p50 {p50:>8,} B gz    placeholder gate: {PLACEHOLDER_PAGE_WEIGHT['article_p50']}")
         print(f"    p90 {p90:>8,} B gz    placeholder gate: {PLACEHOLDER_PAGE_WEIGHT['article_p90']}")
         print(f"    max {max(values):>8,} B gz    ({worst_page})")
         print(f"    min {min(values):>8,} B gz")
         results["page_weight"] = {
             "p50": p50, "p90": p90, "max": max(values), "min": min(values),
-            "pages": weights,
+            "pages": weights, "skipped": skipped,
         }
 
     home = build / "index.html"
