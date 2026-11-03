@@ -79,6 +79,23 @@ class Blocks(unittest.TestCase):
             "cat <<'EOF' > notes.md\nharmless prose\nEOF\n"
             "hugo --source exampleSite --themesDir ../.. --panicOnWarning"), "R1")
 
+    def test_a_heredoc_opener_with_a_redirect_is_still_data(self):
+        # #114: a redirect or argument after the delimiter made the body read as commands.
+        # The second body starts with `hugo`, so on the old regex it is blocked by R1 and R2.
+        body = "run hugo --minify here\nhugo --minify --themesDir ../..\n"
+        for opener in ("cat <<'EOF' > notes.md", 'cat <<"EOF" >notes.md',
+                       "cat <<EOF > notes.md", "tee notes.md <<EOF >/dev/null"):
+            with self.subTest(opener=opener):
+                self.assertAllowed(bash(f"{opener}\n{body}EOF"))
+        self.assertAllowed(bash("cat <<-EOF > notes.md\n\thugo --minify --themesDir ../..\n\tEOF"))
+
+    def test_a_command_on_the_heredoc_opener_line_is_still_checked(self):
+        self.assertBlocked(bash("cat <<'EOF' | hugo --minify\nharmless prose\nEOF"), "R2")
+
+    def test_a_real_command_after_a_redirected_heredoc_is_still_checked(self):
+        self.assertBlocked(bash(
+            "cat <<'EOF' > notes.md\nrun hugo --minify here\nEOF\nhugo --minify"), "R2")
+
     # R2 — --panicOnWarning
     def test_build_without_panic_on_warning_is_blocked(self):
         self.assertBlocked(bash("hugo --source exampleSite --destination public"), "R2")

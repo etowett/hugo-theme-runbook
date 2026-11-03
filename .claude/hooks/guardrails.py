@@ -45,7 +45,9 @@ def warn(rule: str, why: str, instead: str) -> None:
     WARN.append(f"[{rule}] {why}\n  → {instead}")
 
 
-HEREDOC = re.compile(r"<<-?\s*(['\"]?)(\w+)\1\s*\n.*?\n[ \t]*\2\b", re.DOTALL)
+# The rest of the opener line (`> notes.md`, `| hugo …`) is kept: it is still a command,
+# and only the body that follows it is data (#114). `(?<!<)` leaves a `<<<` herestring alone.
+HEREDOC = re.compile(r"(?<!<)<<-?\s*(['\"]?)(\w+)\1([^\n]*)\n.*?\n[ \t]*\2\b", re.DOTALL)
 
 
 def strip_heredocs(command: str) -> str:
@@ -56,7 +58,7 @@ def strip_heredocs(command: str) -> str:
     Without this, `gh issue create <<'EOF' … --themesDir ../.. … EOF` is blocked for
     *documenting* the rule, which is the fastest way to teach someone to disable the hook.
     """
-    return HEREDOC.sub("<<HEREDOC", command)
+    return HEREDOC.sub(r"<<HEREDOC\3", command)
 
 
 def strip_comments(text: str) -> str:
