@@ -30,10 +30,13 @@ CLS budget.
 
 ![A checkerboard test pattern](diagram.png)
 
-## The same image with a title, which makes it a figure
+## The same image with a title, which gives it a caption
 
-A Markdown title — the third argument — produces a real `<figure>` and `<figcaption>` rather than a
-`title` attribute nobody sees.
+A Markdown title — the third argument — produces a visible caption rather than a `title` attribute
+nobody sees. Inside the paragraph Goldmark wraps around an image it is a block-styled `<span>`,
+because a `<figure>` there is invalid HTML; a site that sets
+`markup.goldmark.parser.wrapStandAloneImageWithinParagraph = false` gets a real `<figure>` and
+`<figcaption>`.
 
 ![A checkerboard test pattern](diagram.png "Rendered as a figure with a caption")
 
