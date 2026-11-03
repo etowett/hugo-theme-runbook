@@ -184,14 +184,18 @@ class Blocks(unittest.TestCase):
         for cmd in ("hugo 2>/dev/null --source x --panicOnWarning",
                     "hugo --source x > build.log --panicOnWarning",
                     "hugo 2>&1 --panicOnWarning | tee log", "hugo &>/dev/null --panicOnWarning",
-                    "hugo 2> err.log version", ">log hugo version", "hugo <in version"):
+                    "hugo 2> err.log version", ">log hugo version", "hugo <in version",
+                    "echo x # hugo --minify", "hugo --source a#b --panicOnWarning"):
             with self.subTest(cmd=cmd):
                 self.assertAllowed(bash(cmd))
 
     def test_a_redirect_does_not_hide_a_build(self):
         for cmd in ("hugo --source x 2>/dev/null", "hugo --source x >build.log 2>&1",
                     ">log hugo --minify", "2>/dev/null hugo --minify",
-                    "hugo version >/dev/null; hugo --minify", "hugo &>log"):
+                    "hugo version >/dev/null; hugo --minify", "hugo &>log",
+                    "hugo --minify # >log --panicOnWarning",
+                    "hugo --minify 2>&1 # 2>x --panicOnWarning",
+                    "hugo --minify # --panicOnWarning"):
             with self.subTest(cmd=cmd):
                 self.assertBlocked(bash(cmd), "R2")
 

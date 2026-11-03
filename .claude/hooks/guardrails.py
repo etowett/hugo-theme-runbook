@@ -89,8 +89,11 @@ NOT_A_BUILD = {
 # rather than ending the call: `hugo 2>/dev/null --panicOnWarning` still carries the flag,
 # and bash allows a redirect anywhere in a simple command, `>log hugo` included (#98).
 REDIRECT = r"\d*(?:<<<|<<-?|<>|<&|>>|>&|>\||>|<)|&>>?"
+# A `#` that starts a word comments out the rest of the line, so a flag after it is not an
+# argument: `hugo --minify # >log --panicOnWarning` is still a build without the flag.
+COMMENT = r"(?<![^\s;&|()])#[^\n]*"
 SHELL_TOKEN = re.compile(
-    REDIRECT
+    COMMENT + "|" + REDIRECT
     + r"""|(?:\$\((?:[^()]|\([^()]*\))*\)|'[^']*'|"(?:\\.|[^"\\])*"|\\.|[^\s;&|()<>'"\\])+"""
     r"""|&&|\|\||\n|[;&|()]"""
 )
@@ -124,7 +127,8 @@ def hugo_invocations(command: str) -> list[list[str]]:
     blocked read-only commands (#49). `/opt/homebrew/bin/hugo --source …` and
     `HUGO_ENV=production hugo …` are still calls, and still checked.
     """
-    tokens = SHELL_TOKEN.findall(command.replace("\\\n", " "))
+    tokens = [t for t in SHELL_TOKEN.findall(command.replace("\\\n", " "))
+              if not t.startswith("#")]  # only a COMMENT token can start with `#`
     out: list[list[str]] = []
     at_command, after_wrapper, target = True, False, False
     for i, tok in enumerate(tokens):
