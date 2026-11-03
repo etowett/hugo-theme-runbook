@@ -256,7 +256,18 @@ negative:
 - **An off-site `src` that merely looks like the chunk is still counted.** The exclusion matches a
   file resolved inside the build, not a URL that ends in `search.js`.
 
-`python3 scripts/check_budgets.py --self-test` pins all of that — five cases, both directions, over
+#### Only articles are swept
+
+`--article-glob` on a flat `/:slug/` archive is `*/index.html`, which also matches Hugo alias stubs
+and list pages. The per-page sweep and the shell-fixture fallback both skip a match that is not an
+article (issue #64): a page carrying `<meta http-equiv="refresh">` is an alias stub, and a page with
+an RSS `index.xml` beside it is a list — `tags/`, `categories/`, a section, or a page such as the
+archive's `/search/` that declares an `rss` output. Both signals are written by Hugo from content and
+site config rather than by the theme, so the Stack baseline and the Runbook candidate classify every
+URL the same way; the JSON-LD type cannot, because Runbook emits `BlogPosting` and Stack calls every
+regular page an `Article`. A regular page outside `mainSections`, such as `/about-us/`, still counts.
+
+`python3 scripts/check_budgets.py --self-test` pins all of that — eight cases, both directions, over
 a synthetic build tree, needing no Hugo run. It runs in `ci.yml` before the gate itself.
 
 ### Theme-shell budgets are hard ceilings
