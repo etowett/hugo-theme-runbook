@@ -199,7 +199,10 @@
 .rb-theme-toggle:hover { color: var(--rb-color-text); background: var(--rb-color-bg-subtle); }
 
 @media (max-width: 56.24rem) {
-  .rb-nav { flex-wrap: nowrap; padding-block: var(--rb-space-3); }
+  /* #105: the row keeps the base `wrap`. Under `nowrap` a long title's longest word set the
+     brand's minimum and pushed the toggle to 338px at 320. Wrapping drops the controls
+     beneath a brand that does not fit; letting the brand shrink instead broke its words. */
+  .rb-nav { padding-block: var(--rb-space-3); }
   .rb-brand { margin-inline-end: auto; }
   .rb-nav-list--desktop { display: none; }
   .rb-nav-mobile { display: block; }
@@ -233,7 +236,9 @@
   }
   .rb-nav-list--mobile a { display: block; }
   .rb-search-link { padding-inline: var(--rb-space-2); }
-  .rb-search-label { font-size: 0; }
+  /* #105: scoped to the link because search.css styles the /search/ page's <label> with the
+     same class and loads later, which put "Search" back in the header at 62px wide. */
+  .rb-search-link .rb-search-label { font-size: 0; }
   .rb-search-link .rb-control-icon { font-size: var(--rb-text-lg); }
   .rb-theme-toggle { display: grid; place-items: center; min-width: var(--rb-target-touch); min-height: var(--rb-target-touch); padding: var(--rb-space-2); }
   .rb-theme-toggle .rb-control-icon { inline-size: 1.25rem; block-size: 1.25rem; }
