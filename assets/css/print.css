@@ -27,11 +27,16 @@
   .rb-footer,
   .rb-theme-toggle,
   .rb-toc,
+  .rb-toc-sheet,
+  .rb-progress,
   [data-rb-copy],
   [data-rb-wrap] { display: none !important; }
 
   body { background: #fff; color: #000; font-size: 11pt; }
   .rb-main, .rb-prose { max-width: none; }
+  /* A landscape page is wider than the 56.25rem breakpoint, so without this the prose
+     keeps its column and the hidden rail leaves an empty one beside it. */
+  .rb-article-layout { display: block; }
 
   /* Horizontal scroll cannot exist on paper; wrapping is the only way to keep the
      command intact. This is the deliberate exception to REQ-CB-5 — and note that it
@@ -48,6 +53,12 @@
     text-indent: -1.2em;
   }
   pre { overflow: visible; }
+  /* code.css sizes the code box to its longest UNWRAPPED line (REQ-CB-3), so pre-wrap
+     alone wraps nothing: the box is already wide enough. Same reset as the wrap toggle. */
+  pre > code { width: auto; min-width: 0; }
+  /* Scroll containers clip on paper. Line-numbered blocks scroll on the wrapper, not the
+     <pre>, and tables scroll in their own region (render-table.html). */
+  .rb-code div.chroma, .rb-table { overflow: visible; }
 
   /* Syntax colour is spent ink that survives greyscale printing badly. Structure —
      weight for keywords, italics for comments — carries it instead. */
