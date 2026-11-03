@@ -137,7 +137,7 @@ class Blocks(unittest.TestCase):
                     "ls -l $(brew --prefix)/bin/hugo", "ls -l /opt/homebrew/bin/hugo",
                     'grep -n -A8 "^hugo:" Makefile', "which -a hugo",
                     "ls /opt/homebrew/Cellar/hugo", "file $(which hugo)",
-                    "cp /usr/local/bin/hugo /tmp/",
+                    "cp /usr/local/bin/hugo /tmp/", "command -v hugo", "command -V hugo",
                     'gh issue comment 49 --body "strings $(brew --prefix)/bin/hugo | head; '
                     'ls -l /opt/homebrew/bin/hugo; hugo --source exampleSite"'):
             with self.subTest(cmd=cmd):
@@ -149,6 +149,9 @@ class Blocks(unittest.TestCase):
                     "HUGO_ENV=production hugo --source exampleSite",
                     "A=1 B=2 /usr/local/bin/hugo --minify", "time hugo --minify",
                     "env -i hugo --minify", "cd exampleSite && hugo",
+                    "$(brew --prefix)/bin/hugo --source exampleSite",
+                    "timeout 300 hugo --source exampleSite", "nice -n 5 hugo --minify",
+                    "x=$(hugo --source exampleSite)",
                     "hugo --source exampleSite \\\n  --minify"):
             with self.subTest(cmd=cmd):
                 self.assertBlocked(bash(cmd), "R2")

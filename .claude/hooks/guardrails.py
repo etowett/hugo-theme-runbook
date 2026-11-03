@@ -84,14 +84,21 @@ NOT_A_BUILD = {
 # `version;` — a build, and an R2 false positive (#49). Unbalanced quotes are skipped rather
 # than raising, because a heredoc-adjacent line can legitimately contain one.
 SHELL_TOKEN = re.compile(
-    r"""(?:'[^']*'|"(?:\\.|[^"\\])*"|\\.|[^\s;&|()<>'"\\])+|&&|\|\||>>|\n|[;&|()<>]"""
+    r"""(?:\$\((?:[^()]|\([^()]*\))*\)|'[^']*'|"(?:\\.|[^"\\])*"|\\.|[^\s;&|()<>'"\\])+"""
+    r"""|&&|\|\||>>|\n|[;&|()<>]"""
 )
+# `$(…)` stays glued to its word, so `$(brew --prefix)/bin/hugo` is one command word, and
+# its inner text is scanned as a command line of its own.
+SUBST = re.compile(r"\$\(((?:[^()]|\([^()]*\))*)\)")
 STARTS_COMMAND = {";", "&&", "||", "|", "&", "\n", "("}
 ENDS_ARGS = STARTS_COMMAND | {")", ">", ">>", "<"}
 # Words after which the next word is still the command: `time hugo`, `if hugo …; then`.
 WRAPPERS = {"time", "env", "exec", "command", "nohup", "nice", "sudo", "xargs",
-            "if", "then", "else", "elif", "do", "while", "until", "!", "{"}
+            "timeout", "gtimeout", "stdbuf", "caffeinate", "watch", "if", "then", "else", "elif", "do", "while", "until", "!", "{"}
 ENV_ASSIGN = re.compile(r"[A-Za-z_]\w*=")
+# A wrapper's own option or duration — `timeout 300`, `nice -n 5`. ponytail: an option that
+# takes a word (`sudo -u ci hugo`) still ends the wrapper; widen this when one is hit.
+WRAPPER_ARG = re.compile(r"-|\d+[smhd]?$")
 
 
 def hugo_invocations(command: str) -> list[list[str]]:
@@ -107,12 +114,16 @@ def hugo_invocations(command: str) -> list[list[str]]:
     out: list[list[str]] = []
     at_command, after_wrapper = True, False
     for i, tok in enumerate(tokens):
+        for sub in SUBST.findall(tok):
+            out += hugo_invocations(sub)
         if tok in STARTS_COMMAND:
             at_command, after_wrapper = True, False
             continue
         if not at_command:
             continue
-        if ENV_ASSIGN.match(tok) or (after_wrapper and tok.startswith("-")):
+        if ENV_ASSIGN.match(tok) or (after_wrapper and WRAPPER_ARG.match(tok)):
+            if tok in ("-v", "-V") and tokens[i - 1] == "command":
+                at_command = False  # `command -v hugo` asks where hugo is, it runs nothing
             continue
         if tok.rsplit("/", 1)[-1] in WRAPPERS:
             after_wrapper = True
