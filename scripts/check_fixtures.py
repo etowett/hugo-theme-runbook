@@ -245,8 +245,9 @@ CHECKS = [
         # and the one that shows a unit breaking mid-way. meta.html prints it only when
         # lastmod is LATER than date.
         ("lastmod later than date, so the byline shows Updated",
-         lambda d: (m := re.search(r"^date: (\S+)\nlastmod: (\S+)$", d.text, re.M)) is not None
-                   and m.group(2) > m.group(1)),
+         lambda d: bool(re.search(r"^lastmod: (\S+)$", d.text, re.M))
+                   and re.search(r"^lastmod: (\S+)$", d.text, re.M).group(1)
+                   > re.search(r"^date: (\S+)$", d.text, re.M).group(1)),
     ]),
     ("rtl-bidirectional-text.md", [
         ("i18n: Arabic prose present",

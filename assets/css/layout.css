@@ -262,11 +262,14 @@
   margin-block: var(--rb-space-3) 0;
 }
 .rb-meta-sep { margin-inline: var(--rb-space-2); }
-/* #74: wrap between units, never inside one — "6 min" / "read" on two lines reads as two
-   facts. Categories are left out: a long comma list must still be able to wrap. */
+/* #74: wrap between units, not inside one — "6 min" / "read" on two lines reads as two
+   facts. inline-block, not nowrap: the unit moves to the next line whole, yet can still wrap
+   inside itself when it alone is wider than the line, so a long dateFormat cannot push a
+   320px card past the viewport (the regression #81 fixed). Categories are left out: a long
+   comma list must still be able to wrap. */
 .rb-meta-date,
 .rb-meta-updated,
-.rb-meta-reading-time { white-space: nowrap; }
+.rb-meta-reading-time { display: inline-block; }
 
 /* ── The home hero ──────────────────────────────────────────────────────────── */
 .rb-home-header { margin-block-end: var(--rb-space-7); }
