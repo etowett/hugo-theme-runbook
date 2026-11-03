@@ -15,7 +15,8 @@
   a one-heading "contents" is chrome pretending to be navigation.
 
   Per-page override: `toc: false` in front matter (the same key hugo-theme-stack
-  uses, so migrating content does not have to be rewritten).
+  uses, so migrating content does not have to be rewritten). Compared as text, the same idiom
+  as the site-level booleans in utils/settings.html: only true, in any case, keeps it on (#101).
 
   ▸ ONE PARTIAL, TWO RENDERS. Below 900px the rail becomes a collapsible sheet, and
     that is this same file called a second time with `variant "sheet"` rather than a
@@ -47,7 +48,7 @@
 {{- end -}}
 {{- $rb := partialCached "utils/settings.html" $page -}}
 {{- $enabled := $rb.toc.enable -}}
-{{- if isset $page.Params "toc" }}{{ $enabled = $page.Params.toc }}{{ end -}}
+{{- if isset $page.Params "toc" }}{{ $enabled = eq (lower (printf "%v" $page.Params.toc)) "true" }}{{ end -}}
 
 {{- if $enabled -}}
   {{- $args := dict "headings" $page.Fragments.Headings "min" $rb.toc.minLevel "max" $rb.toc.maxLevel -}}

@@ -11,8 +11,12 @@
   matters because CI builds with --panicOnWarning (specs/007 §3.5).
 
   RTL: set it per language, e.g.  [languages.ar.params]  direction = "rtl"
+
+  data-theme comes from utils/settings.html, which validates it. Read raw, an unrecognised
+  value reached the markup and disagreed with head/theme-guard.html, which reads the validated
+  one (#101).
 */ -}}
-<html lang="{{ site.Language.Lang }}" dir="{{ or site.Language.Params.direction `ltr` }}" data-theme="{{ site.Params.runbook.themeMode | default `auto` }}">
+<html lang="{{ site.Language.Lang }}" dir="{{ or site.Language.Params.direction `ltr` }}" data-theme="{{ (partialCached "utils/settings.html" .).themeMode }}">
 <head>
   {{- partial "head/head.html" . -}}
 </head>
