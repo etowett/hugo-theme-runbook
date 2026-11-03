@@ -123,7 +123,7 @@ a:hover { color: var(--rb-color-accent-hover); }
 
 /* The heading self-link (#70). Underlined in the accent it read as part of the heading.
    Muted and bare at rest, accent on hover, focus and :target — never hidden. Hiding it
-   until hover is what REQ-CB-3 (specs/003 §3.5) already rejected for the copy button:
+   until hover is what REQ-CB-3 (specs/003 §3.3) already rejected for the copy button:
    switch and voice control badge an invisible box, and a keyboard-panning magnifier
    never finds it. Both colours are asserted pairs in check_contrast.py. */
 .rb-heading-anchor { color: var(--rb-color-text-muted); text-decoration: none; }

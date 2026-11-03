@@ -4,8 +4,8 @@
   The anchor is a real link with a real accessible name, not an `aria-hidden`
   decoration. It is also NOT `display: none`-able: hiding it that way removes it from
   the tab order, and a keyboard user then has no way to reach the permalink at all.
-  The stylesheet must reveal it on hover AND on `:focus-visible` — see the class list
-  in this workstream's PR.
+  Nor is it hidden until hover (#84): base.css keeps it visible and muted at rest and
+  turns it accent on hover, `:focus-visible` and `:target`.
 
   This hook does not renumber headings. specs/003 §3.6's rule is that the THEME must
   never emit a second `<h1>`; a body `<h1>` in a consumer's Markdown is the
