@@ -38,7 +38,9 @@
 {{- $showLastmod := true -}}{{ if isset $rb "showlastmod" }}{{ $showLastmod = $rb.showLastmod }}{{ end }}
 {{- $showThemeToggle := true -}}{{ if isset $rb "showthemetoggle" }}{{ $showThemeToggle = $rb.showThemeToggle }}{{ end }}
 {{- $poweredBy := true -}}{{ if isset $rb "poweredby" }}{{ $poweredBy = $rb.poweredBy }}{{ end }}
-{{- $newTab := false -}}{{ if isset $rb "externallinksnewtab" }}{{ $newTab = $rb.externalLinksNewTab }}{{ end }}
+{{- /* An environment variable arrives as the string "false", which is truthy (#86), so the
+       value is compared as text: only true, or "true", turns it on. */ -}}
+{{- $newTab := false -}}{{ if isset $rb "externallinksnewtab" }}{{ $newTab = eq (printf "%v" $rb.externalLinksNewTab) "true" }}{{ end }}
 
 {{- $tocEnable := true -}}{{ if isset $toc "enable" }}{{ $tocEnable = $toc.enable }}{{ end }}
 {{- $tocSpy := true -}}{{ if isset $toc "scrollspy" }}{{ $tocSpy = $toc.scrollSpy }}{{ end }}
