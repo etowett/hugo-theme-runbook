@@ -42,23 +42,34 @@
      command intact. This is the deliberate exception to REQ-CB-5 — and note that it
      is safe here for exactly the reason wrapping is NOT safe on screen: on paper
      there is no copy button, so a wrapped `kubeadm join` cannot be copied as a
-     mangled command, it can only be misread. Two visible cues make that unlikely. */
-  pre, pre > code {
-    white-space: pre-wrap;
-    word-break: break-word;
-    border: 1px solid #999;
-    /* A wrapped continuation is indented and marked, so a fold is never mistaken for
-       a newline in the command itself. */
-    padding-inline-start: 1.6em;
+     mangled command, it can only be misread. The hanging indent below makes that unlikely. */
+  pre, pre > code { white-space: pre-wrap; word-break: break-word; }
+  pre { overflow: visible; border: 1px solid #999; }
+  /* code.css sizes the code box to its longest UNWRAPPED line (REQ-CB-3), so pre-wrap
+     alone wraps nothing: the box is already wide enough. Same reset as the wrap toggle,
+     plus the 6rem copy-button reserve, which has no button to clear on paper. */
+  pre > code {
+    width: auto;
+    min-width: 0;
+    padding-inline-end: 0;
+    /* A wrapped continuation is indented, so a fold is never mistaken for a newline in
+       the command. Bare pre > code has no per-line element, so only its first line hangs.
+       TODO(eutychus): confirm bare blocks are rare enough to accept that. */
+    padding-inline-start: 1.2em;
     text-indent: -1.2em;
   }
-  pre { overflow: visible; }
-  /* code.css sizes the code box to its longest UNWRAPPED line (REQ-CB-3), so pre-wrap
-     alone wraps nothing: the box is already wide enough. Same reset as the wrap toggle. */
-  pre > code { width: auto; min-width: 0; }
+  /* Highlighted blocks carry one .line per source line, so each line hangs on its own. */
+  .chroma code { padding-inline-start: 0; text-indent: 0; }
+  .chroma .line { display: block; padding-inline-start: 1.2em; text-indent: -1.2em; }
+  .rb-code .line.hl { margin-inline-end: 0; padding-inline-end: 0; }
+  /* The gutter is its own <td> and does not grow with a wrapped line, so every number
+     after the first fold would point at the wrong line. CSS cannot keep table-mode
+     numbers aligned with wrapping, and wrong numbers are worse than none. */
+  .rb-code .lntable td.lntd:first-child { display: none; }
   /* Scroll containers clip on paper. Line-numbered blocks scroll on the wrapper, not the
      <pre>, and tables scroll in their own region (render-table.html). */
   .rb-code div.chroma, .rb-table { overflow: visible; }
+  .rb-table th, .rb-table td { overflow-wrap: anywhere; }
 
   /* Syntax colour is spent ink that survives greyscale printing badly. Structure —
      weight for keywords, italics for comments — carries it instead. */
