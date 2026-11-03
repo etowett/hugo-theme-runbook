@@ -107,6 +107,9 @@ minify:
 
 imaging:
   resampleFilter: lanczos
-  quality: 85
+  jpeg:
+    quality: 85
+  webp:
+    quality: 85
   anchor: smart
   bgColor: "#ffffff"
