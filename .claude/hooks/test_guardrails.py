@@ -107,6 +107,56 @@ class Blocks(unittest.TestCase):
             '--theme "$(basename "$PWD")" --destination "$PWD/public-unused" '
             "--cleanDestinationDir --printUnusedTemplates"))
 
+    # #49 — a separator glued to a word ended no argument scan, so `version;` was the
+    # subcommand and the call was read as a build.
+    def test_a_glued_separator_ends_the_hugo_call(self):
+        for cmd in ("hugo version; echo x", "hugo version;echo x", "hugo mod graph;grep x",
+                    "hugo version&&echo x", "hugo version||echo x", "hugo mod graph|grep x",
+                    "hugo version &\necho x", "hugo version\necho x"):
+            with self.subTest(cmd=cmd):
+                self.assertAllowed(bash(cmd))
+
+    def test_a_real_build_before_a_glued_separator_is_still_blocked(self):
+        # The fix must not stop the scan early and lose the build itself.
+        for cmd in ("hugo --source exampleSite; echo x", "hugo --source exampleSite;echo x",
+                    "echo x;hugo --source exampleSite", "hugo --minify&&echo x",
+                    "(hugo --source exampleSite)", "echo $(hugo --minify)"):
+            with self.subTest(cmd=cmd):
+                self.assertBlocked(bash(cmd), "R2")
+
+    def test_a_quoted_separator_is_data(self):
+        # `";"` is an argument, not a separator, so what follows it is not a command.
+        self.assertAllowed(bash('echo ";" hugo --source exampleSite'))
+        self.assertAllowed(bash("grep -c 'a; hugo --minify' notes.md"))
+        # …and a quoted `;` must not hide a real build that follows a real one.
+        self.assertBlocked(bash("grep -c ';' notes.md; hugo --source exampleSite"), "R2")
+
+    def test_hugo_as_an_argument_is_not_a_call(self):
+        # #49, comments: each of these was blocked as a build missing --panicOnWarning.
+        for cmd in ("strings $(brew --prefix)/bin/hugo | head",
+                    "ls -l $(brew --prefix)/bin/hugo", "ls -l /opt/homebrew/bin/hugo",
+                    'grep -n -A8 "^hugo:" Makefile', "which -a hugo",
+                    "ls /opt/homebrew/Cellar/hugo", "file $(which hugo)",
+                    "cp /usr/local/bin/hugo /tmp/", "command -v hugo", "command -V hugo",
+                    'gh issue comment 49 --body "strings $(brew --prefix)/bin/hugo | head; '
+                    'ls -l /opt/homebrew/bin/hugo; hugo --source exampleSite"'):
+            with self.subTest(cmd=cmd):
+                self.assertAllowed(bash(cmd))
+
+    def test_hugo_in_command_position_by_path_prefix_or_wrapper_is_a_call(self):
+        # Narrowing to "first word only" would trade #49 for a worse bug.
+        for cmd in ("/opt/homebrew/bin/hugo --source exampleSite",
+                    "HUGO_ENV=production hugo --source exampleSite",
+                    "A=1 B=2 /usr/local/bin/hugo --minify", "time hugo --minify",
+                    "env -i hugo --minify", "cd exampleSite && hugo",
+                    "$(brew --prefix)/bin/hugo --source exampleSite",
+                    "timeout 300 hugo --source exampleSite", "nice -n 5 hugo --minify",
+                    "x=$(hugo --source exampleSite)",
+                    "hugo --source exampleSite \\\n  --minify"):
+            with self.subTest(cmd=cmd):
+                self.assertBlocked(bash(cmd), "R2")
+        self.assertAllowed(bash("hugo --source exampleSite \\\n  --panicOnWarning"))
+
     def test_bare_hugo_is_a_build(self):
         self.assertBlocked(bash("hugo"), "R2")
 

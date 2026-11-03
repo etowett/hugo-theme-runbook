@@ -79,19 +79,60 @@ NOT_A_BUILD = {
 }
 
 
-def hugo_invocations(command: str) -> list[list[str]]:
-    """Every `hugo …` call in a shell line, as token lists starting at `hugo`.
+# A shell word (quoted parts stay attached, so `";"` is data, not a separator) or an operator.
+# Splitting on whitespace instead made `hugo version; echo x` one call whose subcommand was
+# `version;` — a build, and an R2 false positive (#49). Unbalanced quotes are skipped rather
+# than raising, because a heredoc-adjacent line can legitimately contain one.
+SHELL_TOKEN = re.compile(
+    r"""(?:\$\((?:[^()]|\([^()]*\))*\)|'[^']*'|"(?:\\.|[^"\\])*"|\\.|[^\s;&|()<>'"\\])+"""
+    r"""|&&|\|\||>>|\n|[;&|()<>]"""
+)
+# `$(…)` stays glued to its word, so `$(brew --prefix)/bin/hugo` is one command word, and
+# its inner text is scanned as a command line of its own.
+SUBST = re.compile(r"\$\(((?:[^()]|\([^()]*\))*)\)")
+STARTS_COMMAND = {";", "&&", "||", "|", "&", "\n", "("}
+ENDS_ARGS = STARTS_COMMAND | {")", ">", ">>", "<"}
+# Words after which the next word is still the command: `time hugo`, `if hugo …; then`.
+WRAPPERS = {"time", "env", "exec", "command", "nohup", "nice", "sudo", "xargs",
+            "timeout", "gtimeout", "stdbuf", "caffeinate", "watch", "if", "then", "else", "elif", "do", "while", "until", "!", "{"}
+ENV_ASSIGN = re.compile(r"[A-Za-z_]\w*=")
+# A wrapper's own option or duration — `timeout 300`, `nice -n 5`. ponytail: an option that
+# takes a word (`sudo -u ci hugo`) still ends the wrapper; widen this when one is hit.
+WRAPPER_ARG = re.compile(r"-|\d+[smhd]?$")
 
-    Splitting on `hugo` rather than regex-matching the whole line is what keeps
-    `hugo build --help` and `hugo mod graph | grep hugo` from being read as builds.
+
+def hugo_invocations(command: str) -> list[list[str]]:
+    """The arguments of every `hugo …` call in a shell line.
+
+    Only a `hugo` in COMMAND position counts: first word, after a separator, after
+    `VAR=value` prefixes or after a wrapper such as `time`. Anywhere else it is an
+    argument — `ls /opt/homebrew/bin/hugo`, `which -a hugo` — and reading those as builds
+    blocked read-only commands (#49). `/opt/homebrew/bin/hugo --source …` and
+    `HUGO_ENV=production hugo …` are still calls, and still checked.
     """
-    tokens = re.split(r"\s+", command.strip())
+    tokens = SHELL_TOKEN.findall(command.replace("\\\n", " "))
     out: list[list[str]] = []
+    at_command, after_wrapper = True, False
     for i, tok in enumerate(tokens):
+        for sub in SUBST.findall(tok):
+            out += hugo_invocations(sub)
+        if tok in STARTS_COMMAND:
+            at_command, after_wrapper = True, False
+            continue
+        if not at_command:
+            continue
+        if ENV_ASSIGN.match(tok) or (after_wrapper and WRAPPER_ARG.match(tok)):
+            if tok in ("-v", "-V") and tokens[i - 1] == "command":
+                at_command = False  # `command -v hugo` asks where hugo is, it runs nothing
+            continue
+        if tok.rsplit("/", 1)[-1] in WRAPPERS:
+            after_wrapper = True
+            continue
+        at_command = False
         if tok == "hugo" or tok.endswith("/hugo"):
             rest: list[str] = []
             for nxt in tokens[i + 1:]:
-                if nxt in ("|", "&&", "||", ";", ">", ">>"):
+                if nxt in ENDS_ARGS:
                     break
                 rest.append(nxt)
             out.append(rest)
