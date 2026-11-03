@@ -142,6 +142,8 @@ a:hover { color: var(--rb-color-accent-hover); }
 
 /* ── Media (ADR-7: supported, never assumed) ──────────────────────────────── */
 img, svg, video { max-width: 100%; height: auto; }
+/* render-image emits the caption as spans inside Goldmark's <p> (#73). */
+.rb-figure, .rb-figure-caption { display: block; }
 
 /* ── Tables ───────────────────────────────────────────────────────────────── */
 /* The radius has to be on the table and clipped, because a border-collapse table
