@@ -67,17 +67,15 @@ title = "Runbook"
     bundledDisplayFont = true # false falls back to the zero-byte system display stack
     bundledCodeFont = true       # false falls back to the zero-byte system mono stack
     codeFontLigatures = false    # off by default: ligatures misdraw shell operators
-    bundledProseFont = false     # off by default: the system sans stack costs nothing
 
     # Content
     dateFormat = ":date_long"
     showReadingTime = true
     showLastmod = true
     externalLinksNewTab = false  # true adds target="_blank" and an announced "(opens in a new tab)"
-
-    [params.runbook.code]
-      copyButton = true
-      wrapToggle = true
+    # NOTE: no code.copyButton / code.wrapToggle switches. REQ-CB-3 makes the copy button
+    # always present and REQ-CB-5 requires the per-block wrap toggle; the keys that used to
+    # be here were read by no template (#101). Likewise no bundledProseFont: no prose face ships.
 
     [params.runbook.toc]
       enable = true
