@@ -68,10 +68,11 @@ frobnicate --with-vigour --target /dev/null
 ## Line-number opt-in
 
 Line numbers appear here because this block asked for them, and nowhere else — REQ-CB-1.
+Line 2 is longer than any page, so print has to wrap it, and line 3 must still read as line 3.
 
 ```python {linenos=true}
 def deploy(host):
-    run(host, "systemctl restart redis")
+    run(host, "systemctl restart redis && systemctl is-active --quiet redis && redis-cli -h 127.0.0.1 -p 6379 --no-auth-warning ping | grep -q PONG && journalctl -u redis --since '-5 min' --no-pager | tail -n 20")
     return check(host)
 ```
 
