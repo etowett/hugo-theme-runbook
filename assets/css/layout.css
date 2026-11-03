@@ -89,6 +89,10 @@
     animation: rb-progress linear both;
     animation-timeline: scroll();
   }
+  /* Shift+Tab scrolls focus to the top edge, under the bar — 3px of 30 focus stops
+     across both widths (#90). The next step up from 3px, not 3px: scroll offsets snap
+     to whole pixels, so at exactly 3px elements still landed a fraction under it. */
+  html { scroll-padding-block-start: var(--rb-space-1); }
   @keyframes rb-progress { to { transform: scaleX(1); } }
   /* It is decoration reporting position, not information, so it is one of the very
      few things that should simply stop when motion is not wanted. */
@@ -789,6 +793,12 @@ a.rb-term:hover { background: var(--rb-color-accent); color: var(--rb-color-acce
   /* The pill floats over the article, so the last paragraph needs somewhere to go —
      otherwise it sits permanently under the control. */
   .rb-article { padding-block-end: calc(var(--rb-target-touch) + var(--rb-space-6)); }
+  /* And focus needs the same (#90). Tabbing scrolls the focused element only as far
+     as the bottom edge, which is under the pill: 26 focus stops at 390×844 were partly
+     covered, a heading anchor 97%. The pill's own offset and height, plus a gap. */
+  html {
+    scroll-padding-block-end: calc(max(var(--rb-space-4), env(safe-area-inset-bottom)) + var(--rb-target-touch) + var(--rb-space-4));
+  }
 }
 
 /* ── Article tail: series, prev/next, related ───────────────────────────────── */
