@@ -79,6 +79,7 @@ This closes **open decision #5** in
       "t": "How to install and configure Redis 7 on Rocky Linux 9",
       "u": "/how-to-install-and-configure-redis-7-on-rocky-linux-9/",
       "d": "2024-03-01",
+      "f": "March 1, 2024",
       "s": "Install Redis 7 on Rocky Linux 9, set a password, bind it to a private…",
       "g": ["Redis", "Rocky Linux", "Databases"]
     }
@@ -91,7 +92,8 @@ This closes **open decision #5** in
 | `v` | index format version | Literal `1`. The chunk refuses an index it does not understand, so a stale cached one from an older theme cannot render garbage |
 | `t` | title | `.LinkTitle` |
 | `u` | URL | `.RelPermalink` |
-| `d` | date | `.Date`, `YYYY-MM-DD`. Absent on an undated page |
+| `d` | date | `.Date`, `YYYY-MM-DD`. Absent on an undated page. Sort key only — never displayed |
+| `f` | display date | `.Date` through `time.Format` with `params.runbook.dateFormat`, the same call as `article/meta.html` and `article/related.html`. Absent with `d` |
 | `s` | summary | `.Description`, else the page content with code stripped. Capped — see `summaryLength` |
 | `g` | terms | Display titles from every taxonomy in `taxonomies`, flattened and de-duplicated |
 
@@ -150,6 +152,15 @@ archive (490 published), `hugo --gc --minify`, compressed with `gzip -n -9`.
 | … + H2 headings | 271,868 | 62,656 | **over both** |
 | … + H2 and H3 headings | 336,448 | 78,950 | **over by 35% / 32%** |
 | Full text, as the incumbent theme ships it today | 4,551,252 | 1,256,759 | **18× / 21× over** |
+
+The **display date `f`** ([#71](https://github.com/etowett/hugo-theme-runbook/issues/71)) was
+added after that table was measured. On the current citizix archive (478 indexed documents,
+`.github/parity/citizix-runbook.yaml`, `dateFormat` "Jan 02, 2006") it moves the index from 171,170 to
+180,252 B raw (+9,082, 72% of budget) and from 40,733 to 42,148 B gzipped (+1,415). It is
+emitted beside `d` rather than replacing it because the scorer tie-breaks on `d` with a string
+compare, which only orders correctly on ISO dates; and it is formatted in Hugo because
+`dateFormat` is a Go layout or a locale-aware token such as `:date_long`, which the chunk could
+only reproduce by shipping a formatter.
 
 **Headings are rejected.** They were the tempting half of open decision #5 — the archive has
 3,250 H2 and 2,097 H3, they are genuinely good search signal, and a reader looking for "install
