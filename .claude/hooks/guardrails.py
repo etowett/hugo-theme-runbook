@@ -79,19 +79,49 @@ NOT_A_BUILD = {
 }
 
 
-def hugo_invocations(command: str) -> list[list[str]]:
-    """Every `hugo …` call in a shell line, as token lists starting at `hugo`.
+# A shell word (quoted parts stay attached, so `";"` is data, not a separator) or an operator.
+# Splitting on whitespace instead made `hugo version; echo x` one call whose subcommand was
+# `version;` — a build, and an R2 false positive (#49). Unbalanced quotes are skipped rather
+# than raising, because a heredoc-adjacent line can legitimately contain one.
+SHELL_TOKEN = re.compile(
+    r"""(?:'[^']*'|"(?:\\.|[^"\\])*"|\\.|[^\s;&|()<>'"\\])+|&&|\|\||>>|\n|[;&|()<>]"""
+)
+STARTS_COMMAND = {";", "&&", "||", "|", "&", "\n", "("}
+ENDS_ARGS = STARTS_COMMAND | {")", ">", ">>", "<"}
+# Words after which the next word is still the command: `time hugo`, `if hugo …; then`.
+WRAPPERS = {"time", "env", "exec", "command", "nohup", "nice", "sudo", "xargs",
+            "if", "then", "else", "elif", "do", "while", "until", "!", "{"}
+ENV_ASSIGN = re.compile(r"[A-Za-z_]\w*=")
 
-    Splitting on `hugo` rather than regex-matching the whole line is what keeps
-    `hugo build --help` and `hugo mod graph | grep hugo` from being read as builds.
+
+def hugo_invocations(command: str) -> list[list[str]]:
+    """The arguments of every `hugo …` call in a shell line.
+
+    Only a `hugo` in COMMAND position counts: first word, after a separator, after
+    `VAR=value` prefixes or after a wrapper such as `time`. Anywhere else it is an
+    argument — `ls /opt/homebrew/bin/hugo`, `which -a hugo` — and reading those as builds
+    blocked read-only commands (#49). `/opt/homebrew/bin/hugo --source …` and
+    `HUGO_ENV=production hugo …` are still calls, and still checked.
     """
-    tokens = re.split(r"\s+", command.strip())
+    tokens = SHELL_TOKEN.findall(command.replace("\\\n", " "))
     out: list[list[str]] = []
+    at_command, after_wrapper = True, False
     for i, tok in enumerate(tokens):
+        if tok in STARTS_COMMAND:
+            at_command, after_wrapper = True, False
+            continue
+        if not at_command:
+            continue
+        if ENV_ASSIGN.match(tok) or (after_wrapper and tok.startswith("-")):
+            continue
+        if tok.rsplit("/", 1)[-1] in WRAPPERS:
+            after_wrapper = True
+            continue
+        at_command = False
         if tok == "hugo" or tok.endswith("/hugo"):
             rest: list[str] = []
             for nxt in tokens[i + 1:]:
-                if nxt in ("|", "&&", "||", ";", ">", ">>"):
+                if nxt in ENDS_ARGS:
                     break
                 rest.append(nxt)
             out.append(rest)
