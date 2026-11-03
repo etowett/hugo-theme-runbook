@@ -593,6 +593,9 @@ a.rb-term:hover { background: var(--rb-color-accent); color: var(--rb-color-acce
   .rb-term-group .rb-term-list > li { scroll-snap-align: start; flex: 0 0 auto; }
 }
 .rb-term-groups { display: grid; gap: var(--rb-space-5); }
+/* #104: a grid item's automatic minimum is its min-content, which for a nowrap pill row is
+   the whole row — the track grew to 1,297px at 390 and the list never scrolled. */
+.rb-term-group { min-width: 0; }
 .rb-term-group-heading { font-size: var(--rb-text-lg); margin: 0 0 var(--rb-space-2); }
 
 /* ── Article layout: the floating TOC rail ────────────────────────────────────
