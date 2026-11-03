@@ -83,8 +83,9 @@ class Blocks(unittest.TestCase):
         # #114: a redirect or argument after the delimiter made the body read as commands.
         # The second body starts with `hugo`, so on the old regex it is blocked by R1 and R2.
         body = "run hugo --minify here\nhugo --minify --themesDir ../..\n"
-        for opener in ("cat <<'EOF' > notes.md", 'cat <<"EOF" >notes.md',
-                       "cat <<EOF > notes.md", "tee notes.md <<EOF >/dev/null"):
+        for opener in ("cat <<'EOF' > notes.md", 'cat <<"EOF" >"my notes.md"',
+                       "cat <<EOF > notes.md", "tee notes.md <<EOF >/dev/null",
+                       "cat <<EOF - extra.md"):
             with self.subTest(opener=opener):
                 self.assertAllowed(bash(f"{opener}\n{body}EOF"))
         self.assertAllowed(bash("cat <<-EOF > notes.md\n\thugo --minify --themesDir ../..\n\tEOF"))
@@ -95,6 +96,12 @@ class Blocks(unittest.TestCase):
     def test_a_real_command_after_a_redirected_heredoc_is_still_checked(self):
         self.assertBlocked(bash(
             "cat <<'EOF' > notes.md\nrun hugo --minify here\nEOF\nhugo --minify"), "R2")
+
+    def test_a_double_lt_that_is_not_a_heredoc_hides_nothing(self):
+        # A `<<` in a string, a shift or a herestring opens no body, so the next line is a command.
+        for first in ('echo "x <<EOF y"', "echo $((1<<n))", "cat <<<EOF"):
+            with self.subTest(first=first):
+                self.assertBlocked(bash(f"{first}\nhugo --minify\nEOF\nn=3"), "R2")
 
     # R2 — --panicOnWarning
     def test_build_without_panic_on_warning_is_blocked(self):

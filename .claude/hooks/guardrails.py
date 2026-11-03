@@ -46,8 +46,13 @@ def warn(rule: str, why: str, instead: str) -> None:
 
 
 # The rest of the opener line (`> notes.md`, `| hugo …`) is kept: it is still a command,
-# and only the body that follows it is data (#114). `(?<!<)` leaves a `<<<` herestring alone.
-HEREDOC = re.compile(r"(?<!<)<<-?\s*(['\"]?)(\w+)\1([^\n]*)\n.*?\n[ \t]*\2\b", re.DOTALL)
+# and only the body that follows it is data (#114). That tail may hold balanced quotes but
+# no stray quote or paren, so a `<<EOF` inside a string or `$((1<<n))` is not an opener and
+# cannot hide the lines after it. `(?<!<)` leaves a `<<<` herestring alone.
+HEREDOC = re.compile(
+    r"""(?<!<)<<-?\s*(['"]?)(\w+)\1((?:[^\n'"()]|'[^'\n]*'|"[^"\n]*")*)\n.*?\n[ \t]*\2\b""",
+    re.DOTALL,
+)
 
 
 def strip_heredocs(command: str) -> str:

@@ -265,7 +265,7 @@ run `python3 scripts/check_agents.py` after.
 | **Commands** | `/agents-doctor` runs the mirror gate and repairs the drift it reports |
 | **Subagents** | `spec-locator` what already makes this a rule, with the `file:line` · `theme-locator` where a feature's four touch-points are, and who owns each · `contract-reviewer` a diff against the six traps and the frozen names. All three read-only — `check_agents.py` rejects a subagent that can write |
 | **Hook** | [`.claude/hooks/guardrails.py`](.claude/hooks/guardrails.py) — a `PreToolUse` guard that blocks the traps above *before* the edit lands rather than minutes later in CI, with an error that names the mistake rather than a gate. **One script, registered twice** — Claude Code through `settings.json`, Codex through `.codex/hooks.json`. It is never copied; a copy is the bug that produced `check_agents.py` |
-| **Tests** | `python3 .claude/hooks/test_guardrails.py` — 51 cases, half of them "this must **not** fire", including a replay of every tracked file through the hook |
+| **Tests** | `python3 .claude/hooks/test_guardrails.py` — 52 cases, half of them "this must **not** fire", including a replay of every tracked file through the hook |
 | **MCP** | Playwright ([`.mcp.json`](.mcp.json)), for the "measure rather than assert" rule. Opt-in: Claude Code asks before loading a project-scoped server, and nothing in CI or in the build needs it |
 
 **The tooling is gated like the theme is.** `scripts/check_agents.py` runs in CI and fails the pull
