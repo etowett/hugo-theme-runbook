@@ -491,6 +491,10 @@
   padding: 0;
   background: none;
   border: 0;
+  /* #68 — the base pre's 20px radius, with overflow hidden and zero padding, clipped
+     the text to a rounded box: a one-line pre is ~22px tall, so the curve sliced the
+     first glyph. The plate already draws the rounded frame and the padding. */
+  border-radius: 0;
   overflow: hidden;
   font-size: inherit;
 }
