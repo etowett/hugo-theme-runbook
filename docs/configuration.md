@@ -146,7 +146,7 @@ rot silently.
 | `showTerms` | bool | `true` | Tag and category chips at the foot of an article |
 | `showPrevNext` | bool | `true` | Adjacent-post navigation, scoped to the section |
 | `poweredBy` | bool | `true` | The "Built with Hugo" line in the footer |
-| `externalLinksNewTab` | bool | `false` | `target="_blank"` on external links, plus a visually hidden "(opens in a new tab)". Accepts an environment-string boolean, so `HUGO_PARAMS_RUNBOOK_EXTERNALLINKSNEWTAB=true` works; `check_reqcb1.py` builds with exactly that to keep the `true` path covered in CI |
+| `externalLinksNewTab` | bool | `false` | `target="_blank"` on external links, plus a visually hidden "(opens in a new tab)". `check_reqcb1.py` builds with `HUGO_PARAMS_RUNBOOK_EXTERNALLINKSNEWTAB=true` to keep the `true` path covered in CI |
 | `seriesTaxonomy` | string | `"series"` | Which registered taxonomy drives series navigation |
 | `logo` | string | `""` | Publisher logo URL used in JSON-LD `publisher.logo` |
 

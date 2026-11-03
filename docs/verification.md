@@ -178,8 +178,8 @@ practice on the reference site:
 
 ## 3. The REQ-CB-1 gate
 
-`scripts/check_reqcb1.py` builds `exampleSite` twice, the second time with the reference site's own
-hostile settings forced through the environment:
+`scripts/check_reqcb1.py` builds `exampleSite` three times. The first two are diffed, the second with
+the reference site's own hostile settings forced through the environment:
 
 ```bash
 HUGO_MARKUP_HIGHLIGHT_LINENOS=true HUGO_MARKUP_HIGHLIGHT_LINENUMBERSINTABLE=true
