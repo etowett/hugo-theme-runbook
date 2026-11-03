@@ -33,7 +33,7 @@ nextPost: "Next"
 # render-heading.html — accessible name of the anchor beside every heading.
 headingAnchor: "Link to this section"
 # render-table.html — accessible name of the focusable scroll box around every table.
-tableRegion: "Table, scrolls sideways"
+tableRegion: "Table"
 # render-link.html — appended to an external link's accessible name, but only when
 # params.runbook.externalLinksNewTab actually opens it in a new tab.
 externalLinkNewTab: "(opens in a new tab)"

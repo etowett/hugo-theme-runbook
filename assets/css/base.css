@@ -93,7 +93,9 @@ h1, h2, h3, h4, h5, h6 {
   margin: var(--rb-space-7) 0 var(--rb-space-4);
   text-wrap: balance;
   /* At 46–52px one long word ("Infrastructure") is wider than a phone and pans the
-     whole page sideways (#67). Break it rather than overflow. */
+     whole page sideways (#67). Break it rather than overflow. `anywhere`, not
+     `break-word`: only `anywhere` lowers min-content, and the mobile `.rb-home-hero`
+     grid track is sized by it (layout.css:267). */
   overflow-wrap: anywhere;
   /* Anchor links from the TOC must not land the heading underneath the header. */
   scroll-margin-block-start: var(--rb-space-6);
