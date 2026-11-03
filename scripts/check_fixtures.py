@@ -273,12 +273,12 @@ CHECKS = [
     ("image-and-figure/index.md", [
         # #73: the one fixture that reaches render-image.html and the card-cover branch.
         ("front-matter image names a file that exists in the bundle",
-         lambda d: bool(re.search(r'^image: "([^"]+)"$', d.text, re.M))
-                   and (d.path.parent / re.search(r'^image: "([^"]+)"$', d.text, re.M).group(1)).is_file()),
+         lambda d: (m := re.search(r'^image: "([^"]+)"$', d.text, re.M)) is not None
+                   and (d.path.parent / m.group(1)).is_file()),
         ("a bundle image without a title, which renders without a caption",
          lambda d: re.search(r"!\[[^\]]*\]\((?!https?:)[^\s)]+\)", d.text) is not None),
         ("a bundle image with a title, which renders as a caption",
-         lambda d: re.search(r'!\[[^\]]*\]\([^\s)]+ "[^"]+"\)', d.text) is not None),
+         lambda d: re.search(r'!\[[^\]]*\]\((?!https?:)[^\s)]+ "[^"]+"\)', d.text) is not None),
         ("a remote image, which gets no width or height",
          lambda d: re.search(r"!\[[^\]]*\]\(https://", d.text) is not None),
     ]),
