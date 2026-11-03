@@ -197,9 +197,16 @@
   font-size: var(--rb-text-sm);
 }
 .rb-theme-toggle:hover { color: var(--rb-color-text); background: var(--rb-color-bg-subtle); }
+/* #107: the toggle ships `hidden` for JavaScript to lift, but the mobile and coarse-pointer
+   `display` rules below beat the UA's bare `[hidden]`. Same fix as `.rb-code-btn[hidden]`
+   in code.css; it lives here because this file owns the toggle and (0,2,0) beats both. */
+.rb-theme-toggle[hidden] { display: none; }
 
 @media (max-width: 56.24rem) {
-  .rb-nav { flex-wrap: nowrap; padding-block: var(--rb-space-3); }
+  /* #105: the row keeps the base `wrap`. Under `nowrap` a long title's longest word set the
+     brand's minimum and pushed the toggle to 338px at 320. Wrapping drops the controls
+     beneath a brand that does not fit; letting the brand shrink instead broke its words. */
+  .rb-nav { padding-block: var(--rb-space-3); }
   .rb-brand { margin-inline-end: auto; }
   .rb-nav-list--desktop { display: none; }
   .rb-nav-mobile { display: block; }
@@ -233,7 +240,9 @@
   }
   .rb-nav-list--mobile a { display: block; }
   .rb-search-link { padding-inline: var(--rb-space-2); }
-  .rb-search-label { font-size: 0; }
+  /* #105: scoped to the link because search.css styles the /search/ page's <label> with the
+     same class and loads later, which put "Search" back in the header at 62px wide. */
+  .rb-search-link .rb-search-label { font-size: 0; }
   .rb-search-link .rb-control-icon { font-size: var(--rb-text-lg); }
   .rb-theme-toggle { display: grid; place-items: center; min-width: var(--rb-target-touch); min-height: var(--rb-target-touch); padding: var(--rb-space-2); }
   .rb-theme-toggle .rb-control-icon { inline-size: 1.25rem; block-size: 1.25rem; }
@@ -278,7 +287,10 @@
 /* ── The home hero ──────────────────────────────────────────────────────────── */
 .rb-home-header { margin-block-end: var(--rb-space-7); }
 .rb-home-hero { display: grid; gap: var(--rb-space-6); align-items: end; }
-.rb-home-title { font-size: var(--rb-text-5xl); }
+/* #106: fluid below ~473px, where 11vw reaches the 52px token, so desktop is unchanged. At 52px
+   "Infrastructure" is wider than a phone and the heading's `overflow-wrap: anywhere` split it;
+   that break stays as the fallback for a word longer still. */
+.rb-home-title { font-size: clamp(var(--rb-text-3xl), 11vw, var(--rb-text-5xl)); }
 
 /* The eyebrow. Mono, tracked out, terracotta — the one place the interaction colour is
    used on something that is not interactive, because it is reading as a label rather
@@ -593,6 +605,9 @@ a.rb-term:hover { background: var(--rb-color-accent); color: var(--rb-color-acce
   .rb-term-group .rb-term-list > li { scroll-snap-align: start; flex: 0 0 auto; }
 }
 .rb-term-groups { display: grid; gap: var(--rb-space-5); }
+/* #104: a grid item's automatic minimum is its min-content, which for a nowrap pill row is
+   the whole row — the track grew to 1,297px at 390 and the list never scrolled. */
+.rb-term-group { min-width: 0; }
 .rb-term-group-heading { font-size: var(--rb-text-lg); margin: 0 0 var(--rb-space-2); }
 
 /* ── Article layout: the floating TOC rail ────────────────────────────────────

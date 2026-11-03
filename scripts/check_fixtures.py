@@ -270,6 +270,14 @@ CHECKS = [
         ("an h2 that is one unbroken compound, the same failure one level down",
          lambda d: re.search(r"^## [A-Za-z]{20,}$", d.text, re.M) is not None),
     ]),
+    ("taxonomy-crowded-letter.md", [
+        # #104: the taxonomy pill row must be wider than a 390px phone, or the
+        # grid-track overflow it guards against cannot show.
+        ("at least 12 tags sharing one initial letter",
+         lambda d: (m := re.search(r"^tags: \[(.*)\]$", d.text, re.M)) is not None
+                   and (i := [t.strip(' "')[:1].lower() for t in m.group(1).split(",")])
+                   and max(i.count(c) for c in i) >= 12),
+    ]),
     ("image-and-figure/index.md", [
         # #73: the one fixture that reaches render-image.html and the card-cover branch.
         ("front-matter image names a file that exists in the bundle",
