@@ -3,6 +3,8 @@
 
   "^https://example\\.com/": "The exampleSite baseURL. It is a placeholder domain reserved by RFC 2606 and is not expected to resolve; same-origin links are already verified offline by the internal crawl.",
 
+  "^https://images\\.example\\.net/": "The remote image in exampleSite/content/posts/image-and-figure/index.md. A deliberate placeholder, excluded like example.com: example.net is reserved by RFC 2606 and images.example.net has no DNS record, so no real third party is ever contacted, at build time or in a browser. It cannot be example.com, because that is the baseURL and would be crawled as internal. Issue #58.",
+
   "^https://hugo-theme-runbook\\.netlify\\.app/": "The demo site declared in theme.toml. It does not exist until the theme is first deployed (M5). Remove this entry the day the demo goes live — it is the showcase's own requirement that the demo builds and serves.",
 
   "^https://github\\.com/etowett/hugo-theme-runbook/(issues|pull)/": "GitHub rate-limits unauthenticated requests to issue and pull-request URLs from CI runners and answers 429, which is a checker artefact rather than a broken link. Repository, blob and tree URLs are NOT excluded and are checked normally."
