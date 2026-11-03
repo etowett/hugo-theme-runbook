@@ -1,6 +1,7 @@
 ---
 title: "Why page-weight ceilings do not work"
 date: 2026-07-23
+lastmod: 2026-10-14
 description: "A post with no code block at all — the case a code-first theme is most likely to get wrong."
 tags: ["fixtures", "budgets"]
 categories: ["Meta"]
