@@ -123,7 +123,7 @@ export function initSearch() {
     li.appendChild(h);
 
     const bits = [];
-    if (d.d) bits.push(d.d);
+    if (d.f) bits.push(d.f);
     if (d.g && d.g.length) bits.push(d.g.join(', '));
     if (bits.length) {
       const m = el('p', 'rb-search-result-meta');

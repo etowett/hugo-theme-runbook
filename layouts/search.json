@@ -21,7 +21,13 @@
       v   index format version. The chunk refuses an index it does not understand,
           so a stale cached one from an older theme cannot render garbage.
       t   title            u   RelPermalink        d   date, YYYY-MM-DD
+      f   date in params.runbook.dateFormat, for display
       s   summary, capped  g   taxonomy term display titles, flattened
+
+    `d` and `f` carry the same date twice on purpose. The scorer tie-breaks on `d`
+    with a string compare, which only works on ISO; `f` is what the reader sees, and
+    it is formatted here because dateFormat is a Go layout or a locale-aware Hugo
+    token that the chunk cannot reproduce. ~20 B raw per document.
 
     Long keys ("title", "summary", …) cost ~20 KB raw across the reference archive —
     8% of the budget — and almost nothing gzipped, because gzip crushes the repetition
@@ -42,6 +48,7 @@
     the next visitor misses the old entry. Documented in docs/search.md.
 ═══════════════════════════════════════════════════════════════════════════════ */ -}}
 {{- $cfg := partialCached "search/settings.html" . -}}
+{{- $rb := partialCached "utils/settings.html" . -}}
 {{- $docs := slice -}}
 
 {{- if $cfg.enable -}}
@@ -99,7 +106,7 @@
 
       {{- $doc := dict "t" $p.LinkTitle "u" $p.RelPermalink -}}
       {{- if not $p.Date.IsZero -}}
-        {{- $doc = merge $doc (dict "d" ($p.Date.Format "2006-01-02")) -}}
+        {{- $doc = merge $doc (dict "d" ($p.Date.Format "2006-01-02") "f" (time.Format $rb.dateFormat $p.Date)) -}}
       {{- end -}}
       {{- with $s }}{{ $doc = merge $doc (dict "s" (printf "%s" .)) }}{{ end -}}
       {{- with $terms }}{{ $doc = merge $doc (dict "g" .) }}{{ end -}}
