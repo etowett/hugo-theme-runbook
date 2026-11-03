@@ -1,7 +1,7 @@
 # 010 — citizix.com migration and cutover
 
 **Status:** specification
-**Last revised:** 2026-07-28
+**Last revised:** 2026-11-03
 
 ---
 
@@ -128,16 +128,36 @@ intended — the `_index.md` has to go too, and the redirect belongs on the *sur
 
 ## 5. Cutover procedure
 
+> **Amended 2026-11-03.** Steps 5 and 6 first described a manual `workflow_dispatch` deploy and a
+> rollback by submodule revert plus redeploy. citizix `8918b75` (citizix#124) moved build and serving
+> to Cloudflare and deleted both deploy workflows: Cloudflare now runs `./build.sh` on every push to
+> `main`, so a merge is a deploy. The same commit dropped `--remote` from CI's submodule checkout, so
+> CI and Cloudflare both build the pinned theme commit and a submodule pin holds again. The intent is
+> unchanged — cutover is a deliberate human act, and the rollback is proven before it is needed — but
+> the mechanism is not, and a spec that still said "manual-only" would invite someone to push to
+> `main` believing it does not deploy.
+
 1. Fix the two content bugs (§1). Merge separately, before any theme work.
 2. Build citizix with Runbook in CI; run the full parity manifest diff (§2).
 3. Deploy to a **preview host** with `noindex`, and review it against production page-by-page for the
    pinned fixture set.
 4. Run the link crawl and the budget distribution gates against the preview.
-5. Cut over production. citizix deploys via manual `workflow_dispatch` only — this is deliberate and
-   must not be automated.
-6. **Rollback plan:** the theme is a submodule pin, so rollback is a submodule revert plus a redeploy.
+5. Cut over production. Cloudflare deploys every push to citizix `main`, so the cutover **is** the
+   merge of the PR that switches the theme. That merge must be deliberate and human-triggered — no
+   auto-merge, no bot-opened submodule bump, nothing else landing on `main` in the same window —
+   because there is no separate deploy step left to stop it.
+6. **Rollback plan:** the theme is a submodule pin, so rollback is a revert of the cutover commit on
+   `main`, which Cloudflare builds and deploys like any other push; Cloudflare's own rollback to the
+   previous deployment is the faster path while the revert builds.
+   `TODO(eutychus): confirm whether citizix is on Cloudflare Pages or Workers — its agents.md says
+   "Workers/Pages" — and which rollback that gives: the dashboard action or wrangler command, and
+   whether it holds past the next push to main.`
    Define the rollback trigger (any URL parity failure, any 5xx, any Lighthouse regression beyond
-   threshold) and confirm the rollback command before cutover, not after.
+   threshold), then **execute** the rollback once before cutover — roll a harmless production deploy
+   back and forward again — and record the command and how long it took. A rollback that has only
+   been written down has not been confirmed.
+   `TODO(eutychus): confirm which deploy to rehearse it on, and whether a preview deployment is an
+   acceptable stand-in for production.`
 7. Observe production for a defined period before submitting to the showcase.
 
 ## 6. Sequencing note
