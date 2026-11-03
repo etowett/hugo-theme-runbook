@@ -83,8 +83,8 @@
 
   There is deliberately no prose-font setting (the declared-but-unread bundledProseFont
   key was removed in #101). Open decision #2 closed it OFF, and Runbook ships no
-  prose face at all — so a branch here would point --rb-font-sans at a family that does not exist. A consumer who wants one adds
-  the @font-face through the custom-head.html hook and overrides --rb-font-sans
+  prose face at all — so a branch here would point --rb-font-sans at a family that
+  does not exist. A consumer who wants one adds the @font-face through the custom-head.html hook and overrides --rb-font-sans
   themselves; docs/design-tokens.md §4 spells it out. */ -}}
 {{- if eq $rb.bundledCodeFont false }}
 <style{{ with $nonce }} nonce="{{ . }}"{{ end }}>:root:root{--rb-font-mono:var(--rb-font-mono-system)}</style>
