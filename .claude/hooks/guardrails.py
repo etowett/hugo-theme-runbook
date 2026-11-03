@@ -83,15 +83,29 @@ NOT_A_BUILD = {
 # Splitting on whitespace instead made `hugo version; echo x` one call whose subcommand was
 # `version;` — a build, and an R2 false positive (#49). Unbalanced quotes are skipped rather
 # than raising, because a heredoc-adjacent line can legitimately contain one.
+#
+# A redirect is one token with its fd number (`2>`, `>&`, `&>`), tried before a word so the
+# `2` of `2>/dev/null` is not read as an argument. The redirect and its target are skipped
+# rather than ending the call: `hugo 2>/dev/null --panicOnWarning` still carries the flag,
+# and bash allows a redirect anywhere in a simple command, `>log hugo` included (#98).
+REDIRECT = r"\d*(?:<<<|<<-?|<>|<&|>>|>&|>\||>|<)|&>>?"
 SHELL_TOKEN = re.compile(
-    r"""(?:\$\((?:[^()]|\([^()]*\))*\)|'[^']*'|"(?:\\.|[^"\\])*"|\\.|[^\s;&|()<>'"\\])+"""
-    r"""|&&|\|\||>>|\n|[;&|()<>]"""
+    REDIRECT
+    + r"""|(?:\$\((?:[^()]|\([^()]*\))*\)|'[^']*'|"(?:\\.|[^"\\])*"|\\.|[^\s;&|()<>'"\\])+"""
+    r"""|&&|\|\||\n|[;&|()]"""
+)
+IS_REDIRECT = re.compile(f"(?:{REDIRECT})$")
+# The command words that run Hugo: `hugo` by any path, a versioned binary such as
+# `hugo-0.146.0`, and `$RB_HUGO`, the floor variable check_reqcb1.py and AGENTS.md document
+# for reproducing the 0.146.0 end of the CI matrix (#98). Quotes are stripped first.
+HUGO_WORD = re.compile(
+    r"(?:.*/)?hugo(?:-v?\d+(?:\.\d+)*)?|\$RB_HUGO|\$\{RB_HUGO(?::?-[^}]*)?\}"
 )
 # `$(…)` stays glued to its word, so `$(brew --prefix)/bin/hugo` is one command word, and
 # its inner text is scanned as a command line of its own.
 SUBST = re.compile(r"\$\(((?:[^()]|\([^()]*\))*)\)")
 STARTS_COMMAND = {";", "&&", "||", "|", "&", "\n", "("}
-ENDS_ARGS = STARTS_COMMAND | {")", ">", ">>", "<"}
+ENDS_ARGS = STARTS_COMMAND | {")"}
 # Words after which the next word is still the command: `time hugo`, `if hugo …; then`.
 WRAPPERS = {"time", "env", "exec", "command", "nohup", "nice", "sudo", "xargs",
             "timeout", "gtimeout", "stdbuf", "caffeinate", "watch", "if", "then", "else", "elif", "do", "while", "until", "!", "{"}
@@ -112,14 +126,21 @@ def hugo_invocations(command: str) -> list[list[str]]:
     """
     tokens = SHELL_TOKEN.findall(command.replace("\\\n", " "))
     out: list[list[str]] = []
-    at_command, after_wrapper = True, False
+    at_command, after_wrapper, target = True, False, False
     for i, tok in enumerate(tokens):
         for sub in SUBST.findall(tok):
             out += hugo_invocations(sub)
+        if target and tok not in ENDS_ARGS:
+            target = False
+            continue  # the file a leading redirect names, `>log hugo`
+        target = False
         if tok in STARTS_COMMAND:
             at_command, after_wrapper = True, False
             continue
         if not at_command:
+            continue
+        if IS_REDIRECT.match(tok):
+            target = True
             continue
         if ENV_ASSIGN.match(tok) or (after_wrapper and WRAPPER_ARG.match(tok)):
             if tok in ("-v", "-V") and tokens[i - 1] == "command":
@@ -129,12 +150,18 @@ def hugo_invocations(command: str) -> list[list[str]]:
             after_wrapper = True
             continue
         at_command = False
-        if tok == "hugo" or tok.endswith("/hugo"):
+        if HUGO_WORD.fullmatch(tok.strip("'\"")):
             rest: list[str] = []
+            skip = False
             for nxt in tokens[i + 1:]:
                 if nxt in ENDS_ARGS:
                     break
-                rest.append(nxt)
+                if skip:
+                    skip = False
+                elif IS_REDIRECT.match(nxt):
+                    skip = True
+                else:
+                    rest.append(nxt)
             out.append(rest)
     return out
 
