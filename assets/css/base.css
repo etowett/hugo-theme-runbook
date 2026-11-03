@@ -121,6 +121,24 @@ a {
 }
 a:hover { color: var(--rb-color-accent-hover); }
 
+/* Read by assistive technology, invisible on screen — render-link.html's new-tab
+   announcement (#69). Clipped rather than display:none, which would hide it from both. */
+.rb-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* A bare URL as link text is one unbreakable word and pans the page at 390px (#83).
+   `break-word`, not the headings' `anywhere`: this inherits into `.rb-table` cells, and
+   only `anywhere` lowers min-content, which would squeeze table columns. Prose needs no
+   lower min-content, because `.rb-article-layout > *` is already `min-width: 0`. */
+.rb-prose { overflow-wrap: break-word; }
+
 /* ── Focus — visible ring on every interactive element (specs/003 §3.6) ───── */
 :focus-visible {
   outline: var(--rb-focus-width) solid var(--rb-color-focus);
