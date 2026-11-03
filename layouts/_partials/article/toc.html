@@ -23,7 +23,8 @@
     second template that will drift away from this one. It is achievable only because
     the sheet is a native <details>: a JavaScript sheet would need open/closed state
     the rail has no concept of, and the core bundle is frozen at three modules
-    (contracts §2.3) so there is nowhere to put it anyway.
+    (contracts §2.3) so there is nowhere to put it anyway. JS only ever closes it
+    (js/modules/toc.js, #103); opening stays native.
 
     Two things the second render has to get right, and neither is optional:
 

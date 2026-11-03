@@ -1,4 +1,4 @@
-/* toc.js — table-of-contents scroll-spy.
+/* toc.js — table-of-contents scroll-spy, and closing the mobile sheet (#103).
    OWNED BY: the templates workstream.
 
    ▸ SCROLL-SPY IS AN ENHANCEMENT, NOT A PREREQUISITE (specs/003 §3.4).
@@ -14,7 +14,9 @@
    measured cost is in the PR description, and the module is ~350 B gzipped of the
    budget. Had it not fitted, deleting this file and its import in runbook.js was the
    documented and acceptable outcome; that is still the correct move if the budget is
-   ever contested, because nothing else depends on it.
+   ever contested, because nothing else depends on it — EXCEPT the sheet-close block
+   at the top of initToc, which is an accessibility fix (#103, WCAG 2.4.11), not an
+   enhancement. Cut scroll-spy, keep that.
 
    Design notes:
 
