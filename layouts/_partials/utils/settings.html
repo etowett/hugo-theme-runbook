@@ -34,28 +34,29 @@
 {{- $tc := $rb.themeColor | default dict -}}
 
 {{- /* ── booleans: absent ≠ false ─────────────────────────────────────────── */ -}}
-{{- $showReadingTime := true -}}{{ if isset $rb "showreadingtime" }}{{ $showReadingTime = $rb.showReadingTime }}{{ end }}
-{{- $showLastmod := true -}}{{ if isset $rb "showlastmod" }}{{ $showLastmod = $rb.showLastmod }}{{ end }}
-{{- $showThemeToggle := true -}}{{ if isset $rb "showthemetoggle" }}{{ $showThemeToggle = $rb.showThemeToggle }}{{ end }}
-{{- $poweredBy := true -}}{{ if isset $rb "poweredby" }}{{ $poweredBy = $rb.poweredBy }}{{ end }}
-{{- /* An environment variable arrives as the string "false", which is truthy (#86), so the
-       value is compared as text, the same idiom as details.html: only true, in any case, turns it on. */ -}}
+{{- /* Present values are compared as text. An environment variable arrives as the string
+       "false", which is truthy (#86, #93), so assigning it raw left the setting on. Same idiom as
+       details.html: only true, in any case, turns a setting on, and the result is a real boolean. */ -}}
+{{- $showReadingTime := true -}}{{ if isset $rb "showreadingtime" }}{{ $showReadingTime = eq (lower (printf "%v" $rb.showReadingTime)) "true" }}{{ end }}
+{{- $showLastmod := true -}}{{ if isset $rb "showlastmod" }}{{ $showLastmod = eq (lower (printf "%v" $rb.showLastmod)) "true" }}{{ end }}
+{{- $showThemeToggle := true -}}{{ if isset $rb "showthemetoggle" }}{{ $showThemeToggle = eq (lower (printf "%v" $rb.showThemeToggle)) "true" }}{{ end }}
+{{- $poweredBy := true -}}{{ if isset $rb "poweredby" }}{{ $poweredBy = eq (lower (printf "%v" $rb.poweredBy)) "true" }}{{ end }}
 {{- $newTab := false -}}{{ if isset $rb "externallinksnewtab" }}{{ $newTab = eq (lower (printf "%v" $rb.externalLinksNewTab)) "true" }}{{ end }}
 
-{{- $tocEnable := true -}}{{ if isset $toc "enable" }}{{ $tocEnable = $toc.enable }}{{ end }}
-{{- $tocSpy := true -}}{{ if isset $toc "scrollspy" }}{{ $tocSpy = $toc.scrollSpy }}{{ end }}
+{{- $tocEnable := true -}}{{ if isset $toc "enable" }}{{ $tocEnable = eq (lower (printf "%v" $toc.enable)) "true" }}{{ end }}
+{{- $tocSpy := true -}}{{ if isset $toc "scrollspy" }}{{ $tocSpy = eq (lower (printf "%v" $toc.scrollSpy)) "true" }}{{ end }}
 
-{{- $relEnable := true -}}{{ if isset $rel "enable" }}{{ $relEnable = $rel.enable }}{{ end }}
-{{- $relFallback := true -}}{{ if isset $rel "fallback" }}{{ $relFallback = $rel.fallback }}{{ end }}
+{{- $relEnable := true -}}{{ if isset $rel "enable" }}{{ $relEnable = eq (lower (printf "%v" $rel.enable)) "true" }}{{ end }}
+{{- $relFallback := true -}}{{ if isset $rel "fallback" }}{{ $relFallback = eq (lower (printf "%v" $rel.fallback)) "true" }}{{ end }}
 
-{{- $searchEnable := false -}}{{ if isset $srch "enable" }}{{ $searchEnable = $srch.enable }}{{ end }}
+{{- $searchEnable := false -}}{{ if isset $srch "enable" }}{{ $searchEnable = eq (lower (printf "%v" $srch.enable)) "true" }}{{ end }}
 
-{{- $jsonLd := true -}}{{ if isset $seo "jsonld" }}{{ $jsonLd = $seo.jsonLd }}{{ end }}
+{{- $jsonLd := true -}}{{ if isset $seo "jsonld" }}{{ $jsonLd = eq (lower (printf "%v" $seo.jsonLd)) "true" }}{{ end }}
 
-{{- $taxCounts := true -}}{{ if isset $tax "showcounts" }}{{ $taxCounts = $tax.showCounts }}{{ end }}
+{{- $taxCounts := true -}}{{ if isset $tax "showcounts" }}{{ $taxCounts = eq (lower (printf "%v" $tax.showCounts)) "true" }}{{ end }}
 
-{{- $prevNext := true -}}{{ if isset $rb "showprevnext" }}{{ $prevNext = $rb.showPrevNext }}{{ end }}
-{{- $showTerms := true -}}{{ if isset $rb "showterms" }}{{ $showTerms = $rb.showTerms }}{{ end }}
+{{- $prevNext := true -}}{{ if isset $rb "showprevnext" }}{{ $prevNext = eq (lower (printf "%v" $rb.showPrevNext)) "true" }}{{ end }}
+{{- $showTerms := true -}}{{ if isset $rb "showterms" }}{{ $showTerms = eq (lower (printf "%v" $rb.showTerms)) "true" }}{{ end }}
 
 {{- /* themeMode and cspNonce are here so that head/theme-guard.html can stop reading
        site.Params.runbook directly. It was the one template that bypassed this partial,
@@ -75,11 +76,11 @@
        value that carries meaning here: it is what selects the zero-byte system stack.
        Both must be real booleans, since head/theme-guard.html tests `eq … false`. */ -}}
 {{- $bundledCodeFont := true -}}
-{{- if isset $rb "bundledcodefont" }}{{ $bundledCodeFont = $rb.bundledCodeFont }}{{ end -}}
+{{- if isset $rb "bundledcodefont" }}{{ $bundledCodeFont = eq (lower (printf "%v" $rb.bundledCodeFont)) "true" }}{{ end -}}
 {{- $bundledDisplayFont := true -}}
-{{- if isset $rb "bundleddisplayfont" }}{{ $bundledDisplayFont = $rb.bundledDisplayFont }}{{ end -}}
+{{- if isset $rb "bundleddisplayfont" }}{{ $bundledDisplayFont = eq (lower (printf "%v" $rb.bundledDisplayFont)) "true" }}{{ end -}}
 {{- $codeFontLigatures := false -}}
-{{- if isset $rb "codefontligatures" }}{{ $codeFontLigatures = $rb.codeFontLigatures }}{{ end -}}
+{{- if isset $rb "codefontligatures" }}{{ $codeFontLigatures = eq (lower (printf "%v" $rb.codeFontLigatures)) "true" }}{{ end -}}
 
 {{- return dict
       "themeMode"           $mode
