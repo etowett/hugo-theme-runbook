@@ -28,6 +28,11 @@ Highest wins:
 2. **Your site's `params.runbook.*`** — `hugo.toml`, `config/_default/params.toml`, an environment
    override under `config/production/`, or a `HUGO_PARAMS_RUNBOOK_*` environment variable. Hugo's own
    configuration merge decides among these; Runbook sees only the result.
+
+   An environment variable always arrives as a string, so every boolean is compared as text:
+   **only `true`, in any case, turns a setting on**, and any other value you set turns it off.
+   `HUGO_PARAMS_RUNBOOK_TOC_ENABLE=false` disables the table of contents as you would expect;
+   so, less obviously, does `=1` or `=yes`.
 3. **The theme's `[params.runbook]`** in the repo-root `hugo.toml`, merged underneath yours by Hugo.
 4. **The inline default in `utils/settings.html`**, which is what answers when the whole block is
    absent — for example when Runbook is loaded in a way that does not merge theme configuration.
@@ -130,7 +135,6 @@ rot silently.
 | `bundledCodeFont` | bool | `true` | `false` falls back to the zero-byte system mono stack (REQ-FONT-2) |
 | `bundledDisplayFont` | bool | `true` | `false` falls back to the system display stack instead of loading the self-hosted Caprasimo face |
 | `codeFontLigatures` | bool | `false` | Off by default: ligatures misdraw `>=`, `!=`, `->` in shell |
-| `bundledProseFont` | bool | `false` | Off by default: the system sans stack costs nothing |
 
 ### Content
 
@@ -142,7 +146,7 @@ rot silently.
 | `showTerms` | bool | `true` | Tag and category chips at the foot of an article |
 | `showPrevNext` | bool | `true` | Adjacent-post navigation, scoped to the section |
 | `poweredBy` | bool | `true` | The "Built with Hugo" line in the footer |
-| `externalLinksNewTab` | bool | `false` | `target="_blank"` on external links, plus a visually hidden "(opens in a new tab)" |
+| `externalLinksNewTab` | bool | `false` | `target="_blank"` on external links, plus a visually hidden "(opens in a new tab)". Accepts an environment-string boolean, so `HUGO_PARAMS_RUNBOOK_EXTERNALLINKSNEWTAB=true` works; `check_reqcb1.py` builds with exactly that to keep the `true` path covered in CI |
 | `seriesTaxonomy` | string | `"series"` | Which registered taxonomy drives series navigation |
 | `logo` | string | `""` | Publisher logo URL used in JSON-LD `publisher.logo` |
 

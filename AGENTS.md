@@ -68,7 +68,7 @@ hugo --source exampleSite \
      --panicOnWarning --printPathWarnings
 
 # 2 — the gates that run on every pull request
-python3 scripts/check_reqcb1.py                    # builds twice itself and diffs
+python3 scripts/check_reqcb1.py                    # builds three times: two diffed, one new-tab
 python3 scripts/check_fixtures.py --check-generated
 python3 scripts/check_jsonld.py   public --require-article
 python3 scripts/check_budgets.py  public
@@ -95,9 +95,8 @@ Claude Code users: **`/gates`** runs all of the above and reports each result.
 And one that is not written down anywhere else: **`--destination` must be absolute.** Hugo
 resolves a relative `--destination` against `--source`, so `--source exampleSite --destination
 public` writes to `exampleSite/public/` and every gate then fails with `public is not a
-directory`. CI avoids it by passing `$RUNNER_TEMP/public`; the local recipe in
-[CONTRIBUTING.md](CONTRIBUTING.md#running-the-gates) still has the relative form —
-`TODO(release-hygiene): fix, it is that stream's file`.
+directory`. CI avoids it by passing `$RUNNER_TEMP/public`, and the local recipe in
+[CONTRIBUTING.md](CONTRIBUTING.md#building-it-locally) passes `"$PWD/public"`.
 
 Reproducing the CI floor locally, which catches template features that only exist after 0.146.0:
 
