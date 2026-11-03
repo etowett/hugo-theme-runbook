@@ -280,8 +280,8 @@ CHECKS = [
     ]),
     ("toc-disabled-front-matter.md", [
         # #101 proved the per-page override only with scratch pages. Enough headings that
-        # `toc: false` is the only reason the built page can have no TOC; the built page is
-        # checked by grepping it for `rb-toc`, since this gate reads source, not public/.
+        # `toc: false` is the only reason the built page can have no TOC. This gate reads
+        # source only; the built page is asserted by a grep step in ci.yml.
         ("front matter says toc: false",
          lambda d: re.search(r"^toc: false$", d.text, re.M) is not None),
         ("at least four h2s, past the default toc.minHeadings of 2",

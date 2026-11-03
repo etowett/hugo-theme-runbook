@@ -30,8 +30,8 @@ a quoted `"false"` behaves the same as a bare boolean.
 ## What the check looks for
 
 `check_fixtures.py` guards the source: the front-matter key, and enough headings that the override
-is the only reason a contents list could be missing. The built page is checked separately, by
-searching its HTML for the table-of-contents class, which should find nothing.
+is the only reason a contents list could be missing. A step in `ci.yml` then searches the built
+page's HTML for the table-of-contents class and fails if it finds one.
 
 ## What it does not cover
 
