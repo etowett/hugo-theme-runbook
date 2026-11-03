@@ -38,11 +38,13 @@ Python 3.8+.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import re
 import subprocess
 import sys
+import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -395,6 +397,35 @@ def check_case_sensitivity() -> None:
 def check_documented_numbers() -> None:
     """A number duplicated into prose that no gate reads goes stale — it did, in five
     files, the day check_contrast.py went from 150 assertions to 156."""
+    docs = [p for p in sorted(ROOT.glob("*.md")) + sorted(ROOT.glob("docs/*.md")) +
+            sorted(CLAUDE.rglob("*.md")) if not is_scratch(p) and p.is_file()]
+
+    # The guardrail suite's case count (#98). Loaded, not run: the suite spawns the hook
+    # once per case, and countTestCases() is the figure its own "Ran N tests" line prints.
+    suite = CLAUDE / "hooks" / "test_guardrails.py"
+    if suite.exists():
+        try:
+            spec = importlib.util.spec_from_file_location("test_guardrails", suite)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            cases = str(unittest.defaultTestLoader.loadTestsFromModule(module).countTestCases())
+        except Exception as exc:  # a broken suite must not crash the gate that reports it
+            problem("docs", f"could not load {rel(suite)} to count its cases: {exc}")
+        else:
+            quoted_cases = re.compile(r"(\d+)\s+cases\b")
+            for path in docs:
+                for lineno, line in enumerate(path.read_text(errors="replace").splitlines(), 1):
+                    if "test_guardrails.py" not in line:
+                        continue
+                    for found in quoted_cases.findall(line):
+                        if found != cases:
+                            problem(
+                                "docs",
+                                f"{rel(path)}:{lineno} says {found} guardrail cases; "
+                                f"{rel(suite)} has {cases}",
+                                f"Update the number, or stop quoting it. Line: {line.strip()[:80]}",
+                            )
+
     gate = ROOT / "scripts" / "check_contrast.py"
     if not gate.exists():
         return
@@ -412,10 +443,7 @@ def check_documented_numbers() -> None:
     actual = m.group(1)
 
     quoted = re.compile(r"(\d+)\s+(?:assertions|ratios|contrast assertions)")
-    for path in sorted(ROOT.glob("*.md")) + sorted(ROOT.glob("docs/*.md")) + \
-            sorted(CLAUDE.rglob("*.md")):
-        if is_scratch(path) or not path.is_file():
-            continue
+    for path in docs:
         for lineno, line in enumerate(path.read_text(errors="replace").splitlines(), 1):
             for found in quoted.findall(line):
                 if found != actual:

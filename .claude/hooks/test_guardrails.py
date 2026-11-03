@@ -157,6 +157,48 @@ class Blocks(unittest.TestCase):
                 self.assertBlocked(bash(cmd), "R2")
         self.assertAllowed(bash("hugo --source exampleSite \\\n  --panicOnWarning"))
 
+    # #98 — the floor variable and versioned binaries are Hugo too.
+    def test_rb_hugo_and_a_versioned_binary_are_builds(self):
+        for cmd in ('"$RB_HUGO" --source exampleSite', "$RB_HUGO --minify",
+                    "${RB_HUGO} --source exampleSite", '"${RB_HUGO:-hugo}" --minify',
+                    "hugo-0.146.0 --source exampleSite",
+                    "/opt/hugo/hugo-0.146.0 --source exampleSite",
+                    "RB_HUGO=/x/hugo-0.146.0 $RB_HUGO --minify",
+                    '"/opt/homebrew/bin/hugo" --minify'):
+            with self.subTest(cmd=cmd):
+                self.assertBlocked(bash(cmd), "R2")
+        self.assertAllowed(bash('"$RB_HUGO" --source exampleSite --panicOnWarning'))
+        self.assertAllowed(bash('"$RB_HUGO" version'))
+
+    def test_rb_hugo_or_a_versioned_name_as_data_is_not_a_call(self):
+        for cmd in ("echo $RB_HUGO", 'echo "$RB_HUGO"', "ls hugo-0.146.0",
+                    "ls -l /opt/hugo/hugo-0.146.0", "tar xzf hugo-0.146.0.tar.gz",
+                    "RB_HUGO=/path/to/hugo-0.146.0 python3 scripts/check_reqcb1.py",
+                    "export RB_HUGO=/path/to/hugo-0.146.0", "hugo-0.146.0.tar.gz",
+                    "hugoplate --minify", 'test -x "$RB_HUGO"'):
+            with self.subTest(cmd=cmd):
+                self.assertAllowed(bash(cmd))
+
+    # #98 — a redirect is skipped with its target, not the end of the call.
+    def test_a_flag_after_a_redirect_still_counts(self):
+        for cmd in ("hugo 2>/dev/null --source x --panicOnWarning",
+                    "hugo --source x > build.log --panicOnWarning",
+                    "hugo 2>&1 --panicOnWarning | tee log", "hugo &>/dev/null --panicOnWarning",
+                    "hugo 2> err.log version", ">log hugo version", "hugo <in version",
+                    "echo x # hugo --minify", "hugo --source a#b --panicOnWarning"):
+            with self.subTest(cmd=cmd):
+                self.assertAllowed(bash(cmd))
+
+    def test_a_redirect_does_not_hide_a_build(self):
+        for cmd in ("hugo --source x 2>/dev/null", "hugo --source x >build.log 2>&1",
+                    ">log hugo --minify", "2>/dev/null hugo --minify",
+                    "hugo version >/dev/null; hugo --minify", "hugo &>log",
+                    "hugo --minify # >log --panicOnWarning",
+                    "hugo --minify 2>&1 # 2>x --panicOnWarning",
+                    "hugo --minify # --panicOnWarning"):
+            with self.subTest(cmd=cmd):
+                self.assertBlocked(bash(cmd), "R2")
+
     def test_bare_hugo_is_a_build(self):
         self.assertBlocked(bash("hugo"), "R2")
 
