@@ -130,7 +130,11 @@
       {{- end -}}
     {{- end -}}
     {{- $src := strings.TrimRight "\n" (delimit $lines "\n") -}}
-    {{- if $src -}}
+    {{- /* #68 — an unlabelled or `text` first fence is, in practice, an ASCII diagram:
+           box-drawing art cropped to four lines and 52 characters is a broken picture,
+           not a recognisable one. Such a card takes branch 3 — no plate — rather than
+           hunting for a later fence, which would preview a block out of context. */ -}}
+    {{- if and $src (not (in (slice "" "text" "txt") $type)) -}}
       {{- $plateLabel = partial "utils/code-label.html" $type -}}
       {{- $hlOpts := dict
           "lineNos" false "lineNumbersInTable" false "anchorLineNos" false "lineNoStart" 1

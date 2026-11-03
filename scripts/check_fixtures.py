@@ -214,6 +214,16 @@ CHECKS = [
         ("a backtick fence follows it, so the two patterns cannot be conflated",
          lambda d: "```yaml" in d.text),
     ]),
+    ("diagram-first-fence.md", [
+        # #68: the card skips its plate when the first fence is `text` or unlabelled,
+        # because that is an ASCII diagram in practice. This is the post that proves it.
+        ("the FIRST fence is a `text` fence",
+         lambda d: d.blocks[0].lang == "text"),
+        ("and it is box-drawing art, not prose in a fence",
+         lambda d: all(g in "\n".join(d.blocks[0].lines) for g in "┌─│▶")),
+        ("a labelled fence follows it, which the card must not promote",
+         lambda d: any(b.lang == "sh" for b in d.blocks[1:])),
+    ]),
     ("tabs-and-variant-procedures.md", [
         # Registered late: an unregistered fixture is silently skipped by this script,
         # so the file existed while nothing checked it still did its job.
