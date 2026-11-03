@@ -131,6 +131,24 @@ a:hover { color: var(--rb-color-accent-hover); }
 .rb-heading-anchor:focus-visible,
 .rb-heading:target .rb-heading-anchor { color: var(--rb-color-accent); }
 
+/* Read by assistive technology, invisible on screen — render-link.html's new-tab
+   announcement (#69). Clipped rather than display:none, which would hide it from both. */
+.rb-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* A bare URL as link text is one unbreakable word and pans the page at 390px (#83).
+   `break-word`, not the headings' `anywhere`: this inherits into `.rb-table` cells, and
+   only `anywhere` lowers min-content, which would squeeze table columns. Prose needs no
+   lower min-content, because `.rb-article-layout > *` is already `min-width: 0`. */
+.rb-prose { overflow-wrap: break-word; }
+
 /* ── Focus — visible ring on every interactive element (specs/003 §3.6) ───── */
 :focus-visible {
   outline: var(--rb-focus-width) solid var(--rb-color-focus);
@@ -168,7 +186,9 @@ table {
 }
 /* render-table.html's scroll box (#67): a wide table scrolls inside it instead of
    widening the page. It takes the table's block margin, so the gap sits outside the box. */
-.rb-table { overflow-x: auto; margin: 0 0 var(--rb-space-4); }
+/* `position: relative` makes the box the containing block for an absolute
+   .rb-visually-hidden in a cell, which otherwise escapes the scroll box and pans the page (#69). */
+.rb-table { position: relative; overflow-x: auto; margin: 0 0 var(--rb-space-4); }
 .rb-table > table { margin: 0; }
 th, td { border: 1px solid var(--rb-color-border); padding: var(--rb-space-2) var(--rb-space-3); text-align: start; }
 th { background: var(--rb-color-bg-subtle); font-weight: var(--rb-weight-medium); }

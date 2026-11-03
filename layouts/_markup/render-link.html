@@ -31,3 +31,5 @@
   {{- if $external }} class="rb-link-external" rel="noopener noreferrer"{{ end }}
   {{- if $newTab }} target="_blank"{{ end -}}
 >{{ .Text }}{{ if $newTab }}<span class="rb-visually-hidden"> {{ i18n "externalLinkNewTab" }}</span>{{ end }}</a>
+{{- /* The trim above is load-bearing: a newline after </a> is emitted into the
+  paragraph, so "[x](…)," rendered as "x ," (#69). */ -}}
