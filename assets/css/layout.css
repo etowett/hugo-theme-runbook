@@ -197,6 +197,10 @@
   font-size: var(--rb-text-sm);
 }
 .rb-theme-toggle:hover { color: var(--rb-color-text); background: var(--rb-color-bg-subtle); }
+/* #107: the toggle ships `hidden` for JavaScript to lift, but the mobile and coarse-pointer
+   `display` rules below beat the UA's bare `[hidden]`. Same fix as `.rb-code-btn[hidden]`
+   in code.css; it lives here because this file owns the toggle and (0,2,0) beats both. */
+.rb-theme-toggle[hidden] { display: none; }
 
 @media (max-width: 56.24rem) {
   /* #105: the row keeps the base `wrap`. Under `nowrap` a long title's longest word set the
