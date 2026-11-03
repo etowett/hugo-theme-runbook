@@ -73,6 +73,7 @@ title = "Runbook"
     dateFormat = ":date_long"
     showReadingTime = true
     showLastmod = true
+    externalLinksNewTab = false  # true adds target="_blank" and an announced "(opens in a new tab)"
 
     [params.runbook.code]
       copyButton = true
