@@ -64,7 +64,9 @@
 
 /* ── The input ───────────────────────────────────────────────────────────────── */
 
-.rb-search-label {
+/* Scoped to the form: header.html's search link carries the same class, and under a coarse
+   pointer at ≥900px that link is inline-flex, so a bare selector gave its label 100% basis. */
+.rb-search-form .rb-search-label {
   flex: 0 0 100%;
   font-size: var(--rb-text-sm);
   font-weight: var(--rb-weight-medium);

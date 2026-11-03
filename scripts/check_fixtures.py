@@ -278,6 +278,15 @@ CHECKS = [
                    and (i := [t.strip(' "')[:1].lower() for t in m.group(1).split(",")])
                    and max(i.count(c) for c in i) >= 12),
     ]),
+    ("toc-disabled-front-matter.md", [
+        # #101 proved the per-page override only with scratch pages. Enough headings that
+        # `toc: false` is the only reason the built page can have no TOC; the built page is
+        # checked by grepping it for `rb-toc`, since this gate reads source, not public/.
+        ("front matter says toc: false",
+         lambda d: re.search(r"^toc: false$", d.text, re.M) is not None),
+        ("at least four h2s, past the default toc.minHeadings of 2",
+         lambda d: len(re.findall(r"^## ", d.text, re.M)) >= 4),
+    ]),
     ("image-and-figure/index.md", [
         # #73: the one fixture that reaches render-image.html and the card-cover branch.
         ("front-matter image names a file that exists in the bundle",
