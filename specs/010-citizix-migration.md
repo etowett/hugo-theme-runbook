@@ -134,7 +134,8 @@ intended — the `_index.md` has to go too, and the redirect belongs on the *sur
 > `main`, so a merge is a deploy. The same commit dropped `--remote` from CI's submodule checkout, so
 > CI and Cloudflare both build the pinned theme commit and a submodule pin holds again. The intent is
 > unchanged — cutover is a deliberate human act, and the rollback is proven before it is needed — but
-> the mechanism is not, and a spec that still said "manual-only" would invite someone to push to
+> the mechanism is not, and step 6 now requires the rollback to be executed rather than only written
+> down. A spec that still said "manual-only" would invite someone to push to
 > `main` believing it does not deploy.
 
 1. Fix the two content bugs (§1). Merge separately, before any theme work.
@@ -143,12 +144,13 @@ intended — the `_index.md` has to go too, and the redirect belongs on the *sur
    pinned fixture set.
 4. Run the link crawl and the budget distribution gates against the preview.
 5. Cut over production. Cloudflare deploys every push to citizix `main`, so the cutover **is** the
-   merge of the PR that switches the theme. That merge must be deliberate and human-triggered — no
+   squash-merge of the PR that switches the theme, so that it is one commit to revert. That merge
+   must be deliberate and human-triggered — no
    auto-merge, no bot-opened submodule bump, nothing else landing on `main` in the same window —
    because there is no separate deploy step left to stop it.
-6. **Rollback plan:** the theme is a submodule pin, so rollback is a revert of the cutover commit on
-   `main`, which Cloudflare builds and deploys like any other push; Cloudflare's own rollback to the
-   previous deployment is the faster path while the revert builds.
+6. **Rollback plan:** `git revert` of the cutover squash commit on `main`, which Cloudflare builds
+   and deploys like any other push (citizix `.claude/agents.md` §Deployment). Cloudflare's own
+   rollback to the previous deployment may be faster while the revert builds.
    `TODO(eutychus): confirm whether citizix is on Cloudflare Pages or Workers — its agents.md says
    "Workers/Pages" — and which rollback that gives: the dashboard action or wrangler command, and
    whether it holds past the next push to main.`
