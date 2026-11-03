@@ -121,6 +121,17 @@ a {
 }
 a:hover { color: var(--rb-color-accent-hover); }
 
+/* The heading self-link (#70). Underlined in the accent it read as part of the heading.
+   Muted and bare at rest; a pointer that can hover hides it until the heading is hovered.
+   Opacity, never display/visibility, so it stays in the tab order with its name, and touch
+   keeps it visible. Both colours are asserted pairs in check_contrast.py. */
+.rb-heading-anchor { color: var(--rb-color-text-muted); text-decoration: none; }
+.rb-heading-anchor:focus-visible { color: var(--rb-color-accent); }
+@media (hover: hover) {
+  .rb-heading-anchor { opacity: 0; transition: opacity var(--rb-transition); }
+  .rb-heading:hover .rb-heading-anchor, .rb-heading-anchor:focus-visible { opacity: 1; color: var(--rb-color-accent); }
+}
+
 /* ── Focus — visible ring on every interactive element (specs/003 §3.6) ───── */
 :focus-visible {
   outline: var(--rb-focus-width) solid var(--rb-color-focus);
