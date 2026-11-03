@@ -355,7 +355,7 @@ hook, target:
 | `.rb-code-lang` | The language tag |
 | `.rb-code-btn`, `.rb-code-copy`, `.rb-code-wrap` | The controls |
 | `.rb-code[data-rb-wrapped]` | A block the reader has turned wrapping on for |
-| `.rb-card-plate` | Not part of a block at all: the code plate `list/post-item.html` draws on a list card, from that post's first fence — or nothing, when that fence is unlabelled or `text`, which in practice is an ASCII diagram (#68). Capped at four lines, truncated rather than scrollable, `aria-hidden`, and it strips Chroma's `tabindex` for the same REQ-CB-6 reason the hook does |
+| `.rb-card-plate` | Not part of a block at all: the code plate `list/post-item.html` draws on a list card, from that post's first fence — or nothing, when that fence is unlabelled (including attribute-only, `{…}`) or plain text (`text`, `txt`, `plaintext`, `plain`), which is usually an ASCII diagram — four of the citizix home cards were (#68). Capped at four lines, truncated rather than scrollable, `aria-hidden`, and it strips Chroma's `tabindex` for the same REQ-CB-6 reason the hook does |
 
 Chroma's own classes are unchanged: `.highlight`, `.chroma`, `.line`, `.cl`, `.lntable`, `.lnt`.
 Highlighted lines are `<span class="line hl">` on the code side and a bare `<span class="hl">`

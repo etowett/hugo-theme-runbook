@@ -113,7 +113,7 @@
   {{- with findRE "(?s)(?:\\A|\\n)(?:```|~~~)" $page.RawContent 1 -}}
     {{- if strings.Contains (index . 0) "~~~" }}{{ $delim = "~~~" }}{{ end -}}
   {{- end -}}
-  {{- $m := findRESubmatch (printf "(?s)(?:\\A|\\n)%s([A-Za-z0-9_+#-]*)[^\\n]*\\n(.*?)\\n?%s" $delim $delim) $page.RawContent 1 -}}
+  {{- $m := findRESubmatch (printf "(?s)(?:\\A|\\n)%s[ \\t]*([A-Za-z0-9_+#-]*)[^\\n]*\\n(.*?)\\n?%s" $delim $delim) $page.RawContent 1 -}}
   {{- with $m -}}
     {{- $first := index . 0 -}}
     {{- $type := lower (index $first 1) -}}
@@ -130,17 +130,17 @@
       {{- end -}}
     {{- end -}}
     {{- $src := strings.TrimRight "\n" (delimit $lines "\n") -}}
-    {{- /* #68 — an unlabelled or `text` first fence is, in practice, an ASCII diagram:
+    {{- /* #68 — an unlabelled or plain-text first fence is usually an ASCII diagram:
            box-drawing art cropped to four lines and 52 characters is a broken picture,
            not a recognisable one. Such a card takes branch 3 — no plate — rather than
            hunting for a later fence, which would preview a block out of context. */ -}}
-    {{- if and $src (not (in (slice "" "text" "txt") $type)) -}}
+    {{- if and $src (not (in (slice "" "text" "txt" "plaintext" "plain") $type)) -}}
       {{- $plateLabel = partial "utils/code-label.html" $type -}}
       {{- $hlOpts := dict
           "lineNos" false "lineNumbersInTable" false "anchorLineNos" false "lineNoStart" 1
           "hl_lines" "" "hl_inline" false "noClasses" false "guessSyntax" false
           "wrapperClass" "highlight" -}}
-      {{- $html := string (transform.Highlight $src (or $type "text") $hlOpts) -}}
+      {{- $html := string (transform.Highlight $src $type $hlOpts) -}}
       {{- /* REQ-CB-6 — Chroma emits `<pre tabindex="0">` unconditionally. On a card
              that is a tab stop per card, on a list page of up to thirty of them, with
              nothing to do once you land there. Same targeted replace as the hook. */ -}}
