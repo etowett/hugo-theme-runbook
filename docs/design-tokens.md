@@ -193,8 +193,8 @@ of the token text, and both lines additionally carry a background band.
 
 **Decision: the bundled code font ships ON. The bundled prose font ships OFF, and does not exist.**
 
-This matches the defaults already in the root `hugo.toml`
-(`bundledCodeFont = true`, `bundledProseFont = false`).
+This matches the default already in the root `hugo.toml` (`bundledCodeFont = true`). There is no
+prose-font setting at all — see below.
 
 ### Why the code font is on
 
@@ -252,9 +252,10 @@ pull is a fifth of a pixel per glyph and reads as a rendering fault rather than 
 ### Why the prose font is off, and absent
 
 The prose failure mode does not exist — no glyph in the corpus's prose is missing from a system sans
-stack. So it would be pure bytes. `params.runbook.bundledProseFont` is therefore a **reserved
-no-op**: Runbook ships no prose face, and `head/theme-guard.html` deliberately has no branch for it,
-because a branch would point `--rb-font-sans` at a family that does not exist. A consumer who wants
+stack. So it would be pure bytes. Runbook ships no prose face and has no setting for one: a
+`bundledProseFont` key used to be declared in the root `hugo.toml`, read by no template, and was
+removed as config that did nothing (#101). A branch for it in `head/theme-guard.html` would point
+`--rb-font-sans` at a family that does not exist. A consumer who wants
 one adds the `@font-face` through the `custom-head.html` hook and overrides `--rb-font-sans`.
 
 ### Subset provenance
