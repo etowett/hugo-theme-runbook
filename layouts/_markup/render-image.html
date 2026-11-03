@@ -16,14 +16,16 @@
   image resource but `.Width` requires decoding, and asking for it on an SVG is a
   build error.
 
-  A Markdown title (the third argument) produces a caption. Its element depends on
-  `.IsBlock` (in the hook context since Hugo v0.108.0, so present at the floor), which is
-  true only when the site sets `markup.goldmark.parser.wrapStandAloneImageWithinParagraph
-  = false` and the image stands alone — the one case with no `<p>` around it, so a real
-  `<figure>`/`<figcaption>` is valid. Otherwise Goldmark has already opened a `<p>`, and a
-  `<figure>` there is invalid HTML that browsers repair into empty paragraphs (#73), so the
-  caption is a pair of block-styled `<span>`s. The hook reads the render context rather
-  than site config, which a theme cannot set for its consumer (trap 4).
+  A Markdown title (the third argument) produces a caption, as a pair of block-styled
+  `<span>`s rather than `<figure>`/`<figcaption>`. Under Goldmark's default config the hook
+  renders inside a `<p>`, and a `<figure>` there is invalid HTML that browsers repair into
+  empty paragraphs (#73). Spans are valid with or without that `<p>`, so the output does
+  not depend on `markup.goldmark.parser.wrapStandAloneImageWithinParagraph`, which is site
+  config a theme cannot set for its consumer (trap 4: theme markup config does not merge).
+
+  Limitation: a titled image is always block-level, so one placed mid-sentence breaks the
+  line. `<figure>` did the same, and under the default config the hook cannot tell an
+  inline image from a standalone one.
 */ -}}
 {{- $img := "" -}}
 {{- with .PageInner.Resources.GetMatch .Destination -}}
@@ -35,10 +37,10 @@
 {{- with $img -}}
   {{- $sized = and (eq .ResourceType "image") (ne .MediaType.SubType "svg") -}}
 {{- end -}}
-{{- if .Title }}{{ if .IsBlock }}<figure class="rb-figure">{{ else }}<span class="rb-figure">{{ end }}{{ end -}}
+{{- if .Title }}<span class="rb-figure">{{ end -}}
 <img class="rb-image"
   src="{{ with $img }}{{ .RelPermalink }}{{ else }}{{ $.Destination | safeURL }}{{ end }}"
   alt="{{ .PlainText }}"
   {{- if $sized }} width="{{ $img.Width }}" height="{{ $img.Height }}"{{ end }}
   loading="lazy" decoding="async">
-{{- with .Title }}{{ if $.IsBlock }}<figcaption class="rb-figure-caption">{{ . }}</figcaption></figure>{{ else }}<span class="rb-figure-caption">{{ . }}</span></span>{{ end }}{{ end -}}
+{{- with .Title }}<span class="rb-figure-caption">{{ . }}</span></span>{{ end -}}

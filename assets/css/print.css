@@ -56,7 +56,7 @@
   .chroma .cs, .chroma .gp { font-style: italic; color: #444 !important; }
 
   h1, h2, h3, h4 { break-after: avoid; }
-  pre, blockquote, table, figure { break-inside: avoid; }
+  pre, blockquote, table, figure, .rb-figure { break-inside: avoid; }
   h1, h2, h3, h4, p, li { orphans: 3; widows: 3; }
 
   /* URLs are printed because a link is dead on paper otherwise, but only for

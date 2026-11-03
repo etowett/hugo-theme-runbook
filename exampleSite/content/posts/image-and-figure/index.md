@@ -33,12 +33,14 @@ CLS budget.
 ## The same image with a title, which gives it a caption
 
 A Markdown title — the third argument — produces a visible caption rather than a `title` attribute
-nobody sees. Inside the paragraph Goldmark wraps around an image it is a block-styled `<span>`,
-because a `<figure>` there is invalid HTML; a site that sets
-`markup.goldmark.parser.wrapStandAloneImageWithinParagraph = false` gets a real `<figure>` and
-`<figcaption>`.
+nobody sees. It is a block-styled `<span>`, not a `<figure>`, because Goldmark wraps the image in a
+`<p>` and a `<figure>` inside one is invalid HTML.
 
 ![A checkerboard test pattern](diagram.png "Rendered as a figure with a caption")
+
+A titled image is always block-level, so one placed mid-sentence breaks the line, like this
+![A checkerboard test pattern](diagram.png "A titled image inside a sentence") — the hook cannot
+tell an inline image from a standalone one.
 
 ## A remote destination
 
