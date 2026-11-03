@@ -208,15 +208,15 @@ crawler.
 **Ship 301s for all 31 to `/tags/` and `/categories/` respectively.** They are in
 Google's index today. Two ways:
 
-- server-side, in `nginx.conf` — one `location ~ ^/tags/page/` block; or
+- server-side, at whatever serves the site — for citizix, two lines of `static/_redirects`; or
 - `aliases:` on `content/tags/_index.md` and `content/categories/_index.md`, which makes
   Hugo emit the meta-refresh stubs. Cheaper to review, worse for crawlers than a 301.
 
-Prefer the server rule. citizix already serves through nginx — and has done this since
-citizix#86, which is in the pinned ref: `nginx.conf` carries
-`location ~ ^/tags/page/[0-9]+/?$` and its `/categories/` twin, both `return 301`. This
-step is **done** for the reference archive and is recorded here for anyone migrating
-another one.
+Prefer the server rule. For the reference archive it is **not yet in place**, and that is
+deliberate: at the pinned ref it was an nginx `location` regex from citizix#86 (historical —
+citizix@`8918b75` removed nginx when the site moved to Cloudflare), and on Cloudflare a
+`_redirects` rule beats a file that still exists, so it cannot ship while Stack still builds
+those pages. It lands with the cutover PR — the lines and the reasoning are in §12.2.
 
 **Cost of the change, measured** at `9ec479a`: `/tags/` grows from 4,544 to 5,496 B
 gzipped (+21.0%) because it now carries all 297 terms on one page. It replaces 30 HTTP
@@ -633,14 +633,23 @@ rollback command.
 
 It is worth being blunt about why it is written down rather than improvised. Every other gate
 in this repository exists because someone decided a green tick should mean something. The
-cutover has no tick. It is a human procedure — [010](../specs/010-citizix-migration.md) §5.5
-records that citizix deploys by manual `workflow_dispatch` only, and that this is deliberate
-and must not be automated — so an unwritten procedure is the risk here, not the theme. And the
-one step that has to work first time, on the day it is needed, under pressure, is the rollback,
-which is also the only one that has never been run (§12.6).
+cutover has no tick. It is a human procedure, so an unwritten procedure is the risk here, not
+the theme. And the one step that has to work first time, on the day it is needed, under
+pressure, is the rollback, which is also the only one that has never been run (§12.5).
+
+**How citizix deploys now.** Since citizix@`8918b75` (2026-10-31) Cloudflare is connected to the
+citizix repository and builds and serves the site itself: every push to `main` is a production
+deploy, the build command is `./build.sh` with output directory `public`, and the Hugo version is
+the `HUGO_VERSION` build variable in the Cloudflare dashboard (citizix `AGENTS.md`, `readme.md`
+§Deploy). There is no deploy workflow, image or cluster any more. This section was first written
+against the Docker → nginx → Kubernetes → Argo CD deploy that commit deleted, and
+[010](../specs/010-citizix-migration.md) §5.5 then recorded manual `workflow_dispatch` deploys —
+both historical. What that rule protected, that cutover is one deliberate human act, now lives in
+the merge (§12.6). `TODO(eutychus): confirm whether the Cloudflare project is Pages or Workers —
+citizix's own docs say "Workers/Pages" — and its project name.`
 
 Everything below is measured at citizix@`9ec479a`, the ref `.github/workflows/parity.yml` pins,
-unless it says otherwise.
+unless it says otherwise. Deployment facts are read from citizix at `6d22b64`.
 
 ### 12.1 The preview, and how `noindex` is actually applied
 
@@ -660,6 +669,12 @@ by a forked config file that drifts from the real one between now and cutover.
 HUGO_PARAMS_RUNBOOK_SEO_ROBOTS="noindex, nofollow" hugo --source … --minify
 ```
 
+On a git-connected Cloudflare build that variable has to be a **preview-only build variable**,
+not a line in a branch: anything committed to the cutover branch reaches production when it
+merges. `build.sh` passes `--environment production` on every build, preview or not, so a
+`config/preview/` directory would never be read either. `TODO(eutychus): confirm the Cloudflare
+project can set a build variable for preview deployments only.`
+
 **Measured on `exampleSite`, Hugo v0.164.0:** 34 of the build's 46 HTML files gain
 `<meta name=robots content="noindex, nofollow">`. The 12 that do not are Hugo's own
 meta-refresh alias stubs — the build reports `Aliases 12` — and each contains nothing but a
@@ -672,28 +687,45 @@ no robots directive**, so this layer does not cover an alias stub, and it cannot
 into the build, so nothing a theme does can override it, and Hugo generates none of its own here
 (`enableRobotsTXT` is not set in `config.yaml`). The production file ends `Allow: /` and
 `Sitemap: https://citizix.com/sitemap.xml`. Deployed unchanged to a preview host, it invites
-crawling and advertises production's sitemap. **The preview must serve its own** — `User-agent: *`
-/ `Disallow: /` — and this is a citizix-side change, not a theme one.
+crawling and advertises production's sitemap. Ideally the preview serves its own — `User-agent: *`
+/ `Disallow: /` — but a preview deployment is built from a branch, and there is one
+`static/robots.txt` per branch: a `Disallow: /` committed to the cutover branch would de-index
+production the moment it merges. So on Cloudflare this layer is the one to give up, not to fake,
+and layer 3 carries the weight. `TODO(eutychus): confirm — or find a preview-only mechanism for
+robots.txt that does not live in the branch.`
 
 **Layer 3 — an `X-Robots-Tag` response header at the edge.** This is the only layer that reaches
-every response: the alias stubs, the feeds, the sitemap and the search index included. It belongs
-in the preview's `nginx.conf` server block alongside the 301s already there, and it is also
-citizix-side. Layer 1 is still worth having even with layer 3 in place, because it survives being
-served from somewhere other than that nginx.
+every response: the alias stubs, the feeds, the sitemap and the search index included. On
+Cloudflare it comes from one of two places, both citizix-side:
 
-**What the preview must not change: `baseURL`.** `Dockerfile:4` hardcodes `-b https://citizix.com`,
-so a preview built from the unmodified Dockerfile emits production canonicals. Leave it. A
-canonical pointing at production is the correct duplicate-content signal for a temporary copy,
-and the canonical *values* are already asserted by `check_parity.py` in the parity job, so nothing
-is lost by not re-deriving them against a preview host. Pointing it at the preview would buy
+- **the platform's own preview behaviour** — `TODO(eutychus): confirm whether Cloudflare adds
+  an X-Robots-Tag noindex header to this project's preview URLs by default` — the §12.3 edge
+  check answers it in one `curl` either way; or
+- **a `static/_headers` rule** — citizix has no `_headers` file today. An unscoped `/*` rule
+  would ship `noindex` to production on merge, which is the worst failure this section can
+  produce, so it is only usable if it can be scoped to the preview host. `TODO(eutychus): confirm
+  that _headers on this project accepts a host-qualified pattern.`
+
+Layer 1 is still worth having even with layer 3 in place, because it survives being served from
+somewhere other than that edge.
+
+**What the preview must not change: `baseURL`.** `build.sh:26` hardcodes `-b https://citizix.com`,
+and Cloudflare runs `build.sh` for previews and production alike, so a preview emits production
+canonicals. Leave it. A canonical pointing at production is the correct duplicate-content
+signal for a temporary copy, and the canonical *values* are already asserted by
+`check_parity.py` in the parity job, so nothing is lost by not re-deriving them against a preview host. Pointing it at the preview would buy
 nothing and would make §1's canonical row unverifiable on the artefact you are about to ship.
 
 **Disqus must be off on the preview.** §6's snippet lives in the *site*, and citizix's Disqus
 shortname is a live account. Rendering the embed on a preview host registers new, empty threads
 keyed on preview URLs, in the same account that holds years of real ones. Leave
-`disqusShortname` unset in the preview config; an empty comment area on the preview is expected
-and is not evidence of anything. Thread continuity is verified on production after cutover —
-§12.7.
+`disqusShortname` unset on the preview build; an empty comment area on the preview is expected
+and is not evidence of anything. There is no separate preview config any more — `config.yaml:31`
+sets `disqusShortname: citizix` for every build — so, as with layer 1, this has to be a
+preview-only build variable rather than a branch edit that would switch comments off in
+production on merge. `TODO(eutychus): confirm an empty HUGO_DISQUSSHORTNAME build variable
+actually blanks the shortname, and that the comments snippet then renders nothing.` Thread
+continuity is verified on production after cutover — §12.7.
 
 ### 12.2 The fixture set to compare page-by-page
 
@@ -717,7 +749,7 @@ preview and on production side by side.
 | `/install-manjaro-21-gnome-step-by-step-with-screenshots/` | `image: /android-chrome-512x512.png` — the second image-sitemap page, and the OG-image path — §5 |
 | `/tags/` | §4 — unpaginated, all 297 terms, 4,544 → 5,496 B gz |
 | `/categories/` | §4 — same change, 28 terms |
-| `/tags/page/2/` | Must **301 to `/tags/`**. That redirect is `nginx.conf`, not the theme, so the manifest diff cannot see it |
+| `/tags/page/2/` | Must **301 to `/tags/`**, and `/categories/page/2/` to `/categories/`. That redirect is `static/_redirects`, not the theme, so the manifest diff cannot see it — and it is not there yet; see below |
 | `/tags/amazon-eks/` | REQ-TAX-1 — a term whose title comes from `params.runbook.taxonomyTitles` rather than from an `_index.md` |
 | `/tags/k8s---docker/` | REQ-TAX-2 — a retired term whose redirect lives as `aliases:` on the surviving `/tags/k8s/`. Deleting the wrong file breaks this silently — §8.2 |
 | `/search/` | §3 — the page, the UI, and the widget's dependence on `outputs: json` |
@@ -730,70 +762,118 @@ preview and on production side by side.
 `/contact-us/` is deliberately absent: it changes in exactly the same way as `/about-us/` and
 `/privacy-policy/`, and a fixture set nobody finishes is worse than a shorter one.
 
+**The taxonomy-pagination 301s must be restored in the cutover PR.** They used to be two regex
+`location` blocks in nginx (historical — removed with nginx in citizix@`8918b75`). That commit
+moved them to `static/_redirects` and then, on review (citizix#124), deliberately dropped them:
+Stack still builds and links `/tags/page/N/`, and on Cloudflare a `_redirects` rule beats a file
+that exists, so shipping them before the theme changes would strand those pages. So they belong
+in the same PR as the theme switch, which also means a revert of that PR removes them again
+(§12.5). `static/_redirects` takes splats and placeholders, not regex (citizix `AGENTS.md`), so
+the two lines are:
+
+```text
+/tags/page/* /tags/ 301
+/categories/page/* /categories/ 301
+```
+
+The splat is wider than the old `[0-9]+`, which is harmless — nothing else lives under
+`/tags/page/` — and it still cannot match per-term pagination such as `/tags/kubernetes/page/2/`,
+which Runbook keeps. `TODO(eutychus): confirm on the preview that both answer 301 before merging.`
+
+**One fixture has moved since `9ec479a`.** `/how-to-install-and-configure-postgres-13-on-centos-8/`
+now 301s to the PostgreSQL 17 guide in `static/_redirects` (citizix#137, duplicate consolidation),
+so on current citizix that row checks a redirect, not §1 bug 2. Expect 301 on both themes.
+
 ### 12.3 Checking the preview — what is automated and what is not
 
 [010](../specs/010-citizix-migration.md) §5.4 asks for the link crawl and the budget gates
 against the preview. **Neither `scripts/check_links.py` nor `scripts/check_budgets.py` was taught
-to speak HTTP, and that is a decision rather than an omission.** Both want a *tree*, and the
-preview already serves one, so the tree is what they get — extracted from the image that is
-actually deployed, which is stronger evidence than rebuilding locally and assuming the image
-matches.
+to speak HTTP, and that is a decision rather than an omission.** Both want a *tree*. While citizix
+shipped a Docker image, the tree was extracted from the image that was actually deployed
+(historical). Cloudflare keeps its build output to itself, so the tree now comes from **running
+`build.sh` locally at the commit the preview deployment was built from.**
+
+**Label it for what it is: a local rebuild, not the served artefact.** It is the same script at
+the same commit, but it is only the same bytes if the inputs match, so record them next to the
+results — the deployment's commit, `hugo version`, and `sass --version`. The last one is not
+pedantry: `build.sh` downloads its pinned `DART_SASS_VERSION` only when no `sass` is on `PATH`,
+so a laptop with Homebrew's Sass builds the stylesheet with whatever version that is. The edge
+checks below are the evidence for what is actually served; the rebuild is the evidence for what
+the gates say about it.
 
 ```bash
-# 1 — pull the deployed artefact out of the image that is running.
-#     Dockerfile:8 — COPY --from=build /site/public /usr/share/nginx/html
-CID=$(docker create ektowett/citizix:"$PREVIEW_TAG")
-docker cp "$CID":/usr/share/nginx/html /tmp/preview-tree
-docker rm "$CID"
+# 0 — the inputs. Take the commit from the preview deployment, not from the branch tip.
+COMMIT=<sha>     # TODO(eutychus): confirm where Cloudflare shows a deployment's commit
+# Never build in the citizix checkout (§10). Full history, because build.sh passes
+# --enableGitInfo and lastmod comes from git.
+git clone --recurse-submodules https://github.com/etowett/citizix /tmp/preview-src
+git -C /tmp/preview-src checkout "$COMMIT"
+git -C /tmp/preview-src submodule update --init --recursive    # the pin, never --remote
+hugo version        # must equal HUGO_VERSION on the Cloudflare project
+sass --version
 
-# 2 — both gates, unmodified, against the bytes the preview is serving.
-python3 scripts/check_links.py /tmp/preview-tree
-python3 scripts/check_budgets.py /tmp/preview-tree --article-glob '*/index.html' \
+# 1 — the build Cloudflare ran, with the preview's build variables (§12.1).
+(cd /tmp/preview-src && HUGO_PARAMS_RUNBOOK_SEO_ROBOTS="noindex, nofollow" ./build.sh)
+
+# 2 — both gates, unmodified, against the rebuilt tree.
+python3 scripts/check_links.py /tmp/preview-src/public
+python3 scripts/check_budgets.py /tmp/preview-src/public --article-glob '*/index.html' \
         --baseline /tmp/stack-baseline.json --json /tmp/preview-budgets.json
 ```
 
-**Verified 2026-07-29** against a locally built citizix image: the extraction yields 1,445 HTML
-files, and `check_links.py` runs over them in 3.5 s, infers `citizix.com` as the base host from
-the homepage canonical, finds 530 distinct external URLs and reports exactly one failure —
-`#security-hardening`, which is §9 defect 6 and is a content bug in the archive. `check_budgets.py`
-runs over the same tree and reports the distribution: p50 9,155, p90 11,630, max 47,503 B gz
-across 499 articles, homepage 6,725, worst taxonomy list 5,159. That image is a **Stack** build,
-so those figures are §11's Stack column reproduced independently, a few bytes apart because this
-was Apple gzip on macOS rather than the Linux runner — the drift §11.1 warns about, visible.
+`TODO(eutychus): confirm whether Cloudflare clones with full history — a shallow clone would give
+every page a different lastmod from this rebuild.`
+
+**Verified 2026-07-29, historical** — against a locally built citizix Docker image under the old
+deploy: the extraction yielded 1,445 HTML files, and `check_links.py` ran over them in 3.5 s,
+inferred `citizix.com` as the base host from the homepage canonical, found 530 distinct external
+URLs and reported exactly one failure — `#security-hardening`, which is §9 defect 6 and is a
+content bug in the archive. `check_budgets.py` ran over the same tree and reported the
+distribution: p50 9,155, p90 11,630, max 47,503 B gz across 499 articles, homepage 6,725, worst
+taxonomy list 5,159. That image was a **Stack** build, so those figures are §11's Stack column
+reproduced independently, a few bytes apart because this was Apple gzip on macOS rather than the
+Linux runner — the drift §11.1 warns about, visible. Nothing in either gate depends on how the
+tree was produced, but the `build.sh` recipe above has not yet been run end to end.
+`TODO(eutychus): confirm by running it once at the current citizix head.`
 
 Three reasons not to teach either script HTTP:
 
 1. **A budget measured over the wire would be a worse number, not a more realistic one.** It
-   would be nginx's gzip at nginx's level, and [005 §5](../specs/005-performance-budgets.md)
-   makes `gzip -n -9` part of the measurement precisely so two readings are comparable. A number
-   produced a different way cannot be diffed against the baseline it exists to be diffed against.
+   would be the edge's compression at the edge's level, and
+   [005 §5](../specs/005-performance-budgets.md) makes `gzip -n -9` part of the measurement
+   precisely so two readings are comparable. A number produced a different way cannot be diffed
+   against the baseline it exists to be diffed against.
 2. **A crawler is a dependency surface.** Frontier, retries, rate limits, concurrency — in a
    repository whose thesis is the standard library and no toolchain
    ([ADR-1](../specs/006-architecture-decisions.md)).
-3. **It would catch nothing new.** The bytes served are the bytes extracted. Everything an HTTP
-   crawl would newly see is an nginx concern, and those are below.
+3. **It would catch little the edge checks below do not.** What a crawl would newly see is the
+   edge's behaviour — redirects, headers, status codes — and those are checked directly. What it
+   would add over the rebuild, the served bytes themselves, is the one thing the recorded inputs
+   above stand in for.
 
 **The manual half is the edge, and it is short.** These are the facts that exist only in the
 deployment and that no gate in this repository can reach. Run them against the preview host:
 
 ```bash
-PREVIEW=https://<preview host>
+PREVIEW=https://<preview host>    # TODO(eutychus): confirm the preview URL form for this project
 
 # a — the fixture set resolves to the status it should, and nothing is 5xx.
-#     /tags/page/2/ is the one that must be 301: it is nginx.conf, not the theme.
+#     /tags/page/2/ and /categories/page/2/ must be 301: they are static/_redirects (§12.2),
+#     not the theme.
 for u in / /page/2/ /post/page/2/ /tags/ /categories/ /search/ /about-us/ \
          /sitemap.xml /index.xml /search/index.json; do
   printf '%s %s\n' "$(curl -s -o /dev/null -w '%{http_code}' "$PREVIEW$u")" "$u"
 done
-curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' "$PREVIEW/tags/page/2/"   # 301 → /tags/
+curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' "$PREVIEW/tags/page/2/"        # 301 → /tags/
+curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' "$PREVIEW/categories/page/2/"  # 301 → /categories/
 
-# b — noindex reaches the responses a <meta> tag cannot (§12.1).
+# b — noindex reaches the responses a <meta> tag cannot (§12.1, layer 3).
 curl -sI "$PREVIEW/sitemap.xml" | grep -i x-robots-tag
-curl -s  "$PREVIEW/robots.txt"          # must be the preview's Disallow: /, not production's
-
-# c — health. helm/prod.yml probes this every 30 s, so it is already being watched.
-curl -s "$PREVIEW/healthz"              # {"status":"ok"}
+curl -s  "$PREVIEW/robots.txt"          # production's file, by design — see §12.1 layer 2
 ```
+
+There is no health endpoint any more: `/healthz` existed only for the Kubernetes probes and went
+with them in citizix@`8918b75` (historical). Sweep (a) is the health check.
 
 **What `check_budgets.py` still needs**, named here rather than changed because stream D owns it
 (contracts §1): the two `--article-glob` defects in §9 (4 and 8). Until the script can tell an
@@ -816,11 +896,12 @@ regression by construction. On the deployed side the equivalent is the fixture-s
 
 **Trigger 2 — any 5xx. The number is 1.**
 
-A static nginx serving a static tree has no legitimate 5xx, so the first one is the trigger.
-Kubernetes is already watching half of this continuously: `helm/prod.yml` sets liveness and
-readiness probes on `/healthz` at `periodSeconds: 30`, so a pod that stops serving is failed out
-without anyone looking. What the probe does not catch is a 5xx on a *page* while `/healthz` still
-returns 200, which is why the fixture-set sweep is run rather than just trusting the probe.
+A static tree served from Cloudflare's edge has no legitimate 5xx, so the first one is the
+trigger. Nothing watches for it continuously any more: the Kubernetes liveness and readiness
+probes on `/healthz` went with the cluster in citizix@`8918b75` (historical). So the fixture-set
+sweep in §12.3 is the only check, which is why it is re-run during the observation period rather
+than once. `TODO(eutychus): confirm whether the Cloudflare project reports responses by status
+code — if it does, that is the continuous half the probes used to provide.`
 
 **Trigger 3 — "any Lighthouse regression beyond threshold". This is not a trigger, and it cannot
 be made into one from what exists.**
@@ -845,7 +926,7 @@ that do not exist yet, and inventing a number would be worse than leaving the ga
   the place to settle it.
 
 **What stands in until then, with numbers.** The theme's own byte budgets are measurable on the
-preview artefact today and are most of what a performance regression would have been measuring:
+§12.3 rebuild today and are most of what a performance regression would have been measuring:
 
 | Rule | Number | Where it is written |
 |---|--:|---|
@@ -865,57 +946,79 @@ false failures.
 **Confirm this before cutover, not after** — that is [010](../specs/010-citizix-migration.md)
 §5.6's own instruction, and it is the step this section exists for.
 
-§5.6 says: *"the theme is a submodule pin, so rollback is a submodule revert plus a redeploy."*
-**That is not true of citizix today, in two independent ways, both verified 2026-07-29:**
+**History, kept because the reasoning still applies.** §5.6 originally said *"the theme is a
+submodule pin, so rollback is a submodule revert plus a redeploy"*, and on 2026-07-29 that was
+false twice over: there was no Runbook submodule, and the old deploy workflow ran
+`git submodule update --remote`, which builds each submodule's upstream tip rather than the
+recorded pin, so reverting a pin changed nothing. The executable rollback was therefore a revert
+of the deploy job's image-tag commit in a separate Argo CD releases repository (historical —
+that repository is no longer in the path).
 
-1. `.gitmodules` has exactly one entry, `themes/hugo-theme-stack`. There is no Runbook submodule
-   to revert.
-2. `.github/workflows/deploy-k8s.yml:26` runs `git submodule update --init --recursive --remote`.
-   `--remote` updates each submodule to the tip of its **remote default branch** instead of the
-   commit the superproject records, so the recorded pin is not what gets built. Adding Runbook as
-   a submodule without removing that flag would produce a pin that reverting does not change.
+**Today, at citizix `6d22b64`:**
 
-`--remote` has a consequence today that has nothing to do with Runbook: **the deployed Stack
-version is whatever upstream `main` holds at deploy time, not what the repository records.**
+1. `.gitmodules` still has exactly one entry, `themes/hugo-theme-stack`. There is still no Runbook
+   submodule; how Runbook is pulled in is a decision for the cutover PR. `TODO(eutychus): confirm
+   submodule or Hugo module.`
+2. `--remote` is gone. The deploy workflow it lived in was deleted in `8918b75`, and the same
+   commit removed it from `ci.yml`, whose message records that Cloudflare builds the pinned
+   commit. So a pin now holds, and reverting it means something.
+   `TODO(eutychus): confirm on a Cloudflare build log that submodules are checked out at the
+   recorded commit.`
 
-So the rollback that can actually be executed is not a submodule revert. It is at the deployment
-layer, and it is better than a submodule revert anyway, because it involves no rebuild. The deploy
-job writes a new image tag into the `argocd-releases` repository (`deploy-k8s.yml:84-93`): it
-copies the rendered manifests into `apps/citizix/prod/<tag>/`, `sed`s the tag in
-`argocd-apps/prod-citizix.yml`, commits as `updated prod citizix with new image tag <tag>` and
-pushes. Argo CD reconciles from there.
+So there are two rollbacks, and they are not alternatives — the first is fast, the second is what
+makes the first stick.
+
+**A — Cloudflare's rollback to the previous production deployment.** No rebuild: the previous
+deployment's output already exists, so this re-points production at Stack bytes that were already
+served. It also brings back the previous deployment's `_redirects`, without the two taxonomy
+rules, which is correct for Stack (§12.2).
+`TODO(eutychus): confirm the rollback mechanism — dashboard path or CLI — for this project type,
+and whether it takes effect immediately.` This section deliberately gives no command for it rather
+than a guessed one.
+
+**B — revert the cutover PR on `main`.** Every push to `main` deploys `main`, so after A the very
+next merge — a content post, a Dependabot bump — redeploys Runbook. A is only a rollback until
+then; B makes it permanent. Revert on a branch and merge it as a PR, like any other change to
+citizix's `main`:
 
 ```bash
-# BEFORE cutover — record the tag that is live. This string is the rollback.
-grep '^  tag:' ~/Code/my/citizix/helm/prod.yml       # main-374610d at the time of writing
+# BEFORE cutover — record the production deployment that is live, and its commit.
+# These two strings are the rollback.
+git -C ~/Code/my/citizix rev-parse origin/main       # the last Stack commit on main
+# TODO(eutychus): confirm where the live deployment's ID is read from on Cloudflare
 
-# ROLLBACK — revert the single commit the deploy job made in argocd-releases.
-git -C argocd-releases log --oneline -1              # "updated prod citizix with new image tag <new>"
-git -C argocd-releases revert --no-edit HEAD
-git -C argocd-releases push origin main
+# ROLLBACK, step B — after A, revert the cutover commit and let Cloudflare rebuild.
+git -C ~/Code/my/citizix switch -c revert-runbook-cutover origin/main
+git -C ~/Code/my/citizix revert --no-edit <cutover sha>    # squash merge: one commit
+#   or: git revert -m 1 --no-edit <cutover merge sha>      # if it landed as a merge commit
+# push the branch, open a PR, merge it — that merge is the deploy.
 ```
 
-The previous image is immutable and already in the registry, so this re-points Argo at manifests
-that already exist rather than rebuilding anything.
+B is a rebuild, so it is minutes, not seconds, and it reverts everything in the cutover PR.
+**Keep that PR to the theme switch and the two `_redirects` lines and nothing else**, so that
+reverting it cannot take a content change with it, and so that no unrelated change is stacked on
+top before the observation period ends.
 
-`TODO(eutychus): confirm the Argo CD sync policy for prod-citizix — whether it auto-syncs or needs
-a manual sync, and the reconciliation window.` That is the difference between a rollback measured
-in seconds and one that needs a second manual step, and it is not recorded in any file in either
-repository.
-
-**This command has never been run.** [010](../specs/010-citizix-migration.md) §5.6 requires
-confirming it before cutover; confirming means executing it against the preview and watching the
-preview return to Stack, not reading it and agreeing that it looks right. A rollback that has been
-run once is a rollback; one that has only been written down is a plan.
+**Neither has been run.** [010](../specs/010-citizix-migration.md) §5.6 requires confirming the
+rollback before cutover, and confirming means executing it and watching the site return to Stack,
+not reading it and agreeing that it looks right. B can be rehearsed end to end on a preview
+branch. A acts on production by definition, so it needs a rehearsal that is safe there — rolling
+back to the deployment before the live one and forward again, at a quiet moment, is the obvious
+candidate. `TODO(eutychus): confirm how to rehearse A without serving stale content for long.`
+A rollback that has been run once is a rollback; one that has only been written down is a plan.
 
 ### 12.6 Cutover, and the observation period
 
-Cut over by dispatching `deploy-k8s.yml` by hand.
-[010](../specs/010-citizix-migration.md) §5.5 records that citizix deploys by manual
-`workflow_dispatch` only and that this must not be automated; nothing here changes that.
+**Cutover is merging the cutover PR into citizix's `main`.** Cloudflare builds and deploys every
+push to `main`, so there is no separate deploy step — the merge is the deploy — and the
+deliberateness that [010](../specs/010-citizix-migration.md) §5.5's manual `workflow_dispatch`
+used to supply (historical) now has to come from the person merging. Merge it on purpose, at a
+time chosen for it, with A and B from §12.5 already rehearsed, and with nothing else queued to
+merge behind it.
 
-Immediately after the deploy reconciles, run the §12.3 edge checks against production rather than
-the preview, and re-run the §12.2 fixture set. Then verify Disqus (§12.7).
+Once the Cloudflare build for the merge commit is live, run the §12.3 edge checks against
+production rather than the preview, and re-run the §12.2 fixture set. Then verify Disqus (§12.7).
+`TODO(eutychus): confirm how to tell that the production deployment for a given commit is live.`
 
 **The observation period.** [010](../specs/010-citizix-migration.md) §5.7 says "a defined period"
 and §6 places it between cutover and showcase submission, but no file defines it. A floor is
