@@ -20,6 +20,13 @@ Why this shape rather than "assert zero ``<table class=lntable>`` in the build":
 
 See docs/contracts.md §3 ("Verified Hugo behaviour") and specs/007 §2 Layer 2.
 
+It also builds a third time with ``HUGO_PARAMS_RUNBOOK_EXTERNALLINKSNEWTAB=true``, the
+only build that reaches the new-tab path in ``render-link.html`` (specs/003 §3.5, #108).
+There every external link must carry ``target=_blank``, a ``rel`` containing
+``noopener`` and the visually-hidden ``externalLinkNewTab`` announcement (WCAG 3.2.5),
+and the default build must carry no ``target=_blank`` at all. That build legitimately
+differs, so it is asserted on markup rather than diffed.
+
 Standard library only. Python 3.8+.
 """
 
@@ -28,7 +35,9 @@ from __future__ import annotations
 import argparse
 import difflib
 import filecmp
+import html
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -40,6 +49,14 @@ HOSTILE_ENV = {
     "HUGO_MARKUP_HIGHLIGHT_LINENOS": "true",
     "HUGO_MARKUP_HIGHLIGHT_LINENUMBERSINTABLE": "true",
 }
+
+# The one switch that reaches the new-tab branch of render-link.html (#108).
+NEWTAB_ENV = {"HUGO_PARAMS_RUNBOOK_EXTERNALLINKSNEWTAB": "true"}
+
+ANCHOR_RE = re.compile(r"<a\b([^>]*)>(.*?)</a>", re.S)
+# Quoted or minified: --minify drops the quotes from target="_blank".
+TARGET_BLANK_RE = re.compile(r"""\btarget=(["']?)_blank\1""")
+REL_RE = re.compile(r"""\brel=("[^"]*"|'[^']*'|[^\s>]+)""")
 
 MAX_REPORTED_FILES = 5
 MAX_DIFF_LINES = 40
@@ -82,7 +99,7 @@ def build(repo_root: Path, dest: Path, extra_env=None, strict=False, quiet=False
 
     env = dict(os.environ)
     # Do not let an ambient hostile setting contaminate the *baseline* build.
-    for key in HOSTILE_ENV:
+    for key in (*HOSTILE_ENV, *NEWTAB_ENV):
         env.pop(key, None)
     if extra_env:
         env.update(extra_env)
@@ -124,6 +141,46 @@ def excerpt_diff(a: Path, b: Path) -> str:
     return "\n".join("    " + line for line in clipped)
 
 
+def newtab_label(repo_root: Path) -> str:
+    """The announcement text, read from i18n/en.yaml so a reworded string is not a failure."""
+    text = (repo_root / "i18n" / "en.yaml").read_text(encoding="utf-8")
+    m = re.search(r'^externalLinkNewTab:\s*"(.*)"\s*$', text, re.M)
+    if not m:
+        raise SystemExit("FAIL: externalLinkNewTab is missing from i18n/en.yaml")
+    return m.group(1)
+
+
+def check_newtab(baseline: Path, newtab: Path, label: str):
+    """Default build opens nothing in a new tab; the opted-in build announces every one."""
+    problems = []
+    for page in sorted(baseline.rglob("*.html")):
+        if TARGET_BLANK_RE.search(page.read_text(encoding="utf-8")):
+            problems.append(f"{page.relative_to(baseline)}: target=_blank in the DEFAULT build")
+
+    # Hugo HTML-escapes i18n output, so compare against the escaped form.
+    span = f"<span class=rb-visually-hidden> {html.escape(label, quote=False)}</span>"
+    external = 0
+    for page in sorted(newtab.rglob("*.html")):
+        rel_path = page.relative_to(newtab)
+        for attrs, inner in ANCHOR_RE.findall(page.read_text(encoding="utf-8")):
+            if "rb-link-external" not in attrs:
+                continue
+            external += 1
+            rel = REL_RE.search(attrs)
+            missing = [
+                what for what, ok in (
+                    ("target=_blank", TARGET_BLANK_RE.search(attrs)),
+                    ("rel noopener", rel and "noopener" in rel.group(1)),
+                    ("visually-hidden announcement", span in inner),
+                ) if not ok
+            ]
+            if missing:
+                problems.append(f"{rel_path}: <a{attrs}> lacks {', '.join(missing)}")
+    if external == 0:
+        problems.append("no rb-link-external anchor in the new-tab build — fixture lost?")
+    return external, problems
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
@@ -136,12 +193,12 @@ def main() -> int:
         "--work-dir",
         type=Path,
         default=None,
-        help="where to put the two builds (default: <repo-root>/public-reqcb1)",
+        help="where to put the three builds (default: <repo-root>/public-reqcb1)",
     )
     parser.add_argument(
         "--keep",
         action="store_true",
-        help="keep both build trees for inspection instead of deleting them",
+        help="keep all build trees for inspection instead of deleting them",
     )
     parser.add_argument(
         "--hugo",
@@ -161,10 +218,24 @@ def main() -> int:
     work = (args.work_dir or repo_root / "public-reqcb1").resolve()
     baseline = work / "baseline"
     hostile = work / "hostile"
+    newtab = work / "newtab"
 
     print("REQ-CB-1 — line-number config must not leak from site config into theme output")
     build(repo_root, baseline, strict=True, hugo=hugo)
     build(repo_root, hostile, extra_env=HOSTILE_ENV, hugo=hugo)
+    build(repo_root, newtab, extra_env=NEWTAB_ENV, strict=True, hugo=hugo)
+
+    external, newtab_problems = check_newtab(baseline, newtab, newtab_label(repo_root))
+    if newtab_problems:
+        print(f"FAIL: externalLinksNewTab — {len(newtab_problems)} problem(s).")
+        print("      Read layouts/_markup/render-link.html and specs/003 §3.5.")
+        for line in newtab_problems[:MAX_REPORTED_FILES]:
+            print(f"  {line}")
+        if len(newtab_problems) > MAX_REPORTED_FILES:
+            print(f"  … and {len(newtab_problems) - MAX_REPORTED_FILES} more")
+    else:
+        print(f"PASS: externalLinksNewTab — {external} external links open in a new tab, "
+              "each announced; the default build opens none")
 
     left, right = walk(baseline), walk(hostile)
     problems = []
@@ -184,6 +255,9 @@ def main() -> int:
     if not problems:
         print(f"  {len(shared)} files compared, byte-identical")
         print("PASS: REQ-CB-1 — hostile line-number config produced no output change")
+        if newtab_problems:
+            print(f"Build trees kept at {work} for inspection.")
+            return 1
         if not args.keep:
             shutil.rmtree(work, ignore_errors=True)
         return 0
@@ -200,7 +274,7 @@ def main() -> int:
     if len(problems) > MAX_REPORTED_FILES:
         print(f"  … and {len(problems) - MAX_REPORTED_FILES} more")
     print()
-    print(f"Both build trees kept at {work} for inspection.")
+    print(f"All build trees kept at {work} for inspection.")
     return 1
 
 

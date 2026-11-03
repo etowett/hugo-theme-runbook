@@ -50,7 +50,7 @@ hugo server --source exampleSite --themesDir "$(dirname "$PWD")" --theme "$(base
 ### The gates
 
 ```bash
-python3 scripts/check_reqcb1.py                  # builds twice itself
+python3 scripts/check_reqcb1.py                  # builds three times itself (#108)
 python3 scripts/check_fixtures.py --check-generated
 python3 scripts/check_jsonld.py   public
 python3 scripts/check_budgets.py  --self-test    # script-tag rule and article classification (#64); needs no build
@@ -199,6 +199,20 @@ Both builds run with `--gc --minify`, so the comparison is over the markup that 
 Verified failing correctly: with the render hook changed to pass fence options straight through to
 `transform.Highlight`, the gate reports six differing files and prints the `lntable` markup appearing
 in the hostile build.
+
+### The new-tab build rides along
+
+The same script builds a third time with `HUGO_PARAMS_RUNBOOK_EXTERNALLINKSNEWTAB=true`, because no
+other build reaches the new-tab branch of `render-link.html` and `links-and-punctuation.md` only
+describes it (#108). That output legitimately differs, so it is asserted on markup, not diffed: every
+`rb-link-external` anchor must carry `target=_blank` (quoted or minified), a `rel` containing
+`noopener`, and the `.rb-visually-hidden` announcement whose text is read from `externalLinkNewTab`
+in `i18n/en.yaml`. The default build must carry no `target=_blank` at all — the back button belongs
+to the site ([003 §3.5](../specs/003-design-spec.md#35-shortcodes)).
+
+Verified failing correctly in both directions: with the hidden span removed from the hook, every
+external link is reported as lacking the announcement; with `$newTab` forced on, the default build
+is reported for opening links in a new tab.
 
 ---
 
