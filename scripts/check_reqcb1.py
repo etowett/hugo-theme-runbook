@@ -35,6 +35,7 @@ from __future__ import annotations
 import argparse
 import difflib
 import filecmp
+import html
 import os
 import re
 import shutil
@@ -156,7 +157,8 @@ def check_newtab(baseline: Path, newtab: Path, label: str):
         if TARGET_BLANK_RE.search(page.read_text(encoding="utf-8")):
             problems.append(f"{page.relative_to(baseline)}: target=_blank in the DEFAULT build")
 
-    span = f"<span class=rb-visually-hidden> {label}</span>"
+    # Hugo HTML-escapes i18n output, so compare against the escaped form.
+    span = f"<span class=rb-visually-hidden> {html.escape(label, quote=False)}</span>"
     external = 0
     for page in sorted(newtab.rglob("*.html")):
         rel_path = page.relative_to(newtab)
@@ -173,7 +175,7 @@ def check_newtab(baseline: Path, newtab: Path, label: str):
                 ) if not ok
             ]
             if missing:
-                problems.append(f"{rel_path}: <a{attrs[:80]}> lacks {', '.join(missing)}")
+                problems.append(f"{rel_path}: <a{attrs}> lacks {', '.join(missing)}")
     if external == 0:
         problems.append("no rb-link-external anchor in the new-tab build — fixture lost?")
     return external, problems
@@ -191,12 +193,12 @@ def main() -> int:
         "--work-dir",
         type=Path,
         default=None,
-        help="where to put the two builds (default: <repo-root>/public-reqcb1)",
+        help="where to put the three builds (default: <repo-root>/public-reqcb1)",
     )
     parser.add_argument(
         "--keep",
         action="store_true",
-        help="keep both build trees for inspection instead of deleting them",
+        help="keep all build trees for inspection instead of deleting them",
     )
     parser.add_argument(
         "--hugo",
@@ -272,7 +274,7 @@ def main() -> int:
     if len(problems) > MAX_REPORTED_FILES:
         print(f"  … and {len(problems) - MAX_REPORTED_FILES} more")
     print()
-    print(f"Both build trees kept at {work} for inspection.")
+    print(f"All build trees kept at {work} for inspection.")
     return 1
 
 

@@ -210,8 +210,8 @@ describes it (#108). That output legitimately differs, so it is asserted on mark
 in `i18n/en.yaml`. The default build must carry no `target=_blank` at all — the back button belongs
 to the site ([003 §3.5](../specs/003-design-spec.md#35-shortcodes)).
 
-Verified failing correctly in both directions: with the hidden span removed from the hook, all 15
-external links are reported as lacking the announcement; with `$newTab` forced on, the default build
+Verified failing correctly in both directions: with the hidden span removed from the hook, every
+external link is reported as lacking the announcement; with `$newTab` forced on, the default build
 is reported for opening links in a new tab.
 
 ---
