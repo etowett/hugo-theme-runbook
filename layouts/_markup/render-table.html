@@ -1,0 +1,36 @@
+{{- /*
+  render-table.html — issue #67, wide tables on a phone.
+
+  A table is `display: table`, so it cannot scroll itself: a wide one widens the whole
+  page instead (862px of document at a 390px viewport on the reference archive). The
+  wrapper is the scroll box. It is a template rather than `display: block` on the
+  table because that strips table semantics in some screen readers, and because a
+  scroll container a keyboard user cannot focus cannot be scrolled without a mouse —
+  hence `tabindex="0"`, which in turn needs a role and an accessible name.
+
+  The tabindex is unconditional, unlike REQ-CB-6 (specs/003), which puts one only on
+  a code block that overflows. The tab-stop tax that rule avoids is small here: tables
+  appear in about 32 of 497 reference posts, against 18 code blocks per post. Safari
+  does not make a scroll container focusable on its own, so without it a keyboard
+  cannot scroll the table there. And adding it only on overflow needs a JS module,
+  while runbook.js is frozen at three. So the label says only what is always true.
+
+  Only Goldmark tables reach this hook. Chroma's line-number tables come from
+  transform.Highlight in render-codeblock.html and never pass through here (trap 4).
+*/ -}}
+<div class="rb-table" role="region" tabindex="0" aria-label="{{ i18n "tableRegion" }}">
+<table
+  {{- range $k, $v := .Attributes }}{{ if $v }}{{ printf " %s=%q" $k (printf "%v" $v) | safeHTMLAttr }}{{ end }}{{ end -}}
+>
+<thead>
+  {{- range .THead }}<tr>
+    {{- range . }}<th{{ with .Alignment }} style="text-align:{{ . }}"{{ end }}>{{ .Text }}</th>{{ end -}}
+  </tr>{{ end -}}
+</thead>
+<tbody>
+  {{- range .TBody }}<tr>
+    {{- range . }}<td{{ with .Alignment }} style="text-align:{{ . }}"{{ end }}>{{ .Text }}</td>{{ end -}}
+  </tr>{{ end -}}
+</tbody>
+</table>
+</div>

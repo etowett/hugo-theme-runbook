@@ -92,6 +92,11 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: var(--rb-weight-normal);
   margin: var(--rb-space-7) 0 var(--rb-space-4);
   text-wrap: balance;
+  /* At 46–52px one long word ("Infrastructure") is wider than a phone and pans the
+     whole page sideways (#67). Break it rather than overflow. `anywhere`, not
+     `break-word`: only `anywhere` lowers min-content, and the mobile `.rb-home-hero`
+     grid track is sized by it (layout.css:267). */
+  overflow-wrap: anywhere;
   /* Anchor links from the TOC must not land the heading underneath the header. */
   scroll-margin-block-start: var(--rb-space-6);
 }
@@ -149,6 +154,10 @@ table {
   border-radius: var(--rb-radius-sm);
   overflow: hidden;
 }
+/* render-table.html's scroll box (#67): a wide table scrolls inside it instead of
+   widening the page. It takes the table's block margin, so the gap sits outside the box. */
+.rb-table { overflow-x: auto; margin: 0 0 var(--rb-space-4); }
+.rb-table > table { margin: 0; }
 th, td { border: 1px solid var(--rb-color-border); padding: var(--rb-space-2) var(--rb-space-3); text-align: start; }
 th { background: var(--rb-color-bg-subtle); font-weight: var(--rb-weight-medium); }
 
