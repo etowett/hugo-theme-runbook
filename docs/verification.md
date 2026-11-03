@@ -437,7 +437,7 @@ after the reference site stops exercising these cases.
 | `theme-shell-baseline.md` | The synthetic minimal page the theme-shell budgets are measured on |
 | `tables-and-data.md` | Wide tables, nested lists, task lists, footnotes |
 | `admonitions-and-callouts.md` | GitHub alert blockquotes and the plain blockquotes they must not swallow |
-| `prose-only-no-code.md` | The no-code case, and a TOC whose first heading arrives late |
+| `prose-only-no-code.md` | The no-code case, a TOC whose first heading arrives late, and the only `lastmod > date` byline |
 | `rtl-bidirectional-text.md` | Bidi: LTR commands and code blocks inside RTL prose |
 
 `scripts/check_fixtures.py` asserts each property is **still true** — 158 blocks is still 158, the

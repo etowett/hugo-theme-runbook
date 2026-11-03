@@ -241,6 +241,12 @@ CHECKS = [
          lambda d: len(d.indented) == 0),
         ("long enough to exercise prose measure and reading time",
          lambda d: len(d.text.split()) >= 400),
+        # #74: the only fixture whose byline carries "Updated", so it is the longest one
+        # and the one that shows a unit breaking mid-way. meta.html prints it only when
+        # lastmod is LATER than date.
+        ("lastmod later than date, so the byline shows Updated",
+         lambda d: (m := re.search(r"^date: (\S+)\nlastmod: (\S+)$", d.text, re.M)) is not None
+                   and m.group(2) > m.group(1)),
     ]),
     ("rtl-bidirectional-text.md", [
         ("i18n: Arabic prose present",

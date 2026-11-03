@@ -131,6 +131,7 @@
   place-items: center;
   inline-size: 1.5rem;
   block-size: 1.5rem;
+  flex-shrink: 0; /* #74: a wrapping site title squashed the dot into an oval at 390px */
   border-radius: var(--rb-radius-pill);
   background: var(--rb-color-accent);
   color: var(--rb-color-accent-contrast);
@@ -261,6 +262,11 @@
   margin-block: var(--rb-space-3) 0;
 }
 .rb-meta-sep { margin-inline: var(--rb-space-2); }
+/* #74: wrap between units, never inside one — "6 min" / "read" on two lines reads as two
+   facts. Categories are left out: a long comma list must still be able to wrap. */
+.rb-meta-date,
+.rb-meta-updated,
+.rb-meta-reading-time { white-space: nowrap; }
 
 /* ── The home hero ──────────────────────────────────────────────────────────── */
 .rb-home-header { margin-block-end: var(--rb-space-7); }
@@ -330,8 +336,11 @@
 }
 .rb-home-series-title { margin: 0; font-size: var(--rb-text-lg); }
 .rb-home-series-count { margin: var(--rb-space-3) 0 0; color: var(--rb-color-text-muted); font-size: var(--rb-text-sm); }
+/* Two columns only when there is a second thing to put in one (#74): without a series the
+   grid left the right ~40% of the hero empty at 1440px. Without `:has()` the aside stacks
+   under the hero, which is the mobile layout and reads fine. */
 @media (min-width: 56.25rem) {
-  .rb-home-hero { grid-template-columns: minmax(0, 1.35fr) minmax(16rem, .65fr); }
+  .rb-home-hero:has(.rb-home-series) { grid-template-columns: minmax(0, 1.35fr) minmax(16rem, .65fr); }
 }
 .rb-home-intro { margin-block-end: var(--rb-space-6); }
 .rb-section-heading,
