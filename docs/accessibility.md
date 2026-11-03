@@ -105,15 +105,16 @@ output on every pull request:
 |---|---|
 | Skip link | First focusable element, `href="#rb-main"`, moves on `:focus` from off-screen into view |
 | Language and direction | `<html lang>` from `site.Language.Lang`, `dir` from a per-language param — accessors that are stable across the whole supported Hugo range |
-| Headings | `render-heading.html` emits stable ids and an anchor with a real accessible name (`aria-label`), not a bare `#` |
+| Headings | `render-heading.html` emits stable ids and an anchor with a real accessible name (`aria-label`), not a bare `#`. The anchor is muted with no underline at rest and takes the accent colour on heading hover, on `:focus-visible` and when its heading is the URL `:target` (`base.css`, [#84](https://github.com/etowett/hugo-theme-runbook/pull/84)). It is **never hidden**: a hover-revealed control was already rejected for the copy button under REQ-CB-3 ([003 §3.5](../specs/003-design-spec.md)), and an invisible focusable link fails switch, voice-control and keyboard-magnifier users |
+| Table scroll region | `render-table.html` wraps every Markdown table in `<div class="rb-table" role="region" tabindex="0" aria-label="…">`, the label from the i18n key `tableRegion` ([#81](https://github.com/etowett/hugo-theme-runbook/pull/81)). **A deliberate deviation from REQ-CB-6**, which puts `tabindex` only on a code block that overflows: the hook cannot know at build time whether a table will overflow, and the template comment records why it is unconditional anyway — tables appear in about 32 of 497 reference posts against 18 code blocks per post, so the tab-stop tax is small; Safari does not make a scroll container focusable on its own; and adding it only on overflow needs a JavaScript module while `runbook.js` is frozen at three. The label therefore says only what is always true |
 | Landmarks | `main`, `nav` (`aria-labelledby`/`aria-label`), `header`, `footer`; current nav item carries `aria-current` |
 | Controls | Wrap toggle carries `aria-pressed`; copy and wrap carry `aria-label` **and** `title` |
 | Target size (WCAG 2.2 **2.5.8**) | `--rb-target-min: 24px` applied to the code controls and to the theme toggle |
 | Focus visibility | A single `:focus-visible` rule — 2px outline, 2px offset — on every interactive element, contrast-gated in both themes |
-| Focus not obscured (WCAG 2.2 **2.4.11**) | The stylesheets contain **no `position: sticky` and no `position: fixed`** rule at all, so no element scrolls over a focused control. This is read from the CSS, not from a manual test |
+| Focus not obscured (WCAG 2.2 **2.4.11**) | **Measured on 2026-11-03, not read from the CSS — and partly failing in practice.** Three elements can sit over content: the reading-progress bar (`layout.css` `.rb-progress`, `position: fixed`, 3px at the top, only under `@supports (animation-timeline: scroll())`), the table-of-contents rail (`.rb-toc`, `position: sticky`, from 56.25rem up, in its own grid column) and the table-of-contents pill (`.rb-toc-sheet`, `position: fixed` at the bottom, below 56.25rem). Method: Chromium through Playwright, screen media, Tab pressed forward from the top of the page until focus returns to an element already seen; for each focused element, its viewport-clipped rect is intersected with every fixed or sticky element that does not contain it, and `document.elementFromPoint` is read at its centre. Results — at 1280×800, `/posts/code-blocks-158/` (247 focusables) and `/posts/code-block-smoke-test/` (75): **0 overlaps**. At 390×844, the same pages (406 and 66 focusables): **0 entirely hidden, 26 partly covered by the pill**, 25 of them with the pill at their centre. The worst is a heading anchor 97% inside the pill with a 1px sliver of focus ring showing: a pass of 2.4.11 on its letter, a real barrier in use. Cause: no `scroll-padding-block-end`, so focus scrolls the element to the bottom edge, under the pill. **Known failure, tracked in [#90](https://github.com/etowett/hugo-theme-runbook/issues/90).** Not measured: Shift+Tab, the open sheet, Firefox and Safari |
 | Reduced motion | Every transition in the theme sits inside a `@media (prefers-reduced-motion: reduce)` guard that collapses animation, transition **and** `scroll-behavior` |
 | Text | Every UI string comes from `i18n/en.yaml`; no user-visible string is hard-coded in a template |
-| New-tab warning (WCAG **3.2.5**) | `target="_blank"` is off by default. When `externalLinksNewTab` turns it on, the link also gains a visually hidden "(opens in a new tab)" — the behaviour is announced rather than sprung |
+| New-tab warning (WCAG **3.2.5**) | `target="_blank"` is off by default. When `externalLinksNewTab` turns it on, the link also gains a visually hidden "(opens in a new tab)" — the behaviour is announced rather than sprung. The text is `<span class="rb-visually-hidden">` from the i18n key `externalLinkNewTab`, clipped with `clip-path` rather than `display: none`, which would hide it from assistive technology too. Until [#87](https://github.com/etowett/hugo-theme-runbook/pull/87) that class had no CSS and the text showed on screen; `.rb-table` is now `position: relative` so a hidden span in a table cell cannot escape the scroll box and pan the page |
 | Zero-JavaScript | The table of contents is ordinary same-document anchors; scroll-spy is an enhancement. Copy and wrap controls ship `hidden` and are unhidden only when they can work. The `details` shortcode is native `<details>` |
 
 ### 1.4 Deliberate design decisions with an accessibility rationale
@@ -216,7 +217,7 @@ order, in both themes — has **not** been performed. It is a release checklist 
 
 ### 3.7 Everything else on the manual matrix
 
-From [007 §3.6](../specs/007-verification.md), none of these has been done:
+From [007 §3.6](../specs/007-verification.md), none of these has been done in full:
 
 | Item | State |
 |---|---|
@@ -227,7 +228,7 @@ From [007 §3.6](../specs/007-verification.md), none of these has been done:
 | Windows High Contrast | not done — §3.3 |
 | `prefers-reduced-motion` | implemented in CSS, **not manually verified** |
 | Theme switching with `localStorage` disabled | implemented (`try`/`catch` on every access), **not manually verified** |
-| Print / save-as-PDF | `assets/css/print.css` ships, **not manually verified** |
+| Print / save-as-PDF | verified **under print emulation only**: Chromium (Playwright), 794×1123 (A4 at 96 dpi), `/posts/code-block-smoke-test/` — document width equals the viewport, 0 code or table elements overflow, the table-of-contents sheet is not printed ([#88](https://github.com/etowett/hugo-theme-runbook/pull/88)). **Not** printed on paper, not checked in a print preview, and not tested in Firefox or Safari |
 | Safari and iOS Safari (manual half of the browser matrix) | not done |
 
 ### 3.8 Automated gates that are not running yet
