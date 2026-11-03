@@ -109,5 +109,7 @@ imaging:
   resampleFilter: lanczos
   jpeg:
     quality: 85
+  webp:
+    quality: 85
   anchor: smart
   bgColor: "#ffffff"
