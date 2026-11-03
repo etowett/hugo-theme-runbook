@@ -53,7 +53,7 @@ hugo server --source exampleSite --themesDir "$(dirname "$PWD")" --theme "$(base
 python3 scripts/check_reqcb1.py                  # builds twice itself
 python3 scripts/check_fixtures.py --check-generated
 python3 scripts/check_jsonld.py   public
-python3 scripts/check_budgets.py  --self-test    # the script-tag rule, both directions; needs no build
+python3 scripts/check_budgets.py  --self-test    # script-tag rule and article classification (#64); needs no build
 python3 scripts/check_budgets.py  public
 python3 scripts/check_links.py    public         # internal only; add --external for the sweep
 python3 scripts/check_showcase.py                # advisory; add --network to resolve the demo URL
@@ -264,10 +264,11 @@ article (issue #64): a page carrying `<meta http-equiv="refresh">` is an alias s
 an RSS `index.xml` beside it is a list — `tags/`, `categories/`, a section, or a page such as the
 archive's `/search/` that declares an `rss` output. Both signals are written by Hugo from content and
 site config rather than by the theme, so the Stack baseline and the Runbook candidate classify every
-URL the same way; the JSON-LD type cannot, because Runbook emits `BlogPosting` and Stack calls every
-regular page an `Article`. A regular page outside `mainSections`, such as `/about-us/`, still counts.
+URL the same way. The theme's article type cannot (Runbook's JSON-LD `BlogPosting`, Stack's
+`og:type` of `article` on every regular page). The fallback also skips a page that loads the search
+chunk, since the shell row counts executable tags raw. A regular page outside `mainSections`, such as `/about-us/`, still counts.
 
-`python3 scripts/check_budgets.py --self-test` pins all of that — eight cases, both directions, over
+`python3 scripts/check_budgets.py --self-test` pins all of that — nine cases, both directions, over
 a synthetic build tree, needing no Hugo run. It runs in `ci.yml` before the gate itself.
 
 ### Theme-shell budgets are hard ceilings
@@ -568,7 +569,7 @@ is in the capture set specifically (REQ-FONT-1).
 | JSON-LD parse + value assertions | **implemented** and no longer inert: `head/schema.html` emits `Article`, and `ci.yml` passes `--require-article` on every pull request |
 | Unused-template sweep against a reasoned allowlist | **implemented**; a waiver in `.github/unused-templates-allowed.txt` that goes stale fails too |
 | Theme-shell budgets | **implemented** as hard gates |
-| Script-tag budget | **implemented**, counting executable scripts, and counting the lazy search chunk once rather than twice — §4. Both directions pinned by `check_budgets.py --self-test` |
+| Script-tag budget | **implemented**, counting executable scripts, and counting the lazy search chunk once rather than twice — §4. Both directions pinned by `check_budgets.py --self-test`, which also covers article classification (#64) |
 | Page-weight distribution + no-regression | mechanism **implemented**, thresholds are **placeholders**, no baseline committed — §4. The run now ends in `PASS (page-weight gates INERT …)` rather than `PASS`, because a threshold that stayed `None` across two milestones was caught by nothing (#45). Blocked on #44 |
 | Internal link and fragment crawl | **implemented**, runs nightly in `scheduled.yml` and in `parity.yml` — NOT in `ci.yml`, so it is not a per-PR gate |
 | External link sweep | **implemented**, weekly, tracking issue on failure |
