@@ -156,6 +156,17 @@ jobs:
         # A fixture whose defining property drifted still builds and guards nothing.
         run: python3 scripts/check_fixtures.py --check-generated
 
+      - name: Front-matter toc false renders no table of contents
+        # check_fixtures.py reads source only; this asserts the built page (#113). The
+        # page has four h2s, so a TOC appears here only if the per-page override breaks.
+        run: |
+          page="$RUNNER_TEMP/public/posts/toc-disabled-front-matter/index.html"
+          test -f "$page"
+          if grep -q 'rb-toc' "$page"; then
+            echo "::error::$page renders a table of contents despite toc: false"
+            exit 1
+          fi
+
       - name: JSON-LD parses, and its VALUES are asserted
         # --require-article is on now that head/schema.html emits Article schema. Before
         # that the build carried only a WebSite node, so the two assertions that matter

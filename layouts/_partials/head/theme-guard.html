@@ -53,7 +53,7 @@
   Neither form can express "the reader chose dark on a light OS": that is a stored
   preference, so js/modules/theme.js collapses the pair into one resolved meta once it
   runs. */ -}}
-{{- $mode := $rb.themeMode | default "auto" -}}
+{{- $mode := $rb.themeMode -}}{{- /* no default: utils/settings.html always returns auto, light or dark */ -}}
 {{- if eq $mode "light" }}
 <meta name="theme-color" content="{{ $rb.themeColorLight }}">
 {{- else if eq $mode "dark" }}
