@@ -340,12 +340,12 @@ PASS (page-weight gates INERT — 2 rule(s) measured but gated nothing)
 On a runner it is additionally a `::warning::` annotation, which surfaces in the checks UI rather
 than in log text nobody opens, and the same list is written to `budgets.json` under `inert` so it can
 be read by a machine. The **exit status stays 0**, deliberately: the thresholds cannot be derived
-from a laptop or from `exampleSite`, only from the parity job, which has never run (#44). Failing
+from a laptop or from `exampleSite`, only from the parity job, and that derivation is still open (#45). Failing
 `ci.yml` would put a red X on every pull request for a condition no author introduced and none can
 fix — the "red X nobody can act on" that [§2](#2-what-ci-runs) keeps out of the per-PR workflow.
 Loud and green, not red.
 
-#### How to derive the thresholds — the procedure, once #44 unblocks it
+#### How to derive the thresholds — the procedure for #45
 
 Every step below exists because skipping it produces a number that looks authoritative and measures
 something else. **Do not set these from a local run**; do not set them from `exampleSite`, whose
@@ -397,7 +397,9 @@ twelve fixtures are chosen to be atypical.
 The no-regression rule is the one that actually protects readers: a theme cannot compress content,
 but it must never make a given page heavier than the theme it replaced rendered it. An absolute
 ceiling measures the author's writing. It is also the half that needs no threshold at all — it works
-the moment a baseline exists, which is one more reason #44 is the blocker rather than the arithmetic.
+the moment a baseline exists, so the baseline matters more than the arithmetic. The parity job runs
+again (#60), so the remaining blockers are the re-pin in #61 (a baseline is tied to its
+`CITIZIX_REF`, step 4) and the headroom decision in step 3.
 
 ---
 
@@ -584,7 +586,7 @@ is in the capture set specifically (REQ-FONT-1).
 | Unused-template sweep against a reasoned allowlist | **implemented**; a waiver in `.github/unused-templates-allowed.txt` that goes stale fails too |
 | Theme-shell budgets | **implemented** as hard gates |
 | Script-tag budget | **implemented**, counting executable scripts, and counting the lazy search chunk once rather than twice — §4. Both directions pinned by `check_budgets.py --self-test`, which also covers article classification (#64) |
-| Page-weight distribution + no-regression | mechanism **implemented**, thresholds are **placeholders**, no baseline committed — §4. The run now ends in `PASS (page-weight gates INERT …)` rather than `PASS`, because a threshold that stayed `None` across two milestones was caught by nothing (#45). Blocked on #44 |
+| Page-weight distribution + no-regression | mechanism **implemented**, thresholds are **placeholders**, no baseline committed — §4. The run now ends in `PASS (page-weight gates INERT …)` rather than `PASS`, because a threshold that stayed `None` across two milestones was caught by nothing (#45). Blocked on #61's re-pin and the step 3 headroom decision, no longer on the token |
 | Internal link and fragment crawl | **implemented**, runs nightly in `scheduled.yml` and in `parity.yml` — NOT in `ci.yml`, so it is not a per-PR gate |
 | External link sweep | **implemented**, weekly, tracking issue on failure |
 | Showcase compliance | **implemented**, advisory until the screenshots and the demo deploy exist — §5 |
@@ -592,9 +594,9 @@ is in the capture set specifically (REQ-FONT-1).
 | Contrast gate | **implemented** and gating — `scripts/check_contrast.py` runs as its own `ci.yml` job. Owned by the design workstream, not by this document |
 | Visual regression | **scaffolded only**, no baselines — §7 |
 | Lighthouse | **scaffolded only**: `.github/lighthouse/lighthouserc.json` exists and no workflow references it — §7 |
-| Layer 2 archive smoke build | **implemented** as `parity.yml`, which checks out the reference archive pinned at `CITIZIX_REF` rather than vendoring it ([007 §2](../specs/007-verification.md)). It has never executed — `CITIZIX_TOKEN` is unset (#44) |
+| Layer 2 archive smoke build | **implemented** as `parity.yml`, which checks out the reference archive pinned at `CITIZIX_REF` rather than vendoring it ([007 §2](../specs/007-verification.md)). Running: last green at the `9ec479a` pin in run [41779592500](https://github.com/etowett/hugo-theme-runbook/actions/runs/41779592500) after the token rotation in #60. That pin is behind citizix `main` (#61) |
 | Zero-JS / storage-disabled / strict-CSP passes | **not started**. All three are Playwright projects; `playwright.config.mjs` carries only the six viewport × scheme projects, and they land with the visual suite |
-| URL/alias manifest diff vs the Stack build | **implemented** as `scripts/check_parity.py` ([010 §2](../specs/010-citizix-migration.md)), reached only from `parity.yml` — so it is written, and it has never run (#44) |
+| URL/alias manifest diff vs the Stack build | **implemented** as `scripts/check_parity.py` ([010 §2](../specs/010-citizix-migration.md)), reached only from `parity.yml`. Passing at the `9ec479a` pin (run 41779592500); its reviewed differences need re-deriving at the new pin (#61) |
 | Accessibility support statement | **shipped** — [`docs/accessibility.md`](accessibility.md): §1 what was verified and how, §2 the WCAG 2.2 AA target, §3 ten named areas that were **not** tested ([007 §4](../specs/007-verification.md)). Owned by the release-hygiene workstream |
 
 Automated scores are reported as automated scores. A perfect Lighthouse accessibility score is not
