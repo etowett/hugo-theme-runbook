@@ -63,7 +63,7 @@ written reason in the allowlist, and a waiver that has gone stale fails too.
 ### 3 — the gates
 
 ```bash
-python3 scripts/check_reqcb1.py                     # builds twice itself and diffs; the strictest one
+python3 scripts/check_reqcb1.py                     # three builds: two diffed, one new-tab check
 python3 scripts/check_fixtures.py --check-generated
 python3 scripts/check_jsonld.py   public --require-article
 python3 scripts/check_budgets.py  public

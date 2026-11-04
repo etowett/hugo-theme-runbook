@@ -35,7 +35,7 @@ into CI yet.
 hugo --source exampleSite \
      --themesDir "$(dirname "$PWD")" \
      --theme "$(basename "$PWD")" \
-     --destination public \
+     --destination "$PWD/public" \
      --cleanDestinationDir --gc --minify \
      --panicOnWarning --printPathWarnings --printUnusedTemplates
 ```
@@ -68,7 +68,7 @@ Without it, a build that renders nothing useful is a green tick.
 ### Running the gates
 
 ```bash
-python3 scripts/check_reqcb1.py                   # builds twice itself and diffs the output
+python3 scripts/check_reqcb1.py                   # three builds: two diffed, one new-tab check
 python3 scripts/check_fixtures.py --check-generated
 python3 scripts/check_jsonld.py   public
 python3 scripts/check_budgets.py  public
