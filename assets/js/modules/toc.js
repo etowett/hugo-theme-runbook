@@ -1,4 +1,4 @@
-/* toc.js — table-of-contents scroll-spy.
+/* toc.js — table-of-contents scroll-spy, and closing the mobile sheet (#103).
    OWNED BY: the templates workstream.
 
    ▸ SCROLL-SPY IS AN ENHANCEMENT, NOT A PREREQUISITE (specs/003 §3.4).
@@ -14,7 +14,9 @@
    measured cost is in the PR description, and the module is ~350 B gzipped of the
    budget. Had it not fitted, deleting this file and its import in runbook.js was the
    documented and acceptable outcome; that is still the correct move if the budget is
-   ever contested, because nothing else depends on it.
+   ever contested, because nothing else depends on it — EXCEPT the sheet-close block
+   at the top of initToc, which is an accessibility fix (#103, WCAG 2.4.11), not an
+   enhancement. Cut scroll-spy, keep that.
 
    Design notes:
 
@@ -34,6 +36,25 @@
 const TRIGGER_OFFSET = 96; /* px below the viewport top; clears a sticky header */
 
 export function initToc() {
+  /* The open mobile sheet covers up to half the viewport — far more than the
+     `scroll-padding-block-end` in layout.css allows for — so it must not stay open
+     over the thing the reader went to (#103): close it when one of its links is
+     followed (else it covers the target heading) and when focus lands anywhere
+     outside it (else Tab walks focus underneath it, WCAG 2.4.11). `focusin` on the
+     document rather than `focusout` on the sheet, because Safari does not focus a
+     tapped <summary>, so focus may never have been inside. Bound before the early
+     return below: the sheet carries no `data-rb-toc` and must close with scroll-spy
+     off too. Without JS it simply stays open, as it did before. */
+  const sheet = document.querySelector('.rb-toc-sheet');
+  if (sheet) {
+    sheet.addEventListener('click', (e) => {
+      if (e.target.closest('a')) sheet.open = false;
+    });
+    document.addEventListener('focusin', (e) => {
+      if (sheet.open && !sheet.contains(e.target)) sheet.open = false;
+    });
+  }
+
   const nav = document.querySelector('[data-rb-toc]');
   if (!nav || typeof IntersectionObserver === 'undefined') return;
 
