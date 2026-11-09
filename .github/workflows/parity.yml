@@ -60,20 +60,20 @@ concurrency:
 
 env:
   CITIZIX_REPO: etowett/citizix
-  # Pinned 2026-07-29, superseding dc1b321. That pin predated the three citizix commits
-  # made FOR this migration — the `latmod:` typo fix, the retired-taxonomy redirects and
-  # the 23 pinned taxonomy titles — so a first run against it would have reported
-  # differences that were already fixed upstream.
+  # Pinned 2026-11-09 to citizix main (c98c01b, 2026-11-03), superseding 9ec479a (#61).
+  # The old pin predated citizix's move to Cloudflare (8918b75), its Dart Sass override
+  # of the Stack stylesheet, its one-<h1> overrides and its thin-term sitemap filter, so
+  # a parity pass there said nothing about the content that will actually ship.
   #
-  # 497 post source files, 6 of them drafts, so 491 published posts. Every number below
+  # 482 post source files, 6 of them drafts, so 476 published posts. Every number below
   # was re-derived from a build at this SHA rather than carried over.
-  CITIZIX_REF: 9ec479a6ee4de4e0f467d6d831cd3c43e67c67dd
+  CITIZIX_REF: c98c01bf633022a433b06a11acedf6ca1f826709
   # Assertions on the RUNBOOK build at that content pin, as scripts/check_parity.py
   # --audit counts them: non-alias HTML pages and meta-refresh aliases. The Stack build
-  # of the same content audits to 1,095 and 358; docs/migration.md §1 says why they
+  # of the same content audits to 1,064 and 356; docs/migration.md §1 says why they
   # differ. Unchanged by `search.enable` — the index is JSON, not an HTML page.
-  EXPECT_PAGES: 1064
-  EXPECT_ALIASES: 356
+  EXPECT_PAGES: 1033
+  EXPECT_ALIASES: 344
 
 jobs:
   parity:
@@ -143,6 +143,28 @@ jobs:
         with:
           hugo-version: latest
           extended: true
+
+      - name: Install Dart Sass (the Stack baseline needs it)
+        if: steps.gate.outputs.available == 'true'
+        # citizix overrides Stack's head/style.html to compile with Dart Sass, because
+        # Hugo 0.169 logs LibSass as a deprecation. ubuntu-latest ships no `sass`, so
+        # without this the baseline cannot build. Only the Stack side uses it: Runbook
+        # has no Sass.
+        #
+        # The version is read from the archive's own build.sh rather than copied here,
+        # so the baseline compiles with what Cloudflare builds production with, and a
+        # bump in citizix needs no edit in this file.
+        run: |
+          set -euo pipefail
+          v=$(sed -n 's/^DART_SASS_VERSION=//p' archive/build.sh)
+          if [ -z "$v" ]; then
+            echo "::error::DART_SASS_VERSION not found in the archive's build.sh"
+            exit 1
+          fi
+          curl -fsSL "https://github.com/sass/dart-sass/releases/download/${v}/dart-sass-${v}-linux-x64.tar.gz" \
+            | tar -xz -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/dart-sass" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/dart-sass/sass" --version
 
       - name: Stage two source trees
         if: steps.gate.outputs.available == 'true'
@@ -224,11 +246,12 @@ jobs:
                        "is off in .github/parity/citizix-runbook.yaml, or the archive's "
                        "search page stopped declaring `outputs: json`.")
           n = len(d.get("docs", []))
-          # A floor, not an assertion of the exact count: the corpus grows between pins
+          # A floor, not an assertion of the exact count: the corpus moves between pins
+          # (491 posts at 9ec479a, 476 at c98c01b after citizix merged duplicate guides),
           # and a number that has to be bumped every time is a number people stop reading.
           if n < 400:
               sys.exit(f"::error::search index has {n} documents, expected the post "
-                       "corpus (491 at the pinned ref). Something is filtering it out.")
+                       "corpus. Something is filtering it out.")
           print(f"search index: {n} documents, {len(open(p,'rb').read()):,} B")
           PY
 
@@ -301,7 +324,7 @@ jobs:
         # the SaltStack GitOps post and defined by no heading on it. That failed
         # identically on the Stack build, so it was the archive's bug rather than the
         # theme's and docs/migration.md §9 defect 6 classified it there. citizix fixed it
-        # in 49fdb91, which is inside this pin: at 9ec479a that page carries neither the
+        # in 49fdb91, which every pin since 9ec479a contains: that page carries neither the
         # dangling href nor the id, and run 30436578455 reports `no broken internal
         # links, subresources or fragments` across the whole build.
         #
