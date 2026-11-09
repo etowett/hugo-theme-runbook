@@ -309,43 +309,49 @@ platform-independent.
 CSS is at 92% of its ceiling and the code font at 82% of its; those two are where the next
 regression will land.
 
-### Page-weight budgets are PLACEHOLDERS and are not enforced
+### Page-weight budgets are set and enforced in parity.yml
 
-`scripts/check_budgets.py` measures the p50, p90, maximum and minimum of article page weight, the
-homepage, and taxonomy pages, and implements a per-page **no-regression** rule against a recorded
-baseline. All of that machinery is complete and tested. **The thresholds are `None`.**
+`scripts/check_budgets.py` measures the article p50 and p90, homepage and worst taxonomy term
+page against `PAGE_WEIGHT_THRESHOLDS`. These are the Runbook-side measurements at
+`CITIZIX_REF c98c01b`, from parity run
+[42674523402](https://github.com/etowett/hugo-theme-runbook/actions/runs/42674523402) on
+`ubuntu-latest` with GNU gzip, plus **5% headroom rounded up**:
 
-This is deliberate, and copying the numbers out of
-[005 §3.2](../specs/005-performance-budgets.md#32-page-weight-budgets--distribution-gates-not-ceilings)
-would be wrong. That table sets p50 ≤ 9,000 B and p90 ≤ 14,000 B as improvements on a Stack baseline
-of 10,663 B median and 15,488 B p90. Since then the reference site fixed its JSON-LD and turned off
-site-wide line numbers, and the same corpus now measures **9,159 B median and 11,626 B p90 — with
-Runbook not existing yet**. The p50 gate would be met by doing nothing and the p90 gate is already
-met by the theme being replaced. specs/005 §3.1 carries an explicit
-**"Re-baseline required before M3"** warning saying exactly this.
+| Threshold | Measured (B gz) | Gate (B gz) |
+|---|---:|---:|
+| Article p50 | 7,180 | 7,539 |
+| Article p90 | 10,384 | 10,904 |
+| Homepage | 5,101 | 5,357 |
+| Worst term page | 4,518 | 4,744 |
 
-#### The run says so, out loud, every time
+Why 5%: at a fixed pin the content cannot move, so the headroom only has to absorb theme changes
+someone chose. 5% lets about 360 B onto the median and 520 B onto p90, and still catches the
+regression #45 was written about — 900 B of wrapper markup on every article, which is +12.5% on
+the median. A 10% margin would let that through at p90. The headroom is not sized for re-pins,
+and does not need to be: re-pinning alone moved p90 by +8.2% (9,594 → 10,384 B gz, `9ec479a` in run 42473645971 →
+`c98c01b` in run 42674523402), which is why
+all four values are re-derived whenever `CITIZIX_REF` moves rather than carried across.
 
-A threshold that stayed `None` across two milestones was caught by nothing, and the reason is that
-`placeholder gate: None` prints forty lines above a verdict that read `PASS: budgets` (issue #45).
-A gate that measures nothing must not print the same word as a gate that passed, so the verdict now
-names the half that is not gating:
+`parity.yml` passes `--enforce-page-weight` by default on manual runs and always on scheduled runs.
+An over-threshold measurement fails the step, alongside the existing per-page no-regression rule.
+A manual run can opt out of the distribution thresholds.
+
+#### The run says which rules are inactive
+
+`ci.yml` reports the archive thresholds without enforcing them against synthetic fixtures. Its
+verdict remains explicit:
 
 ```
 PASS (page-weight gates INERT — 2 rule(s) measured but gated nothing)
-  ! 4 of 4 page-weight thresholds are unset (article_p50, article_p90, homepage, list_page) …
+  ! page-weight thresholds are archive numbers and are enforced only by parity.yml (--enforce-page-weight)
   ! no --baseline was passed, so the per-page no-regression rule did not run
 ```
 
-On a runner it is additionally a `::warning::` annotation, which surfaces in the checks UI rather
-than in log text nobody opens, and the same list is written to `budgets.json` under `inert` so it can
-be read by a machine. The **exit status stays 0**, deliberately: the thresholds cannot be derived
-from a laptop or from `exampleSite`, only from the parity job, and that derivation is still open (#45). Failing
-`ci.yml` would put a red X on every pull request for a condition no author introduced and none can
-fix — the "red X nobody can act on" that [§2](#2-what-ci-runs) keeps out of the per-PR workflow.
-Loud and green, not red.
+On a runner this also raises a `::warning::` annotation, and the list is written to
+`budgets.json` under `inert`. The exit status stays 0 when the theme-shell budgets pass —
+enforcing archive numbers against `exampleSite` would measure nothing useful.
 
-#### How to derive the thresholds — the procedure for #45
+#### How to re-derive the thresholds at each re-pin
 
 Every step below exists because skipping it produces a number that looks authoritative and measures
 something else. **Do not set these from a local run**; do not set them from `exampleSite`, whose
@@ -377,29 +383,27 @@ twelve fixtures are chosen to be atypical.
    "article_p50": <value>,   # <measured> B gz, runbook side, CITIZIX_REF <sha>, run <id>, +<pct>%
    ```
 
-   `TODO(eutychus): confirm the headroom percentage.` No number is given here on purpose — it is a
-   judgement about how far a normal content commit may move the median, nothing in the specs argues
-   one, and a figure invented in this document would be quoted back as if it had been measured.
-   Choose it in the pull request that sets the thresholds and defend it there.
+   Apply the agreed 5% uniformly and round up. Keep the measured value, content pin and run
+   identifier beside the shipped thresholds so the headroom can be checked.
 
-4. **Commit the baseline JSON** so the per-page no-regression rule has something stable to compare
-   against between runs, and re-generate it deliberately, in its own commit, whenever `CITIZIX_REF`
-   moves.
+4. **Keep enforcement on** — `--enforce-page-weight` in `parity.yml`, opt-out on manual runs
+   and always on scheduled runs. A threshold left `None` fails, and so does a value that
+   measured nothing — an archive whose glob stopped matching at a re-pin. Nothing catches a
+   re-pin that bumps `CITIZIX_REF` and keeps the old thresholds: that is why this procedure
+   is written down, and why the pin comment in `parity.yml` points here.
 
-5. **Then flip enforcement on** — `--enforce-page-weight` in `parity.yml`, opt-out rather than
-   opt-in. Until then that flag deliberately **fails** rather than silently passing on `None`, so
-   it cannot be turned on early by accident.
+5. **Update the documentation with the pin and values**: the table above, and the "Re-baselined"
+   note in specs/005 §3.1, which quotes the four gates. The specs change is its own pull request —
+   `specs/**` belongs to nobody ([contracts §1](contracts.md#nobody)).
 
-6. **Update what describes the placeholder state**: this section, and the
-   **"Re-baseline required before M3"** warning in specs/005 §3.1. `specs/**` belongs to nobody
-   ([contracts §1](contracts.md#nobody)), so that is its own pull request.
+The Stack baseline JSON is regenerated in the same job at the same pin on every run, rather than
+committed as a second source to keep in step. It remains available in the run's artefacts.
 
 The no-regression rule is the one that actually protects readers: a theme cannot compress content,
 but it must never make a given page heavier than the theme it replaced rendered it. An absolute
 ceiling measures the author's writing. It is also the half that needs no threshold at all — it works
-the moment a baseline exists, so the baseline matters more than the arithmetic. The parity job runs
-again (#60), so the remaining blockers are the re-pin in #61 (a baseline is tied to its
-`CITIZIX_REF`, step 4) and the headroom decision in step 3.
+the moment a baseline exists, so the baseline matters more than the arithmetic. The parity job
+captures that baseline at the same content pin and on the same runner as the comparison.
 
 ---
 
@@ -586,7 +590,7 @@ is in the capture set specifically (REQ-FONT-1).
 | Unused-template sweep against a reasoned allowlist | **implemented**; a waiver in `.github/unused-templates-allowed.txt` that goes stale fails too |
 | Theme-shell budgets | **implemented** as hard gates |
 | Script-tag budget | **implemented**, counting executable scripts, and counting the lazy search chunk once rather than twice — §4. Both directions pinned by `check_budgets.py --self-test`, which also covers article classification (#64) |
-| Page-weight distribution + no-regression | mechanism **implemented**, thresholds are **placeholders**, no baseline committed — §4. The run now ends in `PASS (page-weight gates INERT …)` rather than `PASS`, because a threshold that stayed `None` across two milestones was caught by nothing (#45). Blocked on #61's re-pin and the step 3 headroom decision, no longer on the token |
+| Page-weight distribution + no-regression | **Implemented and enforced** in parity.yml — archive thresholds carry 5% headroom and are re-derived at each re-pin; the Stack baseline is regenerated in the same job. exampleSite reports only — §4 |
 | Internal link and fragment crawl | **implemented**, runs nightly in `scheduled.yml` and in `parity.yml` — NOT in `ci.yml`, so it is not a per-PR gate |
 | External link sweep | **implemented**, weekly, tracking issue on failure |
 | Showcase compliance | **implemented**, advisory until the screenshots and the demo deploy exist — §5 |

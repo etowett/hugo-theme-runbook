@@ -31,8 +31,9 @@ name: Archive parity
 # specs/007 §2 requires the corpus pinned. It is pinned to a SHA below rather than to a
 # branch, because a "no regression against the baseline" comparison across two different
 # content commits measures the corpus changing, not the theme changing (specs/005 §3.1).
-# Bump CITIZIX_REF deliberately, in its own commit, and regenerate the budget baseline in
-# the same one.
+# Bump CITIZIX_REF deliberately, in its own commit, and re-derive PAGE_WEIGHT_THRESHOLDS in
+# scripts/check_budgets.py in the same one (docs/verification.md §4). The Stack baseline needs
+# no commit: this job captures it fresh, at the same pin, on every run.
 
 on:
   workflow_dispatch:
@@ -44,7 +45,7 @@ on:
       enforce_page_weight:
         description: "Enforce the page-weight distribution gates"
         type: boolean
-        default: false
+        default: true
   schedule:
     # 04:00 UTC Sundays. Weekly, not daily: the archive changes on its own schedule and
     # nothing here can break without either this repository or that one moving.
@@ -353,25 +354,8 @@ jobs:
         # --article-glob is explicit because the archive uses flat /:slug/ permalinks and
         # the default `posts/*/index.html` matches nothing there.
         #
-        # ⚠️ ADVISORY, and only because that same flat-permalink glob is too broad. Both
-        # failures it reports at the pinned ref are pages that are not articles, measured
-        # against budgets specs/005 §3.1 scopes to articles:
-        #
-        #   tags/index.html grew 4,544 → 5,496 B gz (+21.0%) — the unpaginated taxonomy
-        #     browse page, which is docs/migration.md §4's documented, intended cost and
-        #     is already a reviewed `url` difference. The per-page no-regression rule is
-        #     not gated on --enforce-page-weight, so this fails the step outright.
-        #   search/index.html: 3 executable script tags (budget 2) — the inline theme
-        #     guard, runbook.js, and the lazily-loaded search chunk. check_budgets.py
-        #     budgets that chunk separately at SEARCH_JS_GZ_MAX and then counts it again
-        #     here, so the gate contradicts itself on the one page that loads it.
-        #
-        # Both are `--article-glob '*/index.html'` sweeping non-articles into an
-        # article-scoped budget — the same root cause as docs/migration.md §9 defect 4.
-        # The fix belongs in scripts/check_budgets.py, which stream D owns (contracts §1),
-        # so it is named here rather than made here. Remove `continue-on-error` once that
-        # script can tell an article from a browse page.
-        continue-on-error: true
+        # Both article-classification and search-script false positives are fixed (#64,
+        # #51), so this step gates real regressions instead of absorbing them.
         run: |
           python3 scripts/check_budgets.py "$RUNNER_TEMP/public-stack" \
                   --article-glob '*/index.html' \
@@ -380,7 +364,7 @@ jobs:
                   --article-glob '*/index.html' \
                   --baseline "$RUNNER_TEMP/stack-baseline.json" \
                   --json "$RUNNER_TEMP/budgets.json" \
-                  ${{ inputs.enforce_page_weight && '--enforce-page-weight' || '' }}
+                  ${{ (github.event_name == 'schedule' || inputs.enforce_page_weight) && '--enforce-page-weight' || '' }}
 
       - name: Upload the manifests
         if: always() && steps.gate.outputs.available == 'true'
