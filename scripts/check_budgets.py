@@ -299,6 +299,12 @@ def page_weight_fails(measured: dict, thresholds: dict) -> list[str]:
     for key, threshold in thresholds.items():
         value = measured.get(key)
         if value is None:
+            # Unmeasured is not zero, and it is not a pass either: an archive whose glob or
+            # permalinks moved at a re-pin measures nothing, and a gate that reads green on
+            # nothing is the failure #45 is about.
+            if threshold is not None:
+                fails.append(f"{key} measured nothing under --enforce-page-weight — "
+                             "nothing matched, so nothing was compared")
             continue
         if threshold is None:
             fails.append(
@@ -423,6 +429,9 @@ def self_test() -> int:
     case("page weight with a None threshold fails",
          len(fails) == 1 and "article_p50" in fails[0] and "still a placeholder" in fails[0],
          f"fails={fails}")
+    fails = page_weight_fails({}, {"homepage": 1})
+    case("page weight that measured nothing fails",
+         len(fails) == 1 and "measured nothing" in fails[0], f"fails={fails}")
     unset = [key for key, value in PAGE_WEIGHT_THRESHOLDS.items() if value is None]
     case("shipped page-weight thresholds are all set", not unset, f"unset={unset}")
 
@@ -603,6 +612,10 @@ def main() -> int:
     # ── Page weight ───────────────────────────────────────────────────────────────────
     print()
     print("Page-weight budgets — distribution gates, never a universal ceiling")
+    # The Stack --write-baseline pass is measured, never gated. Printing Runbook's gates
+    # beside Stack's heavier numbers reads as four failures in a job that passed.
+    def show(threshold) -> str:
+        return "(baseline, not gated)" if args.write_baseline else f"gate: {gate(threshold)}"
     if not weights:
         # Loud, not a quiet line. The default glob is `posts/*/index.html`, which matches
         # NOTHING on a site using flat `/:slug/` permalinks — which the reference archive
@@ -622,8 +635,8 @@ def main() -> int:
         worst_page = max(weights, key=weights.get)
         print(f"  {len(values)} article page(s)"
               + (f", {len(skipped)} non-article match(es) skipped" if skipped else ""))
-        print(f"    p50 {p50:>8,} B gz    gate: {gate(PAGE_WEIGHT_THRESHOLDS['article_p50'])}")
-        print(f"    p90 {p90:>8,} B gz    gate: {gate(PAGE_WEIGHT_THRESHOLDS['article_p90'])}")
+        print(f"    p50 {p50:>8,} B gz    {show(PAGE_WEIGHT_THRESHOLDS['article_p50'])}")
+        print(f"    p90 {p90:>8,} B gz    {show(PAGE_WEIGHT_THRESHOLDS['article_p90'])}")
         print(f"    max {max(values):>8,} B gz    ({worst_page})")
         print(f"    min {min(values):>8,} B gz")
         results["page_weight"] = {
@@ -634,8 +647,8 @@ def main() -> int:
     home = build / "index.html"
     if home.is_file():
         home_gz = gz_file(home)
-        print(f"  homepage      {home_gz:>8,} B gz    gate: "
-              f"{gate(PAGE_WEIGHT_THRESHOLDS['homepage'])}")
+        print(f"  homepage      {home_gz:>8,} B gz    "
+              f"{show(PAGE_WEIGHT_THRESHOLDS['homepage'])}")
         results["page_weight"]["homepage"] = home_gz
 
     list_pages = {
@@ -644,8 +657,8 @@ def main() -> int:
     }
     if list_pages:
         worst = max(list_pages.values())
-        print(f"  taxonomy list {worst:>8,} B gz    gate: "
-              f"{gate(PAGE_WEIGHT_THRESHOLDS['list_page'])} (worst of {len(list_pages)})")
+        print(f"  taxonomy list {worst:>8,} B gz    "
+              f"{show(PAGE_WEIGHT_THRESHOLDS['list_page'])} (worst of {len(list_pages)})")
         results["page_weight"]["list_pages"] = list_pages
 
     print()

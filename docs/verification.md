@@ -328,7 +328,8 @@ Why 5%: at a fixed pin the content cannot move, so the headroom only has to abso
 someone chose. 5% lets about 360 B onto the median and 520 B onto p90, and still catches the
 regression #45 was written about — 900 B of wrapper markup on every article, which is +12.5% on
 the median. A 10% margin would let that through at p90. The headroom is not sized for re-pins,
-and does not need to be: re-pinning alone moved p90 by +8.3% (`9ec479a` → `c98c01b`), which is why
+and does not need to be: re-pinning alone moved p90 by +8.2% (9,594 → 10,384 B gz, `9ec479a` in run 42473645971 →
+`c98c01b` in run 42674523402), which is why
 all four values are re-derived whenever `CITIZIX_REF` moves rather than carried across.
 
 `parity.yml` passes `--enforce-page-weight` by default on manual runs and always on scheduled runs.
@@ -386,8 +387,10 @@ twelve fixtures are chosen to be atypical.
    identifier beside the shipped thresholds so the headroom can be checked.
 
 4. **Keep enforcement on** — `--enforce-page-weight` in `parity.yml`, opt-out on manual runs
-   and always on scheduled runs. A measured value with a `None` threshold still fails, so an
-   incomplete re-pin cannot silently pass.
+   and always on scheduled runs. A threshold left `None` fails, and so does a value that
+   measured nothing — an archive whose glob stopped matching at a re-pin. Nothing catches a
+   re-pin that bumps `CITIZIX_REF` and keeps the old thresholds: that is why this procedure
+   is written down, and why the pin comment in `parity.yml` points here.
 
 5. **Update the documentation with the pin and values.** The stale **"Re-baseline required before
    M3"** warning in specs/005 §3.1 needs its own pull request — `specs/**` belongs to nobody
