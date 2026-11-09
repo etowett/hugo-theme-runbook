@@ -86,11 +86,20 @@ what the theme emits.
 | `<script>` tags per article | **≤ 2** | 11 | Inline theme guard + one deferred bundle |
 | Third-party hosts added by the theme | **0** | 2 (`fonts.googleapis.com`, `fonts.gstatic.com`) | Site-owner integrations excluded |
 
-> ### ⚠️ Re-baseline required before M3
+> ### Re-baselined — §3.2's gates are superseded (#45)
 >
-> **Measured 2026-07-28 (evening).** Since §2 was written, the reference site fixed its JSON-LD
-> (removing a duplicated full-text `articleBody`) and turned off site-wide line numbers — citizix#62.
-> Those changes alone moved the article distribution:
+> **The numbers in §3.2 are not the gates.** They were set against a Stack baseline that the
+> reference site improved past before Runbook existed, so they measured nothing. #45 re-derived all
+> four on the runner at `CITIZIX_REF c98c01b`, from the Runbook side with 5% headroom, and
+> `parity.yml` enforces them: article p50 ≤ **7,539 B**, p90 ≤ **10,904 B**, homepage ≤ **5,357 B**,
+> worst term page ≤ **4,744 B** gz. They live in `PAGE_WEIGHT_THRESHOLDS` in
+> `scripts/check_budgets.py`, and [verification §4](../docs/verification.md) carries their
+> derivation and the procedure that re-derives them whenever the pin moves. §3.2 is kept as the
+> record of what was first proposed and why it could not stand.
+>
+> Why it could not stand, **as measured 2026-07-28 (evening)**: since §2 was written, the reference
+> site fixed its JSON-LD (removing a duplicated full-text `articleBody`) and turned off site-wide
+> line numbers — citizix#62. Those changes alone moved the article distribution:
 >
 > | | When §3.2 was set | Now, still on Stack |
 > |---|--:|--:|
@@ -104,9 +113,9 @@ what the theme emits.
 > **without Runbook existing yet**, so that gate now measures almost nothing. The p90 gate of
 > ≤14,000 B is already met by 11,626 B.
 >
-> **Re-derive §3.2 from a fresh Stack baseline at the start of M3.** More generally: a
-> "no-regression against Stack" gate is only meaningful against a baseline captured at the same
-> commit as the comparison, so the baseline must be regenerated, not copied from this document.
+> The rule that came out of it still holds: a "no-regression against Stack" gate is only
+> meaningful against a baseline captured at the same commit as the comparison, so the baseline is
+> regenerated in the parity job on every run, never copied from this document.
 >
 > The theme-shell budgets in §3.1 are unaffected — CSS is still 10,031 B gz, JS 4,778 B gz, and an
 > article still carries 11 `<script>` tags.

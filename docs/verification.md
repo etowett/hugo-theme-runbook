@@ -392,9 +392,9 @@ twelve fixtures are chosen to be atypical.
    re-pin that bumps `CITIZIX_REF` and keeps the old thresholds: that is why this procedure
    is written down, and why the pin comment in `parity.yml` points here.
 
-5. **Update the documentation with the pin and values.** The stale **"Re-baseline required before
-   M3"** warning in specs/005 §3.1 needs its own pull request — `specs/**` belongs to nobody
-   ([contracts §1](contracts.md#nobody)).
+5. **Update the documentation with the pin and values**: the table above, and the "Re-baselined"
+   note in specs/005 §3.1, which quotes the four gates. The specs change is its own pull request —
+   `specs/**` belongs to nobody ([contracts §1](contracts.md#nobody)).
 
 The Stack baseline JSON is regenerated in the same job at the same pin on every run, rather than
 committed as a second source to keep in step. It remains available in the run's artefacts.
