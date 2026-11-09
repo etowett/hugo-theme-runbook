@@ -15,23 +15,10 @@ prose words and a 767-line code block will not fit under a fixed byte cap no mat
 good the theme is. Measured against the real archive, only 22 of 493 articles were under
 the originally proposed 7 KB ceiling *before Runbook added a single byte*.
 
-    ⚠️  THE PAGE-WEIGHT THRESHOLDS ARE PLACEHOLDERS AND ARE NOT ENFORCED.
-
-    specs/005 §3.2 gives p50 ≤ 9,000 B and p90 ≤ 14,000 B. Do not copy those numbers.
-    They were set against a Stack baseline of 10,663 B median that the reference site
-    has since improved past — the median is now 9,159 B *without Runbook existing*, so
-    the p50 gate would measure nothing and the p90 gate is already met. specs/005 §3.1
-    carries an explicit "Re-baseline required before M3" warning saying exactly this.
-
-    The mechanism below is complete and tested. The numbers must be re-derived from a
-    fresh Stack baseline captured at the same commit as the comparison — see
-    `--write-baseline` and docs/verification.md §4, which now carries the procedure.
-
-    Because that state survived two milestones unnoticed, a run in which the page-weight
-    half gates nothing does not end in the word PASS on its own: it ends in
-    `PASS (page-weight gates INERT …)` and names each rule that measured something and
-    gated nothing. Still exit 0 — see the comment beside that code for why a red X here
-    would be the wrong lever.
+The page-weight thresholds are derived from the pinned Runbook archive with 5% headroom
+and enforced by parity.yml through --enforce-page-weight. exampleSite reports them only —
+synthetic fixtures are not the archive. See docs/verification.md §4 for the values and
+the re-pin procedure. Runs without enforcement name the inactive rules in their verdict.
 
 Compression is ``gzip -n -9`` throughout. **The ``-n`` is mandatory.** Without it gzip
 writes a modification timestamp into the header, byte counts move between runs, and the
@@ -63,14 +50,14 @@ FONT_SUBSET_MAX = 30 * 1024
 EXECUTABLE_SCRIPTS_MAX = 2       # see SCRIPT-TAG DECISION below
 THIRD_PARTY_HOSTS_MAX = 0
 
-# ── Page-weight budgets — PLACEHOLDERS, NOT ENFORCED (specs/005 §3.2) ─────────────────
-# Enforced only with --enforce-page-weight, which nothing passes yet. Re-derive these
-# from a fresh baseline before turning them on. See the module docstring.
-PLACEHOLDER_PAGE_WEIGHT = {
-    "article_p50": None,   # specs/005 says 9,000 — stale, see above
-    "article_p90": None,   # specs/005 says 14,000 — stale, already met by Stack
-    "homepage": None,      # specs/005 says 6,000
-    "list_page": None,     # specs/005 says 6,000
+# ── Page-weight budgets — archive distribution gates (specs/005 §3.2) ────────────────
+# Runbook side, CITIZIX_REF c98c01b, run 42674523402, +5% rounded up.
+# Re-derive when CITIZIX_REF moves — docs/verification.md §4.
+PAGE_WEIGHT_THRESHOLDS = {
+    "article_p50": 7_539,   # 7,180 B gz × 1.05, ceil
+    "article_p90": 10_904,  # 10,384 B gz × 1.05, ceil
+    "homepage": 5_357,      # 5,101 B gz × 1.05, ceil
+    "list_page": 4_744,     # 4,518 B gz × 1.05, ceil
 }
 # How much a page may grow against a recorded baseline before it counts as a regression.
 REGRESSION_TOLERANCE = 0.02   # 2%
@@ -301,6 +288,28 @@ class Report:
             self.fails.append(f"{name}: {value:,} {unit} exceeds budget {budget:,}")
 
 
+def gate(threshold) -> str:
+    """A threshold as the log prints it, so it reads in the same units as the measurement."""
+    return "unset" if threshold is None else f"{threshold:,} B gz"
+
+
+def page_weight_fails(measured: dict, thresholds: dict) -> list[str]:
+    """Compare archive measurements without treating an unmeasured page as zero."""
+    fails = []
+    for key, threshold in thresholds.items():
+        value = measured.get(key)
+        if value is None:
+            continue
+        if threshold is None:
+            fails.append(
+                f"--enforce-page-weight was passed but `{key}` is still a placeholder. "
+                "Re-derive it from a fresh baseline first."
+            )
+        elif value > threshold:
+            fails.append(f"{key} {value:,} B gz over its {threshold:,} B threshold")
+    return fails
+
+
 def self_test() -> int:
     """The script-tag rule, exercised in both directions against a synthetic build tree.
 
@@ -401,7 +410,23 @@ def self_test() -> int:
         case("the shell fallback skips a page that loads the search chunk", ok,
              f"shell_candidate={not ok}")
 
-    print("Script-tag rule and article classification — regression cases (issues #51, #64)")
+    # Both directions matter — set thresholds alone do not prove a gate can fail (#45).
+    thresholds = {"article_p50": 100, "article_p90": 200, "homepage": 80, "list_page": 60}
+    measured = {key: value - 1 for key, value in thresholds.items()}
+    fails = page_weight_fails(measured, thresholds)
+    case("page weight under every threshold passes", fails == [], f"fails={fails}")
+    measured["article_p50"] = thresholds["article_p50"] + 1
+    fails = page_weight_fails(measured, thresholds)
+    case("page weight p50 one byte over fails",
+         fails == ["article_p50 101 B gz over its 100 B threshold"], f"fails={fails}")
+    fails = page_weight_fails({"article_p50": 99}, {"article_p50": None})
+    case("page weight with a None threshold fails",
+         len(fails) == 1 and "article_p50" in fails[0] and "still a placeholder" in fails[0],
+         f"fails={fails}")
+    unset = [key for key, value in PAGE_WEIGHT_THRESHOLDS.items() if value is None]
+    case("shipped page-weight thresholds are all set", not unset, f"unset={unset}")
+
+    print("Script-tag rule, article classification and page weight — regression cases (#51, #64, #45)")
     for line in report.lines:
         print(line)
     print()
@@ -437,8 +462,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--enforce-page-weight", action="store_true",
-        help="turn the p50/p90 placeholders into hard gates. Do NOT pass this until the "
-             "thresholds have been re-derived from a fresh baseline (specs/005 §3.1).",
+        help="enforce the archive page-weight thresholds (docs/verification.md §4).",
     )
     parser.add_argument("--json", type=Path, default=None, help="also write results as JSON")
     parser.add_argument(
@@ -598,8 +622,8 @@ def main() -> int:
         worst_page = max(weights, key=weights.get)
         print(f"  {len(values)} article page(s)"
               + (f", {len(skipped)} non-article match(es) skipped" if skipped else ""))
-        print(f"    p50 {p50:>8,} B gz    placeholder gate: {PLACEHOLDER_PAGE_WEIGHT['article_p50']}")
-        print(f"    p90 {p90:>8,} B gz    placeholder gate: {PLACEHOLDER_PAGE_WEIGHT['article_p90']}")
+        print(f"    p50 {p50:>8,} B gz    gate: {gate(PAGE_WEIGHT_THRESHOLDS['article_p50'])}")
+        print(f"    p90 {p90:>8,} B gz    gate: {gate(PAGE_WEIGHT_THRESHOLDS['article_p90'])}")
         print(f"    max {max(values):>8,} B gz    ({worst_page})")
         print(f"    min {min(values):>8,} B gz")
         results["page_weight"] = {
@@ -610,8 +634,8 @@ def main() -> int:
     home = build / "index.html"
     if home.is_file():
         home_gz = gz_file(home)
-        print(f"  homepage      {home_gz:>8,} B gz    placeholder gate: "
-              f"{PLACEHOLDER_PAGE_WEIGHT['homepage']}")
+        print(f"  homepage      {home_gz:>8,} B gz    gate: "
+              f"{gate(PAGE_WEIGHT_THRESHOLDS['homepage'])}")
         results["page_weight"]["homepage"] = home_gz
 
     list_pages = {
@@ -620,23 +644,21 @@ def main() -> int:
     }
     if list_pages:
         worst = max(list_pages.values())
-        print(f"  taxonomy list {worst:>8,} B gz    placeholder gate: "
-              f"{PLACEHOLDER_PAGE_WEIGHT['list_page']} (worst of {len(list_pages)})")
+        print(f"  taxonomy list {worst:>8,} B gz    gate: "
+              f"{gate(PAGE_WEIGHT_THRESHOLDS['list_page'])} (worst of {len(list_pages)})")
         results["page_weight"]["list_pages"] = list_pages
 
     print()
-    print("  ⚠️  Page-weight thresholds are PLACEHOLDERS and are not enforced. specs/005 §3.1")
-    print("      says re-baseline before M3: the p50 gate of 9,000 B was set against a")
-    print("      10,663 B Stack median that is now 9,159 B, so it measures nothing.")
-    print("      Re-derive from a fresh baseline — see docs/verification.md.")
+    print("  Page-weight thresholds are "
+          + ("enforced (--enforce-page-weight)." if args.enforce_page_weight else "reported only."))
 
     if args.enforce_page_weight:
-        for key, budget in PLACEHOLDER_PAGE_WEIGHT.items():
-            if budget is None:
-                report.fails.append(
-                    f"--enforce-page-weight was passed but `{key}` is still a placeholder. "
-                    "Re-derive it from a fresh baseline first."
-                )
+        report.fails.extend(page_weight_fails({
+            "article_p50": results["page_weight"].get("p50"),
+            "article_p90": results["page_weight"].get("p90"),
+            "homepage": results["page_weight"].get("homepage"),
+            "list_page": max(list_pages.values()) if list_pages else None,
+        }, PAGE_WEIGHT_THRESHOLDS))
 
     # ── No-regression rule ────────────────────────────────────────────────────────────
     if args.write_baseline:
@@ -666,27 +688,14 @@ def main() -> int:
                 )
 
     # ── Which half of this gate is actually gating? ───────────────────────────────────
-    # Every page-weight threshold has been None since the mechanism landed, and it survived
-    # two milestones because the run ended in the word PASS (issue #45). `placeholder gate:
-    # None` is printed forty lines above the verdict and nobody reads up. So the verdict
-    # itself now names the rules that are not gating, in the same shape as report.fails.
-    #
-    # Exit stays 0, deliberately, and that is the whole design constraint. ci.yml runs this
-    # on every pull request; the thresholds cannot be derived from exampleSite or from a
-    # laptop — twelve synthetic fixtures are not a corpus, and Apple gzip and GNU gzip
-    # disagree by ~5% on the same build — so they need the parity job, which has never run
-    # (#44). A non-zero exit would put a red X on every pull request for a condition no
-    # author introduced and none can fix, which is the "red X nobody can act on" that
-    # specs/007 §3.5 keeps out of ci.yml, and the fastest way to teach people to ignore it.
-    # Loud and green, not red. On a runner it is also an annotation, because that surfaces
-    # in the checks UI rather than in log text that has gone unread for two milestones.
+    # Archive thresholds do not measure exampleSite meaningfully, so ci.yml reports
+    # them without enforcing them. Keep that distinction in the verdict and the runner
+    # annotation — a bare PASS hid inactive gates for two milestones (issue #45).
     inert = []
-    unset = sorted(k for k, v in PLACEHOLDER_PAGE_WEIGHT.items() if v is None)
-    if unset:
+    if not args.enforce_page_weight:
         inert.append(
-            f"{len(unset)} of {len(PLACEHOLDER_PAGE_WEIGHT)} page-weight thresholds are unset "
-            f"({', '.join(unset)}) — measured and printed above, gating nothing. "
-            "Deriving them needs the parity job (#44); the procedure is docs/verification.md §4"
+            "page-weight thresholds are archive numbers and are enforced only by "
+            "parity.yml (--enforce-page-weight)"
         )
     if not weights:
         inert.append(

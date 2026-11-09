@@ -182,14 +182,12 @@ jobs:
 
       - name: Performance budgets
         # Theme-shell budgets are hard ceilings and fail this job. Page-weight thresholds
-        # are placeholders and are reported only — specs/005 §3.1 requires them to be
-        # re-derived from a fresh baseline, and the numbers in specs/005 §3.2 were set
-        # against a baseline the reference site has since improved past.
+        # are set from the pinned archive and enforced only in parity.yml — exampleSite
+        # fixtures are not a corpus, so here the thresholds are reported only.
         #
-        # That half of the gate therefore still exits 0, but no longer ends in a bare
-        # `PASS`: it prints `PASS (page-weight gates INERT …)` and raises a ::warning::
-        # annotation naming every rule that measured something and gated nothing. Two
-        # milestones of `placeholder gate: None` scrolled past unread in this log (#45).
+        # The verdict stays loud and green: PASS (page-weight gates INERT …), with a
+        # ::warning:: annotation naming the inactive rules. A bare PASS hid unset
+        # thresholds for two milestones (#45).
         #
         # --self-test runs first because it needs no build: it pins both directions of the
         # per-page script-tag rule, which had granted the lazy search chunk its own byte

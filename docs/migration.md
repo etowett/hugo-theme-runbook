@@ -611,54 +611,23 @@ costs more than it saves. At `dc1b321` it was +138 B (+0.3%). It is inside
 change to the code-block chrome is the one that fails the per-page rule, and it will fail on
 this page first.
 
-### 11.1 Proposed page-weight thresholds
+### 11.1 Enforced page-weight thresholds
 
-[005 §3.1](../specs/005-performance-budgets.md) requires these to be re-derived before
-M3 because the numbers in §3.2 were set against a Stack median of 10,663 B that the
-reference site has since improved to 9,150 B without Runbook existing.
+The shipped values live in `PAGE_WEIGHT_THRESHOLDS` in
+[`scripts/check_budgets.py`](../scripts/check_budgets.py). They are derived from the Runbook
+column of the §11 table above — parity run 42674523402 at `c98c01b` — with uniform 5%
+headroom rounded up. [Verification §4](verification.md#4-budgets-and-the-script-tag-decision)
+records the four values and the re-pin procedure.
 
-> ### ⚠️ Platform
->
-> **These numbers are GNU gzip 1.13 on Linux (x86-64 container), which is what
-> `ubuntu-latest` runs.** They are not the macOS numbers.
-> [verification.md §1](verification.md#reproducibility) records that GNU gzip and Apple
-> gzip disagree, and a baseline captured on a laptop and compared on a runner reports a
-> regression that is really a difference of gzip implementation.
->
-> The same build measured with **Apple gzip 479** on macOS reads p50 6,768 and p90
-> 9,296 against Stack's 9,159 / 11,616 — a drift of up to 30 B, small on files this
-> size but real. Do not mix them.
+Enforcement belongs in `parity.yml`, where both builds use the same archive commit and GNU gzip
+on the same runner. `ci.yml` reports the numbers only — synthetic fixtures do not represent
+the archive. GNU gzip and Apple gzip disagree on identical bytes
+([verification §1](verification.md#reproducibility)), so local measurements cannot replace
+the runner's thresholds.
 
-`scripts/check_budgets.py` is owned by the fixtures/CI workstream, so these are proposed
-here for someone else to apply. Replace `PLACEHOLDER_PAGE_WEIGHT` with:
-
-```python
-PLACEHOLDER_PAGE_WEIGHT = {
-    "article_p50": 7_200,   # measured 6,764 — Stack 9,130
-    "article_p90": 9_800,   # measured 9,296 — Stack 11,614
-    "homepage":    4_400,   # measured 4,106 — Stack 6,753
-    "list_page":   3_800,   # measured 3,570 — Stack 5,174 (worst term page)
-}
-```
-
-Measured values are `check_budgets.py`'s own output on the Runbook archive build with
-`--article-glob '*/index.html'`, which is the glob a flat-permalink site needs (defect
-#4 in §9). Each threshold carries **5–7% headroom** over the measured value, because a
-pinned corpus is re-pinned occasionally and a gate that fails the day a post is added
-teaches people to raise the number rather than investigate it.
-
-Three conditions on using them:
-
-1. **Enforce them in `.github/workflows/parity.yml` only, never in `ci.yml`.** These are
-   archive numbers. `exampleSite`'s article p50 is around 2,600 B, so enforcing them
-   there passes trivially and measures nothing — the exact failure mode
-   [005 §3.1](../specs/005-performance-budgets.md) warns about.
-2. **The no-regression rule is the sharp instrument.** The distribution gate catches a
-   theme-wide regression; the per-page baseline catches the one page in 479 that got
-   worse. Keep both, and regenerate the baseline whenever the pinned content moves.
-3. **Re-derive on the runner before turning `--enforce-page-weight` on.** These numbers
-   came from a container on an arm64 laptop, not from a GitHub runner. The gzip
-   implementation matches; nothing else was verified.
+Re-derive the thresholds whenever `CITIZIX_REF` moves. Keep the per-page no-regression rule
+alongside them — the distribution catches theme-wide growth, while the baseline catches the
+individual article that gets heavier.
 
 ---
 
