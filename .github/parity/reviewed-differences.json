@@ -13,8 +13,8 @@
     "failing on the same two lines forever.  Delete the rule when the bug is fixed —",
     "check_parity.py prints every reason on every run, so it stays visible.",
     "",
-    "DERIVED AT: citizix@9ec479a6ee4de4e0f467d6d831cd3c43e67c67dd, Hugo v0.164.0+extended,",
-    "2026-07-29, with `search.enable: true` and the search page's `outputs: json` left",
+    "DERIVED AT: citizix@c98c01bf633022a433b06a11acedf6ca1f826709, Hugo v0.169.0+extended,",
+    "2026-11-09 (#61), with `search.enable: true` and the search page's `outputs: json` left",
     "intact.  Recorded here because a rule is only true of the content commit it was",
     "reviewed against: the previous set was derived at dc1b321 and nothing in the tree",
     "said so, so nobody could tell whether a rule that stopped matching had been fixed",
@@ -49,22 +49,30 @@
       "reason": "Consequence of the pages themselves no longer existing. No page that still exists changed its og:url."
     },
     {
-      "surface": "jsonld_main",
-      "kind": "removed",
-      "match": "^/(about-us|contact-us|privacy-policy|search)/$",
-      "reason": "specs/003 §3.7 item 4 — page kinds map to schema types EXPLICITLY. citizix's schema.html emits @type Article for every .IsPage, so a privacy policy and a search page both claimed to be news articles with a mainEntityOfPage. Runbook types them WebPage, which has no mainEntityOfPage. This is a correction; the four URLs are unchanged and still carry BreadcrumbList."
-    },
-    {
       "surface": "sitemap",
       "kind": "removed",
       "match": "^https://citizix\\.com/(og-default|android-chrome-512x512)\\.png$",
-      "reason": "These are <image:loc> values, not page URLs — citizix overrides layouts/sitemap.xml with a Google image-sitemap extension. It fires on `.Params.image`, which exactly two pages in a 1,159-page build carry, and on one of those it emits an empty <image:title/> because `$.Title` inside `range .Data.Pages` resolves to the sitemap page. Runbook uses Hugo's internal sitemap. See docs/migration.md §5 for why the override is classified citizix-only and recommended for deletion rather than porting."
+      "reason": "These are <image:loc> values, not page URLs — citizix overrides layouts/sitemap.xml with a Google image-sitemap extension. It fires on `.Params.image`, which exactly two pages in the build carry, and on one of those it emits an empty <image:title/> because `$.Title` inside `range .Data.Pages` resolves to the sitemap page. Runbook uses Hugo's internal sitemap. See docs/migration.md §5 for why the override is classified citizix-only and recommended for deletion rather than porting."
     },
     {
       "surface": "rss_item",
       "kind": "changed",
       "match": "^/(tags|categories)/index\\.xml$",
-      "reason": "The two taxonomy LIST feeds carry different things in the two themes, by design on Runbook's side (layouts/rss.xml, the `eq .Kind \"taxonomy\"` branch). Stack ranges the taxonomy's children, which on a taxonomy kind are TERM pages, so /tags/index.xml is 297 links to /tags/{term}/ and /categories/index.xml is 28 links to /categories/{term}/ — a feed whose items are tags, which tells a subscriber that a tag exists rather than that an article was published. Runbook collects the pages carrying any term in that taxonomy, newest first: /tags/index.xml is 488 article permalinks and /categories/index.xml is 491. The two item sets have ZERO overlap, which is why this reports as `changed` on both feeds rather than as a partial edit. Measured consequence worth knowing: every published post on this archive carries a category, so Runbook's /categories/index.xml is set-identical to /index.xml, and /tags/index.xml is that set minus the three posts that carry no tag. Term feeds (/tags/{term}/index.xml) are unaffected and identical on both themes — .RegularPages is correct there. NOT the pair of defects this rule replaces: those were the home feed publishing non-post pages, and both taxonomy feeds shipping EMPTY, and #25 fixed both. The home-feed rule matched nothing at this pin (491 items on both sides) and has been deleted rather than left to rot."
+      "reason": "The two taxonomy LIST feeds carry different things in the two themes, by design on Runbook's side (layouts/rss.xml, the `eq .Kind \"taxonomy\"` branch). Stack ranges the taxonomy's children, which on a taxonomy kind are TERM pages, so /tags/index.xml is 295 links to /tags/{term}/ and /categories/index.xml is 28 links to /categories/{term}/ — a feed whose items are tags, which tells a subscriber that a tag exists rather than that an article was published. Runbook collects the pages carrying any term in that taxonomy, newest first: /tags/index.xml is 473 article permalinks and /categories/index.xml is 476. The two item sets have ZERO overlap, which is why this reports as `changed` on both feeds rather than as a partial edit. Measured consequence worth knowing: every published post on this archive carries a category, so Runbook's /categories/index.xml is set-identical to /index.xml, and /tags/index.xml is that set minus the three posts that carry no tag. Term feeds (/tags/{term}/index.xml) are unaffected and identical on both themes — .RegularPages is correct there. NOT the pair of defects this rule replaces: those were the home feed publishing non-post pages, and both taxonomy feeds shipping EMPTY, and #25 fixed both. The home-feed rule matched nothing at 9ec479a (491 items on both sides; 476 at c98c01b) and has been deleted rather than left to rot."
+    },
+    {
+      "surface": "alias",
+      "kind": "removed",
+      "defect": true,
+      "match": "^/tags/(cloud-native|container-security|ingress-nginx|kubernetes-security|pod-security|production-deployment|rate-limiting|security-best-practices|security-hardening|self-hosted)/page/1/$",
+      "reason": "DEFECT, citizix-side. These ten tags have a content/tags/<term>/_index.md and ZERO posts at c98c01b: citizix removed the tag from every post and left the term page behind. Stack calls .Paginate on an empty term, so Hugo mints /page/1/ as an alias; Runbook's layouts/term.html paginates only `with .Pages`, so an empty term gets no pager and no alias. Both themes still render an empty term page. Listed by name rather than matched by pattern, so a /page/1/ lost on a term that does have posts still fails. Delete this rule when citizix deletes the ten orphan _index.md files."
+    },
+    {
+      "surface": "sitemap",
+      "kind": "added",
+      "defect": true,
+      "match": "^https://citizix\\.com/(tags|categories)/[^/]+/$",
+      "reason": "DEFECT, Runbook-side, tracked in #122. citizix's layouts/sitemap.xml leaves out terms with fewer than 3 posts and its head/custom.html marks them `noindex, follow` (GSC showed ~70% of them unindexed). Runbook has neither, so 189 thin term pages at c98c01b appear in its sitemap and nowhere in Stack's. The noindex half is not visible to this diff at all: no surface compares robots meta. Delete this rule when #122 ships the setting and the parity config turns it on."
     }
   ]
 }

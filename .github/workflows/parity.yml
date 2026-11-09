@@ -31,8 +31,9 @@ name: Archive parity
 # specs/007 §2 requires the corpus pinned. It is pinned to a SHA below rather than to a
 # branch, because a "no regression against the baseline" comparison across two different
 # content commits measures the corpus changing, not the theme changing (specs/005 §3.1).
-# Bump CITIZIX_REF deliberately, in its own commit, and regenerate the budget baseline in
-# the same one.
+# Bump CITIZIX_REF deliberately, in its own commit, and re-derive PAGE_WEIGHT_THRESHOLDS in
+# scripts/check_budgets.py in the same one (docs/verification.md §4). The Stack baseline needs
+# no commit: this job captures it fresh, at the same pin, on every run.
 
 on:
   workflow_dispatch:
@@ -44,7 +45,7 @@ on:
       enforce_page_weight:
         description: "Enforce the page-weight distribution gates"
         type: boolean
-        default: false
+        default: true
   schedule:
     # 04:00 UTC Sundays. Weekly, not daily: the archive changes on its own schedule and
     # nothing here can break without either this repository or that one moving.
@@ -60,20 +61,20 @@ concurrency:
 
 env:
   CITIZIX_REPO: etowett/citizix
-  # Pinned 2026-07-29, superseding dc1b321. That pin predated the three citizix commits
-  # made FOR this migration — the `latmod:` typo fix, the retired-taxonomy redirects and
-  # the 23 pinned taxonomy titles — so a first run against it would have reported
-  # differences that were already fixed upstream.
+  # Pinned 2026-11-09 to citizix main (c98c01b, 2026-11-03), superseding 9ec479a (#61).
+  # The old pin predated citizix's move to Cloudflare (8918b75), its Dart Sass override
+  # of the Stack stylesheet, its one-<h1> overrides and its thin-term sitemap filter, so
+  # a parity pass there said nothing about the content that will actually ship.
   #
-  # 497 post source files, 6 of them drafts, so 491 published posts. Every number below
+  # 482 post source files, 6 of them drafts, so 476 published posts. Every number below
   # was re-derived from a build at this SHA rather than carried over.
-  CITIZIX_REF: 9ec479a6ee4de4e0f467d6d831cd3c43e67c67dd
+  CITIZIX_REF: c98c01bf633022a433b06a11acedf6ca1f826709
   # Assertions on the RUNBOOK build at that content pin, as scripts/check_parity.py
   # --audit counts them: non-alias HTML pages and meta-refresh aliases. The Stack build
-  # of the same content audits to 1,095 and 358; docs/migration.md §1 says why they
+  # of the same content audits to 1,064 and 356; docs/migration.md §1 says why they
   # differ. Unchanged by `search.enable` — the index is JSON, not an HTML page.
-  EXPECT_PAGES: 1064
-  EXPECT_ALIASES: 356
+  EXPECT_PAGES: 1033
+  EXPECT_ALIASES: 344
 
 jobs:
   parity:
@@ -143,6 +144,32 @@ jobs:
         with:
           hugo-version: latest
           extended: true
+
+      - name: Install Dart Sass (the Stack baseline needs it)
+        if: steps.gate.outputs.available == 'true'
+        # citizix overrides Stack's head/style.html to compile with Dart Sass, because
+        # Hugo 0.169 logs LibSass as a deprecation. ubuntu-latest ships no `sass`, so
+        # without this the baseline cannot build. Only the Stack side uses it: Runbook
+        # has no Sass.
+        #
+        # The version is read from the archive's own build.sh rather than copied here,
+        # so the baseline compiles with what Cloudflare builds production with, and a
+        # bump in citizix needs no edit in this file.
+        #
+        # A `citizix_ref` dispatched at a commit before the override has no such line, and
+        # needs no Sass. So absence warns and skips rather than failing: if the Stack build
+        # did need it, that build fails on its own, naming the missing transpiler.
+        run: |
+          set -euo pipefail
+          v=$(sed -n "s/^DART_SASS_VERSION=[\"']\{0,1\}\([0-9][0-9.]*\)[\"']\{0,1\}\$/\1/p" archive/build.sh 2>/dev/null | head -n1 || true)
+          if [ -z "$v" ]; then
+            echo "::warning::No DART_SASS_VERSION in the archive's build.sh at this ref — not installing Dart Sass."
+            exit 0
+          fi
+          curl -fsSL "https://github.com/sass/dart-sass/releases/download/${v}/dart-sass-${v}-linux-x64.tar.gz" \
+            | tar -xz -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/dart-sass" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/dart-sass/sass" --version
 
       - name: Stage two source trees
         if: steps.gate.outputs.available == 'true'
@@ -224,11 +251,12 @@ jobs:
                        "is off in .github/parity/citizix-runbook.yaml, or the archive's "
                        "search page stopped declaring `outputs: json`.")
           n = len(d.get("docs", []))
-          # A floor, not an assertion of the exact count: the corpus grows between pins
+          # A floor, not an assertion of the exact count: the corpus moves between pins
+          # (491 posts at 9ec479a, 476 at c98c01b after citizix merged duplicate guides),
           # and a number that has to be bumped every time is a number people stop reading.
           if n < 400:
               sys.exit(f"::error::search index has {n} documents, expected the post "
-                       "corpus (491 at the pinned ref). Something is filtering it out.")
+                       "corpus. Something is filtering it out.")
           print(f"search index: {n} documents, {len(open(p,'rb').read()):,} B")
           PY
 
@@ -301,7 +329,7 @@ jobs:
         # the SaltStack GitOps post and defined by no heading on it. That failed
         # identically on the Stack build, so it was the archive's bug rather than the
         # theme's and docs/migration.md §9 defect 6 classified it there. citizix fixed it
-        # in 49fdb91, which is inside this pin: at 9ec479a that page carries neither the
+        # in 49fdb91, which every pin since 9ec479a contains: that page carries neither the
         # dangling href nor the id, and run 30436578455 reports `no broken internal
         # links, subresources or fragments` across the whole build.
         #
@@ -326,25 +354,8 @@ jobs:
         # --article-glob is explicit because the archive uses flat /:slug/ permalinks and
         # the default `posts/*/index.html` matches nothing there.
         #
-        # ⚠️ ADVISORY, and only because that same flat-permalink glob is too broad. Both
-        # failures it reports at the pinned ref are pages that are not articles, measured
-        # against budgets specs/005 §3.1 scopes to articles:
-        #
-        #   tags/index.html grew 4,544 → 5,496 B gz (+21.0%) — the unpaginated taxonomy
-        #     browse page, which is docs/migration.md §4's documented, intended cost and
-        #     is already a reviewed `url` difference. The per-page no-regression rule is
-        #     not gated on --enforce-page-weight, so this fails the step outright.
-        #   search/index.html: 3 executable script tags (budget 2) — the inline theme
-        #     guard, runbook.js, and the lazily-loaded search chunk. check_budgets.py
-        #     budgets that chunk separately at SEARCH_JS_GZ_MAX and then counts it again
-        #     here, so the gate contradicts itself on the one page that loads it.
-        #
-        # Both are `--article-glob '*/index.html'` sweeping non-articles into an
-        # article-scoped budget — the same root cause as docs/migration.md §9 defect 4.
-        # The fix belongs in scripts/check_budgets.py, which stream D owns (contracts §1),
-        # so it is named here rather than made here. Remove `continue-on-error` once that
-        # script can tell an article from a browse page.
-        continue-on-error: true
+        # Both article-classification and search-script false positives are fixed (#64,
+        # #51), so this step gates real regressions instead of absorbing them.
         run: |
           python3 scripts/check_budgets.py "$RUNNER_TEMP/public-stack" \
                   --article-glob '*/index.html' \
@@ -353,7 +364,7 @@ jobs:
                   --article-glob '*/index.html' \
                   --baseline "$RUNNER_TEMP/stack-baseline.json" \
                   --json "$RUNNER_TEMP/budgets.json" \
-                  ${{ inputs.enforce_page_weight && '--enforce-page-weight' || '' }}
+                  ${{ (github.event_name == 'schedule' || inputs.enforce_page_weight) && '--enforce-page-weight' || '' }}
 
       - name: Upload the manifests
         if: always() && steps.gate.outputs.available == 'true'
