@@ -154,12 +154,16 @@ jobs:
         # The version is read from the archive's own build.sh rather than copied here,
         # so the baseline compiles with what Cloudflare builds production with, and a
         # bump in citizix needs no edit in this file.
+        #
+        # A `citizix_ref` dispatched at a commit before the override has no such line, and
+        # needs no Sass. So absence warns and skips rather than failing: if the Stack build
+        # did need it, that build fails on its own, naming the missing transpiler.
         run: |
           set -euo pipefail
-          v=$(sed -n 's/^DART_SASS_VERSION=//p' archive/build.sh)
+          v=$(sed -n "s/^DART_SASS_VERSION=[\"']\{0,1\}\([0-9][0-9.]*\)[\"']\{0,1\}\$/\1/p" archive/build.sh 2>/dev/null | head -n1 || true)
           if [ -z "$v" ]; then
-            echo "::error::DART_SASS_VERSION not found in the archive's build.sh"
-            exit 1
+            echo "::warning::No DART_SASS_VERSION in the archive's build.sh at this ref — not installing Dart Sass."
+            exit 0
           fi
           curl -fsSL "https://github.com/sass/dart-sass/releases/download/${v}/dart-sass-${v}-linux-x64.tar.gz" \
             | tar -xz -C "$RUNNER_TEMP"

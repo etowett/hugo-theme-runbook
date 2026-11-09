@@ -261,7 +261,7 @@ citizix carries **fourteen** local layout overrides at `c98c01b` — [010](../sp
 | `layouts/_partials/helper/external.html` | **citizix-only** | Delete with photoswipe — it is the CDN-manifest loader photoswipe used, and nothing else calls it |
 | `layouts/sitemap.xml` | **citizix-only**, except the thin-term filter | Delete — but not until #122 gives Runbook the thin-term filter it now carries. Reasoning below |
 | `layouts/_partials/head/style.html` | **Delete** | Stack-only. It switches Stack's stylesheet from LibSass to Dart Sass because Hugo 0.169 warns on LibSass. Runbook has no Sass, so there is nothing to port. Until cutover the parity job installs Dart Sass for the Stack baseline, at the version citizix `build.sh` pins |
-| `layouts/_partials/article/components/details.html` | **Runbook capability** | Delete. It makes a post's title its `<h1>` on Stack (citizix#131). Runbook emits exactly one `<h1>` on every one of the 1,032 non-alias pages at `c98c01b`, counted |
+| `layouts/_partials/article/components/details.html` | **Runbook capability** | Delete. It makes a post's title its `<h1>` on Stack (citizix#131). Runbook emits exactly one `<h1>` on every one of the 1,033 non-alias HTML pages at `c98c01b`, `404.html` included, counted |
 | `layouts/_partials/sidebar/left.html` | **Runbook capability** | Delete. The other half of citizix#131: it demotes Stack's site-name `<h1>` off the homepage. Same count |
 
 The thin-term half of `head/custom.html` — `noindex, follow` on terms with fewer than three
@@ -270,8 +270,7 @@ filter it pairs with, in #122.
 
 Of the fourteen, seven are Runbook capabilities outright; three collapse into ADR-8 hooks
 that already exist in `layouts/_partials/hooks/`; four are deleted (two Stack- or
-photoswipe-only, two citizix-only). An earlier count here read "six into hooks, three
-capabilities, two deleted", which matched neither the table at the time nor the files.
+photoswipe-only, two citizix-only).
 **No file needs to survive as a fork of a Runbook template**, which is the outcome the
 hook set was designed for.
 
@@ -808,10 +807,10 @@ preview and on production side by side.
 | `/tags/k8s---docker/` | REQ-TAX-2 — a retired term whose redirect lives as `aliases:` on the surviving `/tags/k8s/`. Deleting the wrong file breaks this silently — §8.2 |
 | `/search/` | §3 — the page, the UI, and the widget's dependence on `outputs: json` |
 | `/search/index.json` | §3 — 476 documents at `c98c01b`. `check_parity.py` walks `.html` and `.xml` only, so nothing in the manifest diff would notice it missing |
-| `/about-us/` | §5 — one of the four pages that lose `mainEntityOfPage` and gain `@type WebPage`. It also carries the archive's only three front-matter `aliases:` — §1 |
-| `/privacy-policy/` | Same, plus the `latmod:` typo fix that landed upstream — §3 |
+| `/about-us/` | §5 — **`9ec479a` only:** one of the four pages that lost `mainEntityOfPage` and gained `@type WebPage`; at `c98c01b` both themes type it `WebPage` (§1). It carries the archive's only page `aliases:` — three declared, one of them its own URL, so two alias stubs, `/about/` and `/about-citizix/` — §1 |
+| `/privacy-policy/` | The same `9ec479a`-only JSON-LD change, plus the `latmod:` typo fix that landed upstream — §3 |
 | `/index.xml` | §9 defects 1 and 2 — the home feed, 476 items at `c98c01b`, no `/about-us/` |
-| `/sitemap.xml` | §5 — the override is deleted, and Hugo's internal sitemap must produce the same `<loc>` set |
+| `/sitemap.xml` | §5 — the override is deleted, and Hugo's internal sitemap must produce the same `<loc>` set **except** the 189 thin terms (808 against 621 at `c98c01b`) until #122 lands |
 
 `/contact-us/` is deliberately absent: it changes in exactly the same way as `/about-us/` and
 `/privacy-policy/`, and a fixture set nobody finishes is worse than a shorter one.
